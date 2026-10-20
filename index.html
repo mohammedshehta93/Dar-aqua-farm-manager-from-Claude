@@ -272,6 +272,1150 @@ tr:hover td{background:#f5faf8}
     <span id="sb-status" style="font-size:11px;font-weight:600;opacity:.8;margin-inline-start:2px">⏳</span>
   </div>
   <div class="top-right">
+    <span id="user-badge" onclick="currentUser?show('user-management'):show('login-page')" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 12px;font-size:12px;color:#fff;margin-inline-end:8px;white-space:nowrap">🔑 دخول</span><button id="back-btn" onclick="goBack()" style="display:none;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 12px;color:#fff;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap">
+      <span style="font-size:15px">←</span>
+      <span id="back-lbl"></span>
+    </button>
+    <div style="position:relative" id="farm-dd-wrap">
+      <button id="farm-dd-btn" onclick="toggleFarmDD()" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:6px 12px;color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;min-width:110px;justify-content:space-between">
+        <span id="farm-dd-label">الكل</span>
+        <span style="font-size:10px;opacity:.8">▼</span>
+      </button>
+      <div id="farm-dd-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;left:auto;background:#fff;border-radius:10px;box-shadow:0 8px 32px #0003;min-width:160px;z-index:200;overflow:hidden;border:1px solid #e5e7eb">
+        <div id="farm-dd-options"></div>
+      </div>
+    </div>
+    <button class="chip" id="lang-btn" onclick="toggleLang()">EN</button>
+
+  </div>
+</header>
+
+<div id="auth-screen" style="display:none"></div>
+
+<div class="shell">
+  <nav class="sidebar">
+    <div class="sg">الرئيسية</div>
+    <button class="nb on" data-v="dashboard" onclick="show('dashboard')">📊 لوحة التحكم</button>
+    <button class="nb" data-v="site-overview" onclick="show('site-overview')">🗂️ Site Overview</button>
+    <button class="nb" data-v="daily-overview" onclick="show('daily-overview')" style="border-inline-start:3px solid var(--lime);font-weight:600">📅 التقرير اليومي</button>
+    <button class="nb" data-v="smart" onclick="show('smart')" id="smart-btn">🔔 التنبيهات الذكية</button>
+    <div class="sg">Transactions</div>
+    <button class="nb" data-v="photo-entry" onclick="show('photo-entry')" style="border-inline-start:3px solid #f59e0b;font-weight:800;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e">📸 Photo Data Entry</button>
+    <button class="nb" data-v="feeding-regime" onclick="show('feeding-regime')" style="border-inline-start:3px solid var(--lime);color:var(--teal);font-weight:700">📐 Feeding Regime</button>
+    <button class="nb" data-v="feed-inventory" onclick="show('feed-inventory')" style="border-inline-start:3px solid #f59e0b;font-weight:700">🏪 Feed Inventory</button>
+    <button class="nb" data-v="tx-feeding" onclick="show('tx-feeding')">🌾 Feeding</button>
+    <button class="nb" data-v="tx-mortality" onclick="show('tx-mortality')">💀 Mortality</button>
+    <button class="nb" data-v="tx-sampling" onclick="show('tx-sampling')">🔬 Sampling</button>
+    <button class="nb" data-v="tx-transfer" onclick="show('tx-transfer')">🔄 Transfer</button>
+    <button class="nb" data-v="tx-harvesting" onclick="show('tx-harvesting')">🎣 Harvesting</button>
+    <button class="nb" data-v="tx-stocking" onclick="show('tx-stocking')">🐠 Stocking</button>
+    <button class="nb" data-v="tx-wq" onclick="show('tx-wq')">💧 Water Quality</button>
+    <button class="nb" data-v="unit-tx" onclick="show('unit-tx')">📋 Unit History</button>
+    <button class="nb" data-v="tx-reports" onclick="show('tx-reports')" style="border-inline-start:3px solid var(--teal)">📑 التقارير</button>
+    <div class="sg">المزرعة</div>
+    <button class="nb" data-v="units" onclick="show('units')">📋 جميع الوحدات</button>
+    <button class="nb" data-v="ai" onclick="show('ai')" id="ai-btn">🤖 المستشار الذكي</button>
+    <div class="sg">الإعداد</div>
+    <button class="nb" data-v="user-management" onclick="show('user-management')" style="border-inline-start:3px solid var(--amber);font-weight:600">👥 إدارة المستخدمين</button>
+    <button class="nb" data-v="settings" onclick="show('settings')" style="border-inline-start:3px solid var(--teal);font-weight:700;color:var(--teal)">⚙️ Control Center</button>
+  </nav>
+  <div class="content" id="content"></div>
+</div>
+
+<!-- Mobile bottom nav -->
+<div class="mob-nav" id="mob-nav">
+  <div class="mob-nav-inner">
+    <button onclick="goBack()" id="mob-back-btn" style="display:none"><span class="mi">←</span>رجوع</button>
+  <button data-v="dashboard" onclick="show('dashboard')"><span class="mi">📊</span>الرئيسية</button>
+    <button data-v="site-overview" onclick="show('site-overview')"><span class="mi">📋</span>Overview</button>
+    <button data-v="tx-feeding" onclick="show('tx-feeding')"><span class="mi">🌾</span>علف</button>
+    <button data-v="tx-sampling" onclick="show('tx-sampling')"><span class="mi">🔬</span>عينة</button>
+    <button onclick="openDrawer()"><span class="mi">☰</span>المزيد</button>
+  </div>
+</div>
+
+<!-- More drawer -->
+<div class="drawer" id="drawer" onclick="closeDrawer(event)">
+  <div class="drawer-panel" id="drawer-panel">
+    <div class="drawer-handle"></div>
+    <div class="drawer-sg">Transactions</div>
+    <button class="drawer-item" data-v="photo-entry" onclick="drawerGo('photo-entry')" style="color:#92400e;font-weight:800;background:#fffbeb">📸 Photo Data Entry</button>
+    <button class="drawer-item" data-v="feeding-regime" onclick="drawerGo('feeding-regime')" style="color:var(--teal);font-weight:700">📐 Feeding Regime</button>
+    <button class="drawer-item" data-v="feed-inventory" onclick="drawerGo('feed-inventory')" style="color:#f59e0b;font-weight:700">🏪 Feed Inventory</button>
+    <button class="drawer-item" data-v="tx-feeding" onclick="drawerGo('tx-feeding')">🌾 Feeding</button>
+    <button class="drawer-item" data-v="tx-mortality" onclick="drawerGo('tx-mortality')">💀 Mortality</button>
+    <button class="drawer-item" data-v="tx-sampling" onclick="drawerGo('tx-sampling')">🔬 Sampling</button>
+    <button class="drawer-item" data-v="tx-transfer" onclick="drawerGo('tx-transfer')">🔄 Transfer</button>
+    <button class="drawer-item" data-v="tx-harvesting" onclick="drawerGo('tx-harvesting')">🎣 Harvesting</button>
+    <button class="drawer-item" data-v="tx-stocking" onclick="drawerGo('tx-stocking')">🐠 Stocking</button>
+    <button class="drawer-item" data-v="tx-wq" onclick="drawerGo('tx-wq')">💧 Water Quality</button>
+    <button class="drawer-item" data-v="unit-tx" onclick="drawerGo('unit-tx')">📋 Unit History</button>
+    <button class="drawer-item" data-v="tx-reports" onclick="drawerGo('tx-reports')" style="color:var(--teal);font-weight:700">📑 التقارير</button>
+    <div class="drawer-sg">المزرعة</div>
+    <button class="drawer-item" data-v="site-overview" onclick="drawerGo('site-overview')">🗂️ Site Overview</button>
+    <button class="drawer-item" data-v="units" onclick="drawerGo('units')">📋 جميع الوحدات</button>
+    <button class="drawer-item" data-v="ai" onclick="drawerGo('ai')">🤖 المستشار الذكي</button>
+    <div class="drawer-sg">الإعداد</div>
+    <button class="drawer-item" data-v="settings" onclick="drawerGo('settings')" style="color:var(--teal);font-weight:700">⚙️ Control Center</button>
+    <div class="drawer-sg">فلتر</div>
+    <div id="mobile-farm-chips" style="display:flex;gap:8px;padding:4px 12px 8px;flex-wrap:wrap">
+      <button class="chip active" id="mfb-all" onclick="setFarm('all');closeDrawerDirect()" style="flex:1;font-size:11px">الكل</button>
+      <button class="chip" id="mfb-F1" onclick="setFarm('F1');closeDrawerDirect()" style="flex:1;font-size:11px">F1</button>
+      <button class="chip" id="mfb-F2" onclick="setFarm('F2');closeDrawerDirect()" style="flex:1;font-size:11px">F2</button>
+    </div>
+  </div>
+</div>
+
+<!-- Unit add/edit modal -->
+<div class="modal-overlay" id="unit-modal" onclick="if(event.target===this)closeUnitModal()">
+  <div class="modal-box">
+    <h3 id="unit-modal-title">إضافة حوض جديد</h3>
+    <div class="fg2">
+      <div class="field"><label>اسم الحوض / الوحدة<span style="color:var(--red)">*</span></label><input id="um-name" placeholder="F1.S01T01"/></div>
+      <div class="field"><label>نوع الوحدة</label>
+        <select id="um-type">
+          <option value="tank">خزان / Tank</option>
+          <option value="pond">بركة / Pond</option>
+          <option value="cage">قفص / Cage</option>
+          <option value="raceway">قناة / Raceway</option>
+          <option value="ras">RAS</option>
+        </select>
+      </div>
+      <div class="field"><label>المساحة / الحجم (م³)<span style="color:var(--red)">*</span></label><input type="number" id="um-vol" placeholder="10" min="0" step="0.1"/></div>
+      <div class="field"><label>العمق (م)</label><input type="number" id="um-depth" placeholder="1.5" min="0" step="0.1"/></div>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0"/>
+    <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em">المخزون الابتدائي</div>
+    <div class="fg2">
+      <div class="field"><label>نوع الأسماك</label>
+        <select id="um-species">
+          <option value="tilapia">Silver Tilapia</option>
+          <option value="nile">Nile Tilapia</option>
+          <option value="seabass">Sea Bass</option>
+          <option value="seabream">Sea Bream</option>
+          <option value="shrimp">Shrimp</option>
+          <option value="carp">Carp</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
+      <div class="field"><label>تاريخ الإضافة</label><input type="date" id="um-date"/></div>
+      <div class="field"><label>عدد الأسماك<span style="color:var(--red)">*</span></label><input type="number" id="um-fish" placeholder="1000" min="0"/></div>
+      <div class="field"><label>الوزن الابتدائي (جم)<span style="color:var(--red)">*</span></label><input type="number" id="um-wt" placeholder="5" min="0" step="0.1"/></div>
+      <div class="field"><label>مصدر الأسماك</label><input id="um-src" placeholder="اسم المورد"/></div>
+      <div class="field"><label>الكتلة الحيوية (كجم)</label><input type="number" id="um-bio" placeholder="تُحسب تلقائياً" min="0" step="0.1" oninput="this.dataset.manual='1'"/></div>
+    </div>
+    <div class="field" style="margin-top:4px"><label>ملاحظات</label><textarea id="um-notes" rows="2" placeholder="أي معلومات إضافية..."></textarea></div>
+    <div class="modal-foot">
+      <button class="ibtn" onclick="closeUnitModal()">إلغاء</button>
+      <button class="savebtn" style="width:auto;padding:10px 24px;font-size:14px" onclick="saveUnit()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+<div class="toast-msg" id="toast"></div>
+
+<script>
+const RAW=[
+{"unit": "F1.S01T01", "farm": "F1", "section": "F1.S01", "batch": "Sil25102025Dar-02", "species": "Silver Tilapia", "startDate": "2026-08-10", "fishNo": 791, "startWt": 220.0, "avgWt": 275.0, "biomass": 217.525, "density": 21.7525, "mortality": 19, "survival": 97.65, "feedKg": 124.3, "fcrUTD": 2.8094, "fcrLTD": 1.9773, "growthDay": 0.7857, "stockBiomass": 178.2, "prodDays": 70, "ltdDays": 359, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S01T02", "farm": "F1", "section": "F1.S01", "batch": "Sil09032026Dar", "species": "Silver Tilapia", "startDate": "2026-09-05", "fishNo": 835, "startWt": 90.0, "avgWt": 160.0, "biomass": 133.6, "density": 13.36, "mortality": 5, "survival": 99.4, "feedKg": 89.6, "fcrUTD": 1.5091, "fcrLTD": 1.5645, "growthDay": 1.6098, "stockBiomass": 74.9, "prodDays": 44, "ltdDays": 224, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S01T03", "farm": "F1", "section": "F1.S01", "batch": "Sil09032026Dar", "species": "Silver Tilapia", "startDate": "2026-09-05", "fishNo": 987, "startWt": 40.0, "avgWt": 110.0, "biomass": 108.57, "density": 10.857, "mortality": 13, "survival": 98.7, "feedKg": 81.6, "fcrUTD": 1.1769, "fcrLTD": 1.6892, "growthDay": 1.5909, "stockBiomass": 40.0, "prodDays": 44, "ltdDays": 224, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S01T04", "farm": "F1", "section": "F1.S01", "batch": "Sil18062025Dar", "species": "Silver Tilapia", "startDate": "2026-09-13", "fishNo": 763, "startWt": 254.2857, "avgWt": 380.0, "biomass": 289.94, "density": 28.994, "mortality": 7, "survival": 99.09, "feedKg": 86.8, "fcrUTD": 0.9019, "fcrLTD": 2.7301, "growthDay": 3.4921, "stockBiomass": 195.8, "prodDays": 36, "ltdDays": 488, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S02T01", "farm": "F1", "section": "F1.S02", "batch": "Sil07062026Dar", "species": "Silver Tilapia", "startDate": "2026-08-17", "fishNo": 881, "startWt": 20.0, "avgWt": 75.0, "biomass": 66.075, "density": 6.6075, "mortality": 19, "survival": 97.89, "feedKg": 70.4, "fcrUTD": 1.2551, "fcrLTD": 1.1354, "growthDay": 1.3016, "stockBiomass": 38.0, "prodDays": 63, "ltdDays": 134, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S02T02", "farm": "F1", "section": "F1.S02", "batch": "Sil30092025Dar-01", "species": "Silver Tilapia", "startDate": "2026-04-20", "fishNo": 704, "startWt": 150.0, "avgWt": 395.0, "biomass": 278.08, "density": 27.808, "mortality": 86, "survival": 89.11, "feedKg": 355.2, "fcrUTD": 2.2565, "fcrLTD": 2.5298, "growthDay": 1.1549, "stockBiomass": 146.0, "prodDays": 182, "ltdDays": 384, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S02T03", "farm": "F1", "section": "F1.S02", "batch": "Sil25102025Dar-02", "species": "Silver Tilapia", "startDate": "2026-08-10", "fishNo": 754, "startWt": 100.0, "avgWt": 250.0, "biomass": 188.5, "density": 18.85, "mortality": 6, "survival": 99.21, "feedKg": 107.9, "fcrUTD": 0.9508, "fcrLTD": 2.2241, "growthDay": 2.1429, "stockBiomass": 76.0, "prodDays": 70, "ltdDays": 359, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S02T04", "farm": "F1", "section": "F1.S02", "batch": "Sil06122025Dar", "species": "Silver Tilapia", "startDate": "2026-09-24", "fishNo": 823, "startWt": 80.0, "avgWt": 130.0, "biomass": 106.99, "density": 10.699, "mortality": 2, "survival": 99.76, "feedKg": 30.4, "fcrUTD": 0.738, "fcrLTD": 2.1215, "growthDay": 2.0, "stockBiomass": 66.0, "prodDays": 25, "ltdDays": 317, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S03T01", "farm": "F1", "section": "F1.S03", "batch": "Sil14092025Dar-01", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 710, "startWt": 300.0, "avgWt": 400.0, "biomass": 284.0, "density": 28.4, "mortality": 23, "survival": 96.86, "feedKg": 119.9, "fcrUTD": 1.9208, "fcrLTD": 2.2774, "growthDay": 1.1304, "stockBiomass": 229.4, "prodDays": 77, "ltdDays": 400, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S03T02", "farm": "F1", "section": "F1.S03", "batch": "Sil30092025Dar-01", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 724, "startWt": 250.0, "avgWt": 390.0, "biomass": 282.36, "density": 28.236, "mortality": 16, "survival": 97.84, "feedKg": 119.9, "fcrUTD": 1.184, "fcrLTD": 2.696, "growthDay": 5.3297, "stockBiomass": 270.0, "prodDays": 77, "ltdDays": 384, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S03T03", "farm": "F1", "section": "F1.S03", "batch": "Sil04052026Dar", "species": "Silver Tilapia", "startDate": "2026-09-09", "fishNo": 994, "startWt": 30.0, "avgWt": 100.0, "biomass": 99.4, "density": 9.94, "mortality": 6, "survival": 99.4, "feedKg": 65.7, "fcrUTD": 0.941, "fcrLTD": 1.1573, "growthDay": 1.75, "stockBiomass": 30.0, "prodDays": 40, "ltdDays": 168, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S03T04", "farm": "F1", "section": "F1.S03", "batch": "Sil04052026Dar", "species": "Silver Tilapia", "startDate": "2026-08-26", "fishNo": 1079, "startWt": 30.0, "avgWt": 80.0, "biomass": 86.32, "density": 8.632, "mortality": 21, "survival": 98.09, "feedKg": 74.7, "fcrUTD": 1.3773, "fcrLTD": 1.3837, "growthDay": 1.4815, "stockBiomass": 63.0, "prodDays": 54, "ltdDays": 168, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S04T01", "farm": "F1", "section": "F1.S04", "batch": "Sil20102025Dar", "species": "Silver Tilapia", "startDate": "2026-04-25", "fishNo": 693, "startWt": 200.0, "avgWt": 400.0, "biomass": 277.2, "density": 27.72, "mortality": 132, "survival": 76.15, "feedKg": 362.2, "fcrUTD": 2.9226, "fcrLTD": 1.9551, "growthDay": 3.02, "stockBiomass": 325.0, "prodDays": 177, "ltdDays": 364, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S04T02", "farm": "F1", "section": "F1.S04", "batch": "Sil16092025Dar", "species": "Silver Tilapia", "startDate": "2026-04-26", "fishNo": 694, "startWt": 100.0, "avgWt": 350.0, "biomass": 242.9, "density": 24.29, "mortality": 136, "survival": 83.61, "feedKg": 347.6, "fcrUTD": 1.9373, "fcrLTD": 1.8764, "growthDay": 1.3349, "stockBiomass": 95.5, "prodDays": 176, "ltdDays": 398, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S04T03", "farm": "F1", "section": "F1.S04", "batch": "Sil20102025Dar", "species": "Silver Tilapia", "startDate": "2026-09-26", "fishNo": 732, "startWt": 350.0, "avgWt": 380.0, "biomass": 278.16, "density": 27.816, "mortality": 8, "survival": 98.92, "feedKg": 37.2, "fcrUTD": 1.6813, "fcrLTD": 2.2689, "growthDay": 1.3043, "stockBiomass": 259.0, "prodDays": 23, "ltdDays": 364, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S04T04", "farm": "F1", "section": "F1.S04", "batch": "Sil15032026Dar", "species": "Silver Tilapia", "startDate": "2026-09-07", "fishNo": 859, "startWt": 80.0, "avgWt": 150.0, "biomass": 128.85, "density": 12.885, "mortality": 11, "survival": 98.74, "feedKg": 76.6, "fcrUTD": 1.2669, "fcrLTD": 1.5524, "growthDay": 1.6667, "stockBiomass": 69.6, "prodDays": 42, "ltdDays": 218, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S05T01", "farm": "F1", "section": "F1.S05", "batch": "Sil13082025Dar-01", "species": "Silver Tilapia", "startDate": "2026-05-04", "fishNo": 666, "startWt": 80.0, "avgWt": 250.0, "biomass": 166.5, "density": 16.65, "mortality": 164, "survival": 80.24, "feedKg": 315.9, "fcrUTD": 2.4739, "fcrLTD": 2.6163, "growthDay": 1.0119, "stockBiomass": 66.4, "prodDays": 168, "ltdDays": 432, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S05T02", "farm": "F1", "section": "F1.S05", "batch": "Sil04112025Dar", "species": "Silver Tilapia", "startDate": "2026-09-14", "fishNo": 744, "startWt": 184.4, "avgWt": 250.0, "biomass": 186.0, "density": 18.6, "mortality": 6, "survival": 99.2, "feedKg": 76.5, "fcrUTD": 1.5656, "fcrLTD": 2.3258, "growthDay": 1.8743, "stockBiomass": 138.3, "prodDays": 35, "ltdDays": 349, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S05T03", "farm": "F1", "section": "F1.S05", "batch": "Sil06122025Dar", "species": "Silver Tilapia", "startDate": "2026-09-24", "fishNo": 895, "startWt": 75.0, "avgWt": 155.0, "biomass": 138.725, "density": 13.8725, "mortality": 5, "survival": 99.44, "feedKg": 30.4, "fcrUTD": 0.424, "fcrLTD": 1.8099, "growthDay": 3.2, "stockBiomass": 67.5, "prodDays": 25, "ltdDays": 317, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S05T04", "farm": "F1", "section": "F1.S05", "batch": "Sil04112025Dar", "species": "Silver Tilapia", "startDate": "2026-09-15", "fishNo": 527, "startWt": 190.0, "avgWt": 250.0, "biomass": 131.75, "density": 13.175, "mortality": 3, "survival": 99.43, "feedKg": 56.5, "fcrUTD": 1.778, "fcrLTD": 2.3566, "growthDay": 1.7647, "stockBiomass": 100.7, "prodDays": 34, "ltdDays": 349, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S06T01", "farm": "F1", "section": "F1.S06", "batch": "Sil15092026Dar", "species": "Silver Tilapia", "startDate": "2026-09-15", "fishNo": 2999, "startWt": 1.0, "avgWt": 7.0, "biomass": 20.993, "density": 2.0993, "mortality": 1, "survival": 99.97, "feedKg": 6.6, "fcrUTD": 0.3668, "fcrLTD": 0.3668, "growthDay": 0.1765, "stockBiomass": 6.0, "prodDays": 34, "ltdDays": 34, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S06T02", "farm": "F1", "section": "F1.S06", "batch": "Sil25062026Dar", "species": "Silver Tilapia", "startDate": "2026-06-25", "fishNo": 2494, "startWt": 1.0, "avgWt": 20.0, "biomass": 49.88, "density": 4.988, "mortality": 6, "survival": 99.76, "feedKg": 69.7, "fcrUTD": 1.5002, "fcrLTD": 3.0867, "growthDay": 0.1466, "stockBiomass": 5.0, "prodDays": 116, "ltdDays": 116, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S06T03", "farm": "F1", "section": "F1.S06", "batch": "Sil31082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-31", "fishNo": 1999, "startWt": 1.0, "avgWt": 7.0, "biomass": 13.993, "density": 1.3993, "mortality": 1, "survival": 99.95, "feedKg": 21.1, "fcrUTD": 1.7583, "fcrLTD": 1.7594, "growthDay": 0.1224, "stockBiomass": 4.0, "prodDays": 49, "ltdDays": 49, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S06T04", "farm": "F1", "section": "F1.S06", "batch": "Sil07062026Dar", "species": "Silver Tilapia", "startDate": "2026-08-17", "fishNo": 1894, "startWt": 10.0, "avgWt": 20.0, "biomass": 37.88, "density": 3.788, "mortality": 6, "survival": 99.68, "feedKg": 71.2, "fcrUTD": 4.0686, "fcrLTD": 3.5231, "growthDay": 0.3955, "stockBiomass": 29.0, "prodDays": 63, "ltdDays": 134, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S06T05", "farm": "F1", "section": "F1.S06", "batch": "Sil04052026Dar", "species": "Silver Tilapia", "startDate": "2026-05-04", "fishNo": 1995, "startWt": 1.0, "avgWt": 25.0, "biomass": 49.875, "density": 4.9875, "mortality": 5, "survival": 99.75, "feedKg": 175.3, "fcrUTD": 2.5883, "fcrLTD": 3.6599, "growthDay": 0.2262, "stockBiomass": 8.25, "prodDays": 168, "ltdDays": 168, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S06T06", "farm": "F1", "section": "F1.S06", "batch": "Sil25072026Dar", "species": "Silver Tilapia", "startDate": "2026-07-25", "fishNo": 1994, "startWt": 1.0, "avgWt": 20.0, "biomass": 39.88, "density": 3.988, "mortality": 6, "survival": 99.7, "feedKg": 80.8, "fcrUTD": 1.9034, "fcrLTD": 1.8307, "growthDay": 0.3372, "stockBiomass": 5.0, "prodDays": 86, "ltdDays": 86, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S07T01", "farm": "F1", "section": "F1.S07", "batch": "Sil18062025Dar", "species": "Silver Tilapia", "startDate": "2026-09-12", "fishNo": 722, "startWt": 300.0, "avgWt": 420.0, "biomass": 303.24, "density": 30.324, "mortality": 6, "survival": 99.18, "feedKg": 76.5, "fcrUTD": -32.3247, "fcrLTD": 2.1685, "growthDay": 8.7777, "stockBiomass": 497.8, "prodDays": 37, "ltdDays": 488, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S07T02", "farm": "F1", "section": "F1.S07", "batch": "Sil03062026Dar", "species": "Silver Tilapia", "startDate": "2026-08-26", "fishNo": 1080, "startWt": 20.0, "avgWt": 70.0, "biomass": 75.6, "density": 7.56, "mortality": 20, "survival": 98.18, "feedKg": 74.7, "fcrUTD": 1.3744, "fcrLTD": 1.2214, "growthDay": 1.2963, "stockBiomass": 42.0, "prodDays": 54, "ltdDays": 138, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S07T03", "farm": "F1", "section": "F1.S07", "batch": "Sil15032025Dar", "species": "Silver Tilapia", "startDate": "2026-02-02", "fishNo": 30, "startWt": 3500.0, "avgWt": 4000.0, "biomass": 120.0, "density": 12.0, "mortality": 17, "survival": 58.82, "feedKg": 100.8, "fcrUTD": 4.2584, "fcrLTD": 2.8823, "growthDay": 1.8926, "stockBiomass": 179.0, "prodDays": 259, "ltdDays": 583, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S07T04", "farm": "F1", "section": "F1.S07", "batch": "Sil06122025Dar", "species": "Silver Tilapia", "startDate": "2026-09-07", "fishNo": 890, "startWt": 90.0, "avgWt": 130.0, "biomass": 115.7, "density": 11.57, "mortality": 10, "survival": 98.89, "feedKg": 76.5, "fcrUTD": 2.1261, "fcrLTD": 1.8481, "growthDay": 0.9524, "stockBiomass": 81.0, "prodDays": 42, "ltdDays": 317, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S08T01", "farm": "F1", "section": "F1.S08", "batch": "Sil01102026Dar", "species": "Silver Tilapia", "startDate": "2026-10-01", "fishNo": 949, "startWt": 50.0, "avgWt": 70.0, "biomass": 66.43, "density": 6.643, "mortality": 1, "survival": 99.89, "feedKg": 9.8, "fcrUTD": 0.5158, "fcrLTD": 0.5158, "growthDay": 1.1111, "stockBiomass": 95.0, "prodDays": 18, "ltdDays": 18, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S08T02", "farm": "F1", "section": "F1.S08", "batch": "Sil20102025Dar", "species": "Silver Tilapia", "startDate": "2026-09-15", "fishNo": 687, "startWt": 308.755, "avgWt": 400.0, "biomass": 274.8, "density": 27.48, "mortality": 11, "survival": 98.42, "feedKg": 80.7, "fcrUTD": 1.4643, "fcrLTD": 2.1988, "growthDay": 2.3361, "stockBiomass": 223.76, "prodDays": 34, "ltdDays": 364, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S08T03", "farm": "F1", "section": "F1.S08", "batch": "Sil04112025Dar", "species": "Silver Tilapia", "startDate": "2026-01-22", "fishNo": 560, "startWt": 30.0, "avgWt": 320.0, "biomass": 179.2, "density": 17.92, "mortality": 142, "survival": 96.22, "feedKg": 396.9, "fcrUTD": 1.5693, "fcrLTD": 1.5866, "growthDay": 2.2593, "stockBiomass": 24.0, "prodDays": 270, "ltdDays": 349, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S08T04", "farm": "F1", "section": "F1.S08", "batch": "Sil06052026Dar", "species": "Silver Tilapia", "startDate": "2026-05-06", "fishNo": 1387, "startWt": 1.0, "avgWt": 105.0, "biomass": 145.635, "density": 14.5635, "mortality": 13, "survival": 99.07, "feedKg": 179.7, "fcrUTD": 0.9026, "fcrLTD": 0.9579, "growthDay": 0.9277, "stockBiomass": 5.0, "prodDays": 166, "ltdDays": 166, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S09T01", "farm": "F1", "section": "F1.S09", "batch": "Sil18062025Dar", "species": "Silver Tilapia", "startDate": "2026-04-04", "fishNo": 726, "startWt": 250.0, "avgWt": 390.0, "biomass": 283.14, "density": 28.314, "mortality": 146, "survival": 80.04, "feedKg": 404.8, "fcrUTD": 3.1874, "fcrLTD": 2.356, "growthDay": 2.6491, "stockBiomass": 407.55, "prodDays": 198, "ltdDays": 488, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S09T02", "farm": "F1", "section": "F1.S09", "batch": "Sil18062025Dar", "species": "Silver Tilapia", "startDate": "2026-09-13", "fishNo": 927, "startWt": 175.0265, "avgWt": 240.0, "biomass": 222.48, "density": 22.248, "mortality": 18, "survival": 98.1, "feedKg": 82.5, "fcrUTD": 1.3557, "fcrLTD": 4.2114, "growthDay": 1.8048, "stockBiomass": 165.4, "prodDays": 36, "ltdDays": 488, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S09T03", "farm": "F1", "section": "F1.S09", "batch": "Sil03062026Dar", "species": "Silver Tilapia", "startDate": "2026-09-09", "fishNo": 997, "startWt": 20.0, "avgWt": 80.0, "biomass": 79.76, "density": 7.976, "mortality": 3, "survival": 99.7, "feedKg": 57.3, "fcrUTD": 0.9562, "fcrLTD": 1.028, "growthDay": 1.5, "stockBiomass": 20.0, "prodDays": 40, "ltdDays": 138, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S09T04", "farm": "F1", "section": "F1.S09", "batch": "Sil06052026Dar", "species": "Silver Tilapia", "startDate": "2026-08-31", "fishNo": 1087, "startWt": 50.0, "avgWt": 100.0, "biomass": 108.7, "density": 10.87, "mortality": 13, "survival": 98.82, "feedKg": 95.7, "fcrUTD": 1.7515, "fcrLTD": 1.2563, "growthDay": 1.0204, "stockBiomass": 55.0, "prodDays": 49, "ltdDays": 166, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S10T01", "farm": "F1", "section": "F1.S10", "batch": "Sil12112025Dar-01", "species": "Silver Tilapia", "startDate": "2026-03-16", "fishNo": 850, "startWt": 20.0, "avgWt": 280.0, "biomass": 238.0, "density": 23.8, "mortality": 140, "survival": 85.86, "feedKg": 402.95, "fcrUTD": 1.704, "fcrLTD": 1.803, "growthDay": 1.1786, "stockBiomass": 24.0, "prodDays": 217, "ltdDays": 341, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S10T02", "farm": "F1", "section": "F1.S10", "batch": "Sil07062026Dar", "species": "Silver Tilapia", "startDate": "2026-09-12", "fishNo": 992, "startWt": 27.0, "avgWt": 80.0, "biomass": 79.36, "density": 7.936, "mortality": 8, "survival": 99.2, "feedKg": 74.7, "fcrUTD": 1.4161, "fcrLTD": 1.2544, "growthDay": 1.4324, "stockBiomass": 27.0, "prodDays": 37, "ltdDays": 134, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S10T03", "farm": "F1", "section": "F1.S10", "batch": "Sil20102025Dar", "species": "Silver Tilapia", "startDate": "2026-08-11", "fishNo": 680, "startWt": 270.0, "avgWt": 370.0, "biomass": 251.6, "density": 25.16, "mortality": 20, "survival": 97.14, "feedKg": 120.1, "fcrUTD": 1.9696, "fcrLTD": 2.5219, "growthDay": 1.2836, "stockBiomass": 197.0, "prodDays": 69, "ltdDays": 364, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S10T04", "farm": "F1", "section": "F1.S10", "batch": "Sil20102025Dar", "species": "Silver Tilapia", "startDate": "2026-08-01", "fishNo": 618, "startWt": 240.0, "avgWt": 360.0, "biomass": 222.48, "density": 22.248, "mortality": 32, "survival": 95.08, "feedKg": 129.8, "fcrUTD": 1.5484, "fcrLTD": 2.2448, "growthDay": 4.8399, "stockBiomass": 393.5, "prodDays": 79, "ltdDays": 364, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S11T01", "farm": "F1", "section": "F1.S11", "batch": "Sil01102025Dar", "species": "Silver Tilapia", "startDate": "2026-08-27", "fishNo": 696, "startWt": 200.0, "avgWt": 250.0, "biomass": 174.0, "density": 17.4, "mortality": 9, "survival": 98.72, "feedKg": 106.5, "fcrUTD": 3.0461, "fcrLTD": 2.6981, "growthDay": 0.9434, "stockBiomass": 141.0, "prodDays": 53, "ltdDays": 383, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S11T02", "farm": "F1", "section": "F1.S11", "batch": "Sil07062026Dar", "species": "Silver Tilapia", "startDate": "2026-09-20", "fishNo": 995, "startWt": 13.5, "avgWt": 50.0, "biomass": 49.75, "density": 4.975, "mortality": 5, "survival": 99.5, "feedKg": 24.0, "fcrUTD": 0.6597, "fcrLTD": 1.2444, "growthDay": 1.2586, "stockBiomass": 13.5, "prodDays": 29, "ltdDays": 134, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S11T03", "farm": "F1", "section": "F1.S11", "batch": "Sil11112025Dar", "species": "Silver Tilapia", "startDate": "2026-08-11", "fishNo": 879, "startWt": 220.0, "avgWt": 265.0, "biomass": 232.935, "density": 23.2935, "mortality": 31, "survival": 96.59, "feedKg": 118.2, "fcrUTD": 2.2372, "fcrLTD": 2.3164, "growthDay": 0.864, "stockBiomass": 186.9, "prodDays": 69, "ltdDays": 342, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S11T04", "farm": "F1", "section": "F1.S11", "batch": "Sil04112025Dar", "species": "Silver Tilapia", "startDate": "2026-09-13", "fishNo": 688, "startWt": 290.0, "avgWt": 360.0, "biomass": 247.68, "density": 24.768, "mortality": 2, "survival": 99.71, "feedKg": 79.1, "fcrUTD": -1.5523, "fcrLTD": 1.7125, "growthDay": 7.0994, "stockBiomass": 475.6, "prodDays": 36, "ltdDays": 349, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S12T01", "farm": "F1", "section": "F1.S12", "batch": "Sil25102025Dar-02", "species": "Silver Tilapia", "startDate": "2026-07-31", "fishNo": 680, "startWt": 300.0, "avgWt": 400.0, "biomass": 272.0, "density": 27.2, "mortality": 32, "survival": 95.51, "feedKg": 139.5, "fcrUTD": 2.1737, "fcrLTD": 2.9049, "growthDay": 1.1622, "stockBiomass": 218.6, "prodDays": 80, "ltdDays": 359, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F1.S12T02", "farm": "F1", "section": "F1.S12", "batch": "Sil09032026Dar", "species": "Silver Tilapia", "startDate": "2026-09-05", "fishNo": 752, "startWt": 150.0, "avgWt": 290.0, "biomass": 218.08, "density": 21.808, "mortality": 8, "survival": 98.95, "feedKg": 86.0, "fcrUTD": 0.8147, "fcrLTD": 0.9876, "growthDay": 3.1818, "stockBiomass": 114.0, "prodDays": 44, "ltdDays": 224, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F1.S12T03", "farm": "F1", "section": "F1.S12", "batch": "Sil04052026Dar", "species": "Silver Tilapia", "startDate": "2026-09-05", "fishNo": 891, "startWt": 80.0, "avgWt": 150.0, "biomass": 133.65, "density": 13.365, "mortality": 9, "survival": 99.0, "feedKg": 90.0, "fcrUTD": 1.4404, "fcrLTD": 1.0074, "growthDay": 1.5909, "stockBiomass": 72.0, "prodDays": 44, "ltdDays": 168, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F1.S12T04", "farm": "F1", "section": "F1.S12", "batch": "Sil15042026Dar", "species": "Silver Tilapia", "startDate": "2026-09-08", "fishNo": 845, "startWt": 100.0, "avgWt": 200.0, "biomass": 169.0, "density": 16.9, "mortality": 5, "survival": 99.41, "feedKg": 84.0, "fcrUTD": 0.9918, "fcrLTD": 1.3399, "growthDay": 2.439, "stockBiomass": 85.0, "prodDays": 41, "ltdDays": 187, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F2.S01T01", "farm": "F2", "section": "F2.S01", "batch": "Sil06092026Dar", "species": "Silver Tilapia", "startDate": "2026-09-06", "fishNo": 2010, "startWt": 2.0, "avgWt": 20.0, "biomass": 40.2, "density": 4.02, "mortality": 0, "survival": 100.0, "feedKg": 28.8, "fcrUTD": 0.7962, "fcrLTD": 0.8028, "growthDay": 0.3488, "stockBiomass": 8.03, "prodDays": 43, "ltdDays": 43, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T02", "farm": "F2", "section": "F2.S01", "batch": "Sil06092026Dar", "species": "Silver Tilapia", "startDate": "2026-09-06", "fishNo": 2000, "startWt": 2.0, "avgWt": 12.0, "biomass": 24.0, "density": 2.4, "mortality": 0, "survival": 100.0, "feedKg": 28.8, "fcrUTD": 1.44, "fcrLTD": 1.44, "growthDay": 0.2326, "stockBiomass": 8.0, "prodDays": 43, "ltdDays": 43, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T03", "farm": "F2", "section": "F2.S01", "batch": "Sil08092026Dar", "species": "Silver Tilapia", "startDate": "2026-09-08", "fishNo": 2000, "startWt": 2.0, "avgWt": 17.0, "biomass": 34.0, "density": 3.4, "mortality": 0, "survival": 100.0, "feedKg": 28.4, "fcrUTD": 1.2622, "fcrLTD": 1.5581, "growthDay": -0.0488, "stockBiomass": 14.5, "prodDays": 41, "ltdDays": 41, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T04", "farm": "F2", "section": "F2.S01", "batch": "Sil18102026Dar", "species": "Silver Tilapia", "startDate": "2026-10-18", "fishNo": 1200, "startWt": 3.0, "avgWt": 3.0, "biomass": 3.6, "density": 0.36, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 0, "growthDay": 0.0, "stockBiomass": 7.2, "prodDays": 1, "ltdDays": 1, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T06", "farm": "F2", "section": "F2.S01", "batch": "Sil18102026Dar", "species": "Silver Tilapia", "startDate": "2026-10-18", "fishNo": 1200, "startWt": 3.0, "avgWt": 3.0, "biomass": 3.6, "density": 0.36, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 0, "growthDay": 0.0, "stockBiomass": 7.2, "prodDays": 1, "ltdDays": 1, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T08", "farm": "F2", "section": "F2.S01", "batch": "Sil03082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 1994, "startWt": 3.0, "avgWt": 30.0, "biomass": 59.82, "density": 5.982, "mortality": 6, "survival": 99.7, "feedKg": 58.7, "fcrUTD": 1.0899, "fcrLTD": 1.0901, "growthDay": 0.3506, "stockBiomass": 12.0, "prodDays": 77, "ltdDays": 77, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T09", "farm": "F2", "section": "F2.S01", "batch": "Sil18102026Dar", "species": "Silver Tilapia", "startDate": "2026-10-18", "fishNo": 1600, "startWt": 3.0, "avgWt": 3.0, "biomass": 4.8, "density": 0.48, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 0, "growthDay": 0.0, "stockBiomass": 9.6, "prodDays": 1, "ltdDays": 1, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T10", "farm": "F2", "section": "F2.S01", "batch": "Sil18052026Dar", "species": "Silver Tilapia", "startDate": "2026-05-18", "fishNo": 2475, "startWt": 1.0, "avgWt": 40.0, "biomass": 99.0, "density": 9.9, "mortality": 25, "survival": 99.0, "feedKg": 122.2, "fcrUTD": 1.2597, "fcrLTD": 1.2632, "growthDay": 0.2468, "stockBiomass": 4.5, "prodDays": 154, "ltdDays": 154, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T11", "farm": "F2", "section": "F2.S01", "batch": "Sil12092026Dar", "species": "Silver Tilapia", "startDate": "2026-09-12", "fishNo": 3000, "startWt": 3.0, "avgWt": 15.66, "biomass": 46.98, "density": 4.698, "mortality": 0, "survival": 100.0, "feedKg": 17.4, "fcrUTD": 0.6697, "fcrLTD": 1.2723, "growthDay": -0.0632, "stockBiomass": 27.0, "prodDays": 37, "ltdDays": 37, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T12", "farm": "F2", "section": "F2.S01", "batch": "Sil18102026Dar", "species": "Silver Tilapia", "startDate": "2026-10-18", "fishNo": 1200, "startWt": 3.0, "avgWt": 3.0, "biomass": 3.6, "density": 0.36, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 0, "growthDay": 0.0, "stockBiomass": 7.2, "prodDays": 1, "ltdDays": 1, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T13", "farm": "F2", "section": "F2.S01", "batch": "Sil30062026Dar", "species": "Silver Tilapia", "startDate": "2026-06-30", "fishNo": 2495, "startWt": 1.0, "avgWt": 21.0, "biomass": 52.395, "density": 5.2395, "mortality": 5, "survival": 99.8, "feedKg": 48.0, "fcrUTD": 1.1454, "fcrLTD": 1.3451, "growthDay": 0.027, "stockBiomass": 12.5, "prodDays": 111, "ltdDays": 111, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S01T14", "farm": "F2", "section": "F2.S01", "batch": "Sil19032025Dar", "species": "Silver Tilapia", "startDate": "2026-04-29", "fishNo": 50, "startWt": 1500.0, "avgWt": 1700.0, "biomass": 85.0, "density": 8.5, "mortality": 8, "survival": 138.1, "feedKg": 178.6, "fcrUTD": 1.1477, "fcrLTD": 2.0532, "growthDay": 23.9708, "stockBiomass": 100.23, "prodDays": 173, "ltdDays": 579, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T01", "farm": "F2", "section": "F2.S02", "batch": "Sil25072026Dar", "species": "Silver Tilapia", "startDate": "2026-07-25", "fishNo": 1995, "startWt": 1.0, "avgWt": 20.0, "biomass": 39.9, "density": 3.99, "mortality": 5, "survival": 99.75, "feedKg": 51.4, "fcrUTD": 1.3558, "fcrLTD": 1.3558, "growthDay": 0.2209, "stockBiomass": 4.0, "prodDays": 86, "ltdDays": 86, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T02", "farm": "F2", "section": "F2.S02", "batch": "Sil20052026Dar", "species": "Silver Tilapia", "startDate": "2026-08-10", "fishNo": 1293, "startWt": 10.0, "avgWt": 35.0, "biomass": 45.255, "density": 4.5255, "mortality": 7, "survival": 99.46, "feedKg": 47.3, "fcrUTD": 1.461, "fcrLTD": 1.7651, "growthDay": 0.3571, "stockBiomass": 13.0, "prodDays": 70, "ltdDays": 152, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T03", "farm": "F2", "section": "F2.S02", "batch": "Sil16082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-16", "fishNo": 1483, "startWt": 3.0, "avgWt": 30.0, "biomass": 44.49, "density": 4.449, "mortality": 17, "survival": 98.87, "feedKg": 44.5, "fcrUTD": 1.1056, "fcrLTD": 1.1059, "growthDay": 0.4219, "stockBiomass": 9.0, "prodDays": 64, "ltdDays": 64, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T04", "farm": "F2", "section": "F2.S02", "batch": "Sil16082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-16", "fishNo": 1544, "startWt": 3.0, "avgWt": 40.0, "biomass": 61.76, "density": 6.176, "mortality": 6, "survival": 99.61, "feedKg": 33.0, "fcrUTD": 0.6226, "fcrLTD": 0.7474, "growthDay": 0.3438, "stockBiomass": 12.45, "prodDays": 64, "ltdDays": 64, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T05", "farm": "F2", "section": "F2.S02", "batch": "Sil25072026Dar", "species": "Silver Tilapia", "startDate": "2026-07-25", "fishNo": 1589, "startWt": 3.0, "avgWt": 45.0, "biomass": 71.505, "density": 7.1505, "mortality": 11, "survival": 99.31, "feedKg": 52.8, "fcrUTD": 0.8164, "fcrLTD": 0.935, "growthDay": 0.3895, "stockBiomass": 10.6, "prodDays": 86, "ltdDays": 86, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T06", "farm": "F2", "section": "F2.S02", "batch": "Sil03082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 1495, "startWt": 1.0, "avgWt": 15.0, "biomass": 22.425, "density": 2.2425, "mortality": 5, "survival": 99.67, "feedKg": 45.8, "fcrUTD": 2.1882, "fcrLTD": 2.1888, "growthDay": 0.1818, "stockBiomass": 3.0, "prodDays": 77, "ltdDays": 77, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T07", "farm": "F2", "section": "F2.S02", "batch": "Sil03082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 1495, "startWt": 1.0, "avgWt": 20.0, "biomass": 29.9, "density": 2.99, "mortality": 5, "survival": 99.67, "feedKg": 34.1, "fcrUTD": 1.2005, "fcrLTD": 1.2007, "growthDay": 0.2468, "stockBiomass": 3.0, "prodDays": 77, "ltdDays": 77, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T08", "farm": "F2", "section": "F2.S02", "batch": "Sil25072026Dar", "species": "Silver Tilapia", "startDate": "2026-07-25", "fishNo": 1995, "startWt": 1.0, "avgWt": 22.0, "biomass": 43.89, "density": 4.389, "mortality": 5, "survival": 99.75, "feedKg": 39.3, "fcrUTD": 0.938, "fcrLTD": 0.9382, "growthDay": 0.2442, "stockBiomass": 4.0, "prodDays": 86, "ltdDays": 86, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T09", "farm": "F2", "section": "F2.S02", "batch": "Sil30032026Dar", "species": "Silver Tilapia", "startDate": "2026-07-22", "fishNo": 1838, "startWt": 20.0, "avgWt": 55.0, "biomass": 101.09, "density": 10.109, "mortality": 12, "survival": 99.35, "feedKg": 69.0, "fcrUTD": 1.0709, "fcrLTD": 1.5428, "growthDay": 0.3933, "stockBiomass": 37.0, "prodDays": 89, "ltdDays": 203, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T10", "farm": "F2", "section": "F2.S02", "batch": "Sil18052026Dar", "species": "Silver Tilapia", "startDate": "2026-09-07", "fishNo": 1000, "startWt": 10.0, "avgWt": 30.0, "biomass": 30.0, "density": 3.0, "mortality": 0, "survival": 100.0, "feedKg": 28.6, "fcrUTD": 1.43, "fcrLTD": 1.8824, "growthDay": 0.4762, "stockBiomass": 10.0, "prodDays": 42, "ltdDays": 154, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T11", "farm": "F2", "section": "F2.S02", "batch": "Sil03082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 1489, "startWt": 1.0, "avgWt": 17.0, "biomass": 25.313, "density": 2.5313, "mortality": 11, "survival": 99.27, "feedKg": 26.9, "fcrUTD": 1.128, "fcrLTD": 1.1287, "growthDay": 0.2078, "stockBiomass": 3.0, "prodDays": 77, "ltdDays": 77, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T12", "farm": "F2", "section": "F2.S02", "batch": "Sil25042026Dar", "species": "Silver Tilapia", "startDate": "2026-07-21", "fishNo": 1986, "startWt": 20.0, "avgWt": 45.0, "biomass": 89.37, "density": 8.937, "mortality": 14, "survival": 99.3, "feedKg": 66.5, "fcrUTD": 1.3369, "fcrLTD": 1.5495, "growthDay": 0.2778, "stockBiomass": 40.0, "prodDays": 90, "ltdDays": 177, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T13", "farm": "F2", "section": "F2.S02", "batch": "Sil25072026Dar", "species": "Silver Tilapia", "startDate": "2026-07-25", "fishNo": 1644, "startWt": 3.0, "avgWt": 40.0, "biomass": 65.76, "density": 6.576, "mortality": 6, "survival": 99.64, "feedKg": 63.7, "fcrUTD": 1.0901, "fcrLTD": 1.2068, "growthDay": 0.314, "stockBiomass": 11.3, "prodDays": 86, "ltdDays": 86, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S02T14", "farm": "F2", "section": "F2.S02", "batch": "Sil25072026Dar", "species": "Silver Tilapia", "startDate": "2026-07-25", "fishNo": 1593, "startWt": 3.0, "avgWt": 40.0, "biomass": 63.72, "density": 6.372, "mortality": 7, "survival": 99.56, "feedKg": 63.7, "fcrUTD": 1.1076, "fcrLTD": 1.2075, "growthDay": 0.3372, "stockBiomass": 10.2, "prodDays": 86, "ltdDays": 86, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T01", "farm": "F2", "section": "F2.S03", "batch": "Sil04082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-04", "fishNo": 1589, "startWt": 4.0, "avgWt": 40.0, "biomass": 63.56, "density": 6.356, "mortality": 11, "survival": 99.31, "feedKg": 36.9, "fcrUTD": 0.6831, "fcrLTD": 0.8013, "growthDay": 0.2763, "stockBiomass": 14.9, "prodDays": 76, "ltdDays": 76, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T02", "farm": "F2", "section": "F2.S03", "batch": "Sil31122025Dar", "species": "Silver Tilapia", "startDate": "2026-08-01", "fishNo": 1332, "startWt": 20.0, "avgWt": 60.0, "biomass": 79.92, "density": 7.992, "mortality": 18, "survival": 98.67, "feedKg": 69.0, "fcrUTD": 1.2935, "fcrLTD": 2.0011, "growthDay": 0.5063, "stockBiomass": 27.0, "prodDays": 79, "ltdDays": 292, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T03", "farm": "F2", "section": "F2.S03", "batch": "Sil04082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-04", "fishNo": 1292, "startWt": 4.0, "avgWt": 40.0, "biomass": 51.68, "density": 5.168, "mortality": 8, "survival": 99.38, "feedKg": 36.9, "fcrUTD": 0.7924, "fcrLTD": 0.7925, "growthDay": 0.4737, "stockBiomass": 10.4, "prodDays": 76, "ltdDays": 76, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T04", "farm": "F2", "section": "F2.S03", "batch": "Sil18032026Dar", "species": "Silver Tilapia", "startDate": "2026-06-23", "fishNo": 1289, "startWt": 20.0, "avgWt": 55.0, "biomass": 70.895, "density": 7.0895, "mortality": 11, "survival": 99.15, "feedKg": 99.0, "fcrUTD": 2.1895, "fcrLTD": 2.3193, "growthDay": 0.2966, "stockBiomass": 26.0, "prodDays": 118, "ltdDays": 215, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T08", "farm": "F2", "section": "F2.S03", "batch": "Sil04082026Dar", "species": "Silver Tilapia", "startDate": "2026-08-04", "fishNo": 1298, "startWt": 4.0, "avgWt": 40.0, "biomass": 51.92, "density": 5.192, "mortality": 2, "survival": 99.85, "feedKg": 40.9, "fcrUTD": 0.8751, "fcrLTD": 0.8752, "growthDay": 0.4737, "stockBiomass": 10.4, "prodDays": 76, "ltdDays": 76, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T09", "farm": "F2", "section": "F2.S03", "batch": "Sil29042026Dar", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 994, "startWt": 10.0, "avgWt": 60.0, "biomass": 59.64, "density": 5.964, "mortality": 6, "survival": 99.4, "feedKg": 53.1, "fcrUTD": 1.0675, "fcrLTD": 1.4032, "growthDay": 0.6494, "stockBiomass": 10.0, "prodDays": 77, "ltdDays": 173, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T10", "farm": "F2", "section": "F2.S03", "batch": "Sil15042026Dar", "species": "Silver Tilapia", "startDate": "2026-07-20", "fishNo": 994, "startWt": 20.0, "avgWt": 65.0, "biomass": 64.61, "density": 6.461, "mortality": 6, "survival": 99.4, "feedKg": 69.0, "fcrUTD": 1.5406, "fcrLTD": 1.551, "growthDay": 0.4945, "stockBiomass": 20.0, "prodDays": 91, "ltdDays": 187, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T12", "farm": "F2", "section": "F2.S03", "batch": "Sil29042026Dar", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 1490, "startWt": 10.0, "avgWt": 50.0, "biomass": 74.5, "density": 7.45, "mortality": 10, "survival": 99.33, "feedKg": 60.0, "fcrUTD": 1.0061, "fcrLTD": 1.4568, "growthDay": 0.5195, "stockBiomass": 15.0, "prodDays": 77, "ltdDays": 173, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T13", "farm": "F2", "section": "F2.S03", "batch": "Sil29032026Dar", "species": "Silver Tilapia", "startDate": "2026-07-22", "fishNo": 1090, "startWt": 20.0, "avgWt": 50.0, "biomass": 54.5, "density": 5.45, "mortality": 10, "survival": 99.09, "feedKg": 65.1, "fcrUTD": 1.9879, "fcrLTD": 2.0272, "growthDay": 0.3371, "stockBiomass": 22.0, "prodDays": 89, "ltdDays": 204, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S03T14", "farm": "F2", "section": "F2.S03", "batch": "Sil29032026Dar", "species": "Silver Tilapia", "startDate": "2026-07-22", "fishNo": 1488, "startWt": 20.0, "avgWt": 60.0, "biomass": 89.28, "density": 8.928, "mortality": 12, "survival": 99.2, "feedKg": 65.1, "fcrUTD": 1.0914, "fcrLTD": 1.6829, "growthDay": 0.4494, "stockBiomass": 30.0, "prodDays": 89, "ltdDays": 204, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T01", "farm": "F2", "section": "F2.S04", "batch": "Sil20052026Dar-01", "species": "Silver Tilapia", "startDate": "2026-08-31", "fishNo": 1481, "startWt": 30.0, "avgWt": 75.0, "biomass": 111.075, "density": 11.1075, "mortality": 19, "survival": 98.73, "feedKg": 78.0, "fcrUTD": 1.166, "fcrLTD": 1.2852, "growthDay": 0.9184, "stockBiomass": 45.0, "prodDays": 49, "ltdDays": 152, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T03", "farm": "F2", "section": "F2.S04", "batch": "Sil18052026Dar", "species": "Silver Tilapia", "startDate": "2026-09-07", "fishNo": 1625, "startWt": 25.0, "avgWt": 60.0, "biomass": 97.5, "density": 9.75, "mortality": 25, "survival": 98.48, "feedKg": 49.8, "fcrUTD": 0.8701, "fcrLTD": 0.9598, "growthDay": 0.8333, "stockBiomass": 41.25, "prodDays": 42, "ltdDays": 154, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T04", "farm": "F2", "section": "F2.S04", "batch": "Sil11042026Dar", "species": "Silver Tilapia", "startDate": "2026-07-20", "fishNo": 1047, "startWt": 25.0, "avgWt": 70.0, "biomass": 73.29, "density": 7.329, "mortality": 53, "survival": 95.18, "feedKg": 93.6, "fcrUTD": 1.9534, "fcrLTD": 2.0993, "growthDay": 0.4945, "stockBiomass": 27.5, "prodDays": 91, "ltdDays": 191, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T05", "farm": "F2", "section": "F2.S04", "batch": "Sil30062026Dar", "species": "Silver Tilapia", "startDate": "2026-10-15", "fishNo": 1750, "startWt": 35.0, "avgWt": 35.0, "biomass": 61.25, "density": 6.125, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 1.3777, "growthDay": 0.0, "stockBiomass": 61.25, "prodDays": 4, "ltdDays": 111, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T06", "farm": "F2", "section": "F2.S04", "batch": "Sil11052026Dar", "species": "Silver Tilapia", "startDate": "2026-08-02", "fishNo": 1625, "startWt": 30.0, "avgWt": 75.0, "biomass": 121.875, "density": 12.1875, "mortality": 125, "survival": 92.86, "feedKg": 99.7, "fcrUTD": 1.3492, "fcrLTD": 1.1491, "growthDay": 0.5769, "stockBiomass": 52.5, "prodDays": 78, "ltdDays": 161, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T07", "farm": "F2", "section": "F2.S04", "batch": "Sil11052026Dar", "species": "Silver Tilapia", "startDate": "2026-08-02", "fishNo": 1461, "startWt": 30.0, "avgWt": 65.0, "biomass": 94.965, "density": 9.4965, "mortality": 89, "survival": 94.26, "feedKg": 99.7, "fcrUTD": 1.9326, "fcrLTD": 1.4781, "growthDay": 0.4487, "stockBiomass": 46.5, "prodDays": 78, "ltdDays": 161, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T08", "farm": "F2", "section": "F2.S04", "batch": "Sil29032026Dar", "species": "Silver Tilapia", "startDate": "2026-07-22", "fishNo": 1566, "startWt": 40.0, "avgWt": 75.0, "biomass": 117.45, "density": 11.745, "mortality": 94, "survival": 94.47, "feedKg": 112.1, "fcrUTD": 1.9569, "fcrLTD": 1.5459, "growthDay": 1.0955, "stockBiomass": 68.0, "prodDays": 89, "ltdDays": 204, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T09", "farm": "F2", "section": "F2.S04", "batch": "Sil11052026Dar-01", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 1244, "startWt": 30.0, "avgWt": 70.0, "biomass": 87.08, "density": 8.708, "mortality": 106, "survival": 92.15, "feedKg": 94.7, "fcrUTD": 1.8646, "fcrLTD": 1.5109, "growthDay": 0.5195, "stockBiomass": 40.5, "prodDays": 77, "ltdDays": 161, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T10", "farm": "F2", "section": "F2.S04", "batch": "Sil29042026Dar", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 1184, "startWt": 30.0, "avgWt": 70.0, "biomass": 82.88, "density": 8.288, "mortality": 66, "survival": 94.72, "feedKg": 85.5, "fcrUTD": 1.7823, "fcrLTD": 1.4352, "growthDay": 0.5195, "stockBiomass": 37.5, "prodDays": 77, "ltdDays": 173, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T11", "farm": "F2", "section": "F2.S04", "batch": "Sil07062026Dar", "species": "Silver Tilapia", "startDate": "2026-10-15", "fishNo": 2250, "startWt": 25.0, "avgWt": 25.0, "biomass": 56.25, "density": 5.625, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 1.3315, "growthDay": 0.0, "stockBiomass": 56.25, "prodDays": 4, "ltdDays": 134, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T12", "farm": "F2", "section": "F2.S04", "batch": "Sil23042026Dar", "species": "Silver Tilapia", "startDate": "2026-08-02", "fishNo": 1045, "startWt": 20.0, "avgWt": 55.0, "biomass": 57.475, "density": 5.7475, "mortality": 55, "survival": 95.0, "feedKg": 76.8, "fcrUTD": 2.0424, "fcrLTD": 1.9602, "growthDay": 0.4487, "stockBiomass": 22.0, "prodDays": 78, "ltdDays": 179, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T13", "farm": "F2", "section": "F2.S04", "batch": "Sil21052026Dar", "species": "Silver Tilapia", "startDate": "2026-09-07", "fishNo": 1565, "startWt": 30.0, "avgWt": 55.0, "biomass": 86.075, "density": 8.6075, "mortality": 35, "survival": 97.81, "feedKg": 45.3, "fcrUTD": 1.1473, "fcrLTD": 1.2638, "growthDay": 0.5952, "stockBiomass": 48.0, "prodDays": 42, "ltdDays": 151, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S04T14", "farm": "F2", "section": "F2.S04", "batch": "Sil20052026Dar", "species": "Silver Tilapia", "startDate": "2026-08-10", "fishNo": 1218, "startWt": 20.0, "avgWt": 65.0, "biomass": 79.17, "density": 7.917, "mortality": 82, "survival": 93.69, "feedKg": 79.2, "fcrUTD": 1.394, "fcrLTD": 1.3478, "growthDay": 0.6429, "stockBiomass": 26.0, "prodDays": 70, "ltdDays": 152, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T01", "farm": "F2", "section": "F2.S05", "batch": "Sil30062026Dar", "species": "Silver Tilapia", "startDate": "2026-10-15", "fishNo": 1790, "startWt": 30.0, "avgWt": 30.0, "biomass": 53.7, "density": 5.37, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 1.3595, "growthDay": 0.0, "stockBiomass": 53.7, "prodDays": 4, "ltdDays": 111, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T02", "farm": "F2", "section": "F2.S05", "batch": "Sil11042026Dar", "species": "Silver Tilapia", "startDate": "2026-07-30", "fishNo": 1164, "startWt": 30.0, "avgWt": 80.0, "biomass": 93.12, "density": 9.312, "mortality": 36, "survival": 97.0, "feedKg": 106.8, "fcrUTD": 1.7573, "fcrLTD": 1.6198, "growthDay": 0.6379, "stockBiomass": 34.0, "prodDays": 81, "ltdDays": 191, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T03", "farm": "F2", "section": "F2.S05", "batch": "Sil15042026Dar", "species": "Silver Tilapia", "startDate": "2026-07-26", "fishNo": 1248, "startWt": 20.0, "avgWt": 70.0, "biomass": 87.36, "density": 8.736, "mortality": 52, "survival": 96.0, "feedKg": 106.8, "fcrUTD": 1.6758, "fcrLTD": 2.372, "growthDay": 0.5882, "stockBiomass": 26.0, "prodDays": 85, "ltdDays": 187, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T04", "farm": "F2", "section": "F2.S05", "batch": "Sil07062026Dar", "species": "Silver Tilapia", "startDate": "2026-10-15", "fishNo": 1650, "startWt": 35.0, "avgWt": 35.0, "biomass": 57.75, "density": 5.775, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 1.1254, "growthDay": 0.0, "stockBiomass": 57.75, "prodDays": 4, "ltdDays": 134, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T05", "farm": "F2", "section": "F2.S05", "batch": "Sil30092025Dar", "species": "Silver Tilapia", "startDate": "2026-08-01", "fishNo": 959, "startWt": 20.0, "avgWt": 65.0, "biomass": 62.335, "density": 6.2335, "mortality": 141, "survival": 87.18, "feedKg": 85.2, "fcrUTD": 1.8843, "fcrLTD": 2.6892, "growthDay": 0.5696, "stockBiomass": 22.0, "prodDays": 79, "ltdDays": 384, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T06", "farm": "F2", "section": "F2.S05", "batch": "Sil29042026Dar", "species": "Silver Tilapia", "startDate": "2026-08-03", "fishNo": 1191, "startWt": 30.0, "avgWt": 70.0, "biomass": 83.37, "density": 8.337, "mortality": 59, "survival": 95.28, "feedKg": 77.9, "fcrUTD": 1.6115, "fcrLTD": 1.4637, "growthDay": 0.5195, "stockBiomass": 37.5, "prodDays": 77, "ltdDays": 173, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T07", "farm": "F2", "section": "F2.S05", "batch": "Sil18112025Dar", "species": "Silver Tilapia", "startDate": "2026-08-01", "fishNo": 1134, "startWt": 20.0, "avgWt": 70.0, "biomass": 79.38, "density": 7.938, "mortality": 66, "survival": 94.5, "feedKg": 85.2, "fcrUTD": 1.468, "fcrLTD": 2.5017, "growthDay": 0.6329, "stockBiomass": 24.0, "prodDays": 79, "ltdDays": 335, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T08", "farm": "F2", "section": "F2.S05", "batch": "Sil21052026Dar", "species": "Silver Tilapia", "startDate": "2026-09-02", "fishNo": 1541, "startWt": 30.0, "avgWt": 65.0, "biomass": 100.165, "density": 10.0165, "mortality": 109, "survival": 93.39, "feedKg": 73.1, "fcrUTD": 1.313, "fcrLTD": 1.1745, "growthDay": 0.7447, "stockBiomass": 49.5, "prodDays": 47, "ltdDays": 151, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T09", "farm": "F2", "section": "F2.S05", "batch": "Sil31122025Dar", "species": "Silver Tilapia", "startDate": "2026-08-01", "fishNo": 1853, "startWt": 30.0, "avgWt": 55.0, "biomass": 101.915, "density": 10.1915, "mortality": 147, "survival": 92.65, "feedKg": 107.2, "fcrUTD": 2.2656, "fcrLTD": 2.2595, "growthDay": 0.3165, "stockBiomass": 60.0, "prodDays": 79, "ltdDays": 292, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T10", "farm": "F2", "section": "F2.S05", "batch": "Sil20052026Dar", "species": "Silver Tilapia", "startDate": "2026-08-10", "fishNo": 1318, "startWt": 25.0, "avgWt": 70.0, "biomass": 92.26, "density": 9.226, "mortality": 82, "survival": 94.14, "feedKg": 98.3, "fcrUTD": 1.6066, "fcrLTD": 1.3853, "growthDay": 0.6429, "stockBiomass": 35.0, "prodDays": 70, "ltdDays": 152, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T11", "farm": "F2", "section": "F2.S05", "batch": "Sil30092025Dar", "species": "Silver Tilapia", "startDate": "2026-08-01", "fishNo": 1333, "startWt": 40.0, "avgWt": 80.0, "biomass": 106.64, "density": 10.664, "mortality": 67, "survival": 95.21, "feedKg": 91.6, "fcrUTD": 1.6833, "fcrLTD": 1.9323, "growthDay": 0.5063, "stockBiomass": 56.0, "prodDays": 79, "ltdDays": 384, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S05T12", "farm": "F2", "section": "F2.S05", "batch": "Sil21052026Dar", "species": "Silver Tilapia", "startDate": "2026-09-05", "fishNo": 1497, "startWt": 30.0, "avgWt": 60.0, "biomass": 89.82, "density": 8.982, "mortality": 53, "survival": 96.58, "feedKg": 57.0, "fcrUTD": 1.2604, "fcrLTD": 1.19, "growthDay": 0.6818, "stockBiomass": 46.5, "prodDays": 44, "ltdDays": 151, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
+{"unit": "F2.S06T01", "farm": "F2", "section": "F2.S06", "batch": "Sil25102025Dar", "species": "Silver Tilapia", "startDate": "2026-07-25", "fishNo": 3925, "startWt": 250.0, "avgWt": 375.0, "biomass": 1471.875, "density": 12.5801, "mortality": 118, "survival": 94.74, "feedKg": 961.0, "fcrUTD": 2.2727, "fcrLTD": 2.956, "growthDay": 1.3132, "stockBiomass": 1085.75, "prodDays": 86, "ltdDays": 359, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S06T02", "farm": "F2", "section": "F2.S06", "batch": "Sil15042026Dar", "species": "Silver Tilapia", "startDate": "2026-07-15", "fishNo": 4895, "startWt": 100.0, "avgWt": 245.0, "biomass": 1199.275, "density": 10.2502, "mortality": 105, "survival": 95.98, "feedKg": 857.0, "fcrUTD": 1.2629, "fcrLTD": 1.4175, "growthDay": 1.4563, "stockBiomass": 536.5, "prodDays": 96, "ltdDays": 187, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S07T01", "farm": "F2", "section": "F2.S07", "batch": "Sil15042026Dar", "species": "Silver Tilapia", "startDate": "2026-07-15", "fishNo": 4505, "startWt": 50.0, "avgWt": 185.0, "biomass": 833.425, "density": 7.1233, "mortality": 175, "survival": 92.32, "feedKg": 598.0, "fcrUTD": 0.9913, "fcrLTD": 1.25, "growthDay": 1.4082, "stockBiomass": 243.1, "prodDays": 96, "ltdDays": 187, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S07T02", "farm": "F2", "section": "F2.S07", "batch": "Sil03012026Dar", "species": "Silver Tilapia", "startDate": "2026-07-18", "fishNo": 5439, "startWt": 110.9453, "avgWt": 245.0, "biomass": 1332.555, "density": 11.3894, "mortality": 171, "survival": 93.61, "feedKg": 822.0, "fcrUTD": 1.1706, "fcrLTD": 1.8982, "growthDay": 1.4222, "stockBiomass": 655.0, "prodDays": 93, "ltdDays": 289, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S08T01", "farm": "F2", "section": "F2.S08", "batch": "Sil30122025Dar", "species": "Silver Tilapia", "startDate": "2026-07-18", "fishNo": 4256, "startWt": 50.0, "avgWt": 170.0, "biomass": 723.52, "density": 6.1839, "mortality": 284, "survival": 89.79, "feedKg": 613.0, "fcrUTD": 1.1947, "fcrLTD": 1.3656, "growthDay": 1.2903, "stockBiomass": 237.0, "prodDays": 93, "ltdDays": 293, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S08T02", "farm": "F2", "section": "F2.S08", "batch": "Sil23042026Dar", "species": "Silver Tilapia", "startDate": "2026-08-02", "fishNo": 4360, "startWt": 40.0, "avgWt": 170.0, "biomass": 741.2, "density": 6.335, "mortality": 255, "survival": 90.55, "feedKg": 600.0, "fcrUTD": 1.0667, "fcrLTD": 1.2046, "growthDay": 1.6451, "stockBiomass": 200.7, "prodDays": 78, "ltdDays": 179, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S09T01", "farm": "F2", "section": "F2.S09", "batch": "Sil07042026Dar", "species": "Silver Tilapia", "startDate": "2026-08-31", "fishNo": 5390, "startWt": 50.0, "avgWt": 145.0, "biomass": 781.55, "density": 6.6799, "mortality": 70, "survival": 98.72, "feedKg": 430.0, "fcrUTD": 0.846, "fcrLTD": 1.1376, "growthDay": 1.9135, "stockBiomass": 279.75, "prodDays": 49, "ltdDays": 195, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S09T02", "farm": "F2", "section": "F2.S09", "batch": "Sil06122025Dar", "species": "Silver Tilapia", "startDate": "2026-09-01", "fishNo": 3816, "startWt": 165.8643, "avgWt": 290.0, "biomass": 1106.64, "density": 9.4585, "mortality": 89, "survival": 97.72, "feedKg": 646.0, "fcrUTD": 1.3606, "fcrLTD": 1.8377, "growthDay": 2.5862, "stockBiomass": 647.7, "prodDays": 48, "ltdDays": 317, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S10T01", "farm": "F2", "section": "F2.S10", "batch": "Sil02102024Dar", "species": "Silver Tilapia", "startDate": "2026-07-12", "fishNo": 3943, "startWt": 237.7583, "avgWt": 380.0, "biomass": 1498.34, "density": 12.8063, "mortality": 157, "survival": 93.88, "feedKg": 1079.0, "fcrUTD": 2.0794, "fcrLTD": 1.5038, "growthDay": 1.3701, "stockBiomass": 1026.3, "prodDays": 99, "ltdDays": 747, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S10T02", "farm": "F2", "section": "F2.S10", "batch": "Sil02102024Dar", "species": "Silver Tilapia", "startDate": "2026-07-12", "fishNo": 4261, "startWt": 100.0, "avgWt": 230.0, "biomass": 980.03, "density": 8.3763, "mortality": 141, "survival": 96.8, "feedKg": 795.0, "fcrUTD": 1.4178, "fcrLTD": 1.5949, "growthDay": 1.3131, "stockBiomass": 440.2, "prodDays": 99, "ltdDays": 747, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S11T01", "farm": "F2", "section": "F2.S11", "batch": "Sil10062025Dar", "species": "Silver Tilapia", "startDate": "2026-09-10", "fishNo": 2253, "startWt": 300.0, "avgWt": 380.0, "biomass": 856.14, "density": 7.3174, "mortality": 17, "survival": 99.25, "feedKg": 340.0, "fcrUTD": 1.8773, "fcrLTD": 2.6547, "growthDay": 2.0513, "stockBiomass": 681.0, "prodDays": 39, "ltdDays": 496, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S11T02", "farm": "F2", "section": "F2.S11", "batch": "Sil25102025Dar", "species": "Silver Tilapia", "startDate": "2026-07-25", "fishNo": 4795, "startWt": 124.9565, "avgWt": 285.0, "biomass": 1366.575, "density": 11.6801, "mortality": 230, "survival": 95.42, "feedKg": 1003.87, "fcrUTD": 1.3244, "fcrLTD": 2.0745, "growthDay": 1.7676, "stockBiomass": 668.25, "prodDays": 86, "ltdDays": 359, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S12T02", "farm": "F2", "section": "F2.S12", "batch": "Sil04062025Dar", "species": "Silver Tilapia", "startDate": "2026-07-02", "fishNo": 4179, "startWt": 300.0, "avgWt": 410.0, "biomass": 1713.39, "density": 14.6444, "mortality": 236, "survival": 94.65, "feedKg": 1567.0, "fcrUTD": 2.6232, "fcrLTD": 2.2201, "growthDay": 1.2741, "stockBiomass": 1197.0, "prodDays": 109, "ltdDays": 502, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S13T01", "farm": "F2", "section": "F2.S13", "batch": "Sil15042026Dar", "species": "Silver Tilapia", "startDate": "2026-07-26", "fishNo": 4577, "startWt": 50.0, "avgWt": 260.0, "biomass": 1190.02, "density": 10.1711, "mortality": 63, "survival": 98.64, "feedKg": 961.0, "fcrUTD": 0.9948, "fcrLTD": 1.1849, "growthDay": 2.4706, "stockBiomass": 232.0, "prodDays": 85, "ltdDays": 187, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S13T02", "farm": "F2", "section": "F2.S13", "batch": "Sil11082025Dar", "species": "Silver Tilapia", "startDate": "2026-08-30", "fishNo": 2263, "startWt": 300.0, "avgWt": 400.0, "biomass": 905.2, "density": 7.7368, "mortality": 17, "survival": 99.25, "feedKg": 538.0, "fcrUTD": 2.3687, "fcrLTD": 2.4783, "growthDay": 2.0, "stockBiomass": 684.0, "prodDays": 50, "ltdDays": 434, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S14T01", "farm": "F2", "section": "F2.S14", "batch": "Sil11042026Dar", "species": "Silver Tilapia", "startDate": "2026-10-04", "fishNo": 5124, "startWt": 80.0, "avgWt": 90.0, "biomass": 461.16, "density": 3.9415, "mortality": 26, "survival": 99.5, "feedKg": 2.0, "fcrUTD": 0.039, "fcrLTD": 1.5926, "growthDay": 0.6667, "stockBiomass": 412.0, "prodDays": 15, "ltdDays": 191, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S14T02", "farm": "F2", "section": "F2.S14", "batch": "Sil03112025Dar", "species": "Silver Tilapia", "startDate": "2026-07-28", "fishNo": 4518, "startWt": 50.0, "avgWt": 230.0, "biomass": 1039.14, "density": 8.8815, "mortality": 112, "survival": 97.58, "feedKg": 805.0, "fcrUTD": 1.0129, "fcrLTD": 1.4877, "growthDay": 2.0969, "stockBiomass": 259.1, "prodDays": 83, "ltdDays": 350, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S15T02", "farm": "F2", "section": "F2.S15", "batch": "Sil03112025Dar", "species": "Silver Tilapia", "startDate": "2026-09-29", "fishNo": 3272, "startWt": 300.0, "avgWt": 320.0, "biomass": 1047.04, "density": 8.9491, "mortality": 19, "survival": 99.42, "feedKg": 33.0, "fcrUTD": 0.562, "fcrLTD": 2.9202, "growthDay": 0.8952, "stockBiomass": 994.2, "prodDays": 20, "ltdDays": 350, "hatchery": "Dar Aqua", "volume": 117.0, "alarm": false, "warn": false},
+{"unit": "F2.S16.T02", "farm": "F2", "section": "F2.S16", "batch": "Sil19052025Dar-01", "species": "Silver Tilapia", "startDate": "2026-10-18", "fishNo": 534, "startWt": 500.0, "avgWt": 500.0, "biomass": 267.0, "density": 26.7, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 2.4221, "growthDay": 0.0, "stockBiomass": 267.0, "prodDays": 1, "ltdDays": 518, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F2.S16.T03", "farm": "F2", "section": "F2.S16", "batch": "Sil19052025Dar-01", "species": "Silver Tilapia", "startDate": "2026-10-18", "fishNo": 500, "startWt": 500.0, "avgWt": 500.0, "biomass": 250.0, "density": 25.0, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 2.4221, "growthDay": 0.0, "stockBiomass": 250.0, "prodDays": 1, "ltdDays": 518, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": true, "warn": false},
+{"unit": "F2.S16.T04", "farm": "F2", "section": "F2.S16", "batch": "Sil19052025Dar-01", "species": "Silver Tilapia", "startDate": "2026-10-18", "fishNo": 467, "startWt": 500.0, "avgWt": 500.0, "biomass": 233.5, "density": 23.35, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0, "fcrLTD": 2.4221, "growthDay": 0.0, "stockBiomass": 233.5, "prodDays": 1, "ltdDays": 518, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
+{"unit": "F2.S16.T07", "farm": "F2", "section": "F2.S16", "batch": "Sil02062025Dar", "species": "Silver Tilapia", "startDate": "2026-10-07", "fishNo": 793, "startWt": 280.0, "avgWt": 280.0, "biomass": 222.04, "density": 22.204, "mortality": 0, "survival": 100.0, "feedKg": 0.0, "fcrUTD": 0.0, "fcrLTD": 3.5763, "growthDay": 23.8092, "stockBiomass": 224.0, "prodDays": 12, "ltdDays": 504, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true}
+];
+
+var farmFilter='all', isAr=true, currentView='dashboard';
+
+function n(v,d){ return typeof v==='number'?v.toFixed(d||0):String(v||''); }
+function fmtK(v){ return v>=1000?(v/1000).toFixed(1)+'K':String(Math.round(v)); }
+function pill(r){
+  if(r.alarm) return '<span class="pill pill-alarm">🔴 '+(isAr?'تنبيه':'Alarm')+'</span>';
+  if(r.warn)  return '<span class="pill pill-warn">🟡 '+(isAr?'تحذير':'Watch')+'</span>';
+  return '<span class="pill pill-ok">🟢 '+(isAr?'طبيعي':'OK')+'</span>';
+}
+function dbar(d){
+  var pct=Math.min(d/35*100,100);
+  var cls=d>25?'#dc2626':d>=15?'#d97706':'#16a34a';
+  return '<div class="bar-outer" style="width:90px;display:inline-block;vertical-align:middle"><div class="bar-inner" style="width:'+pct+'%;background:'+cls+'"></div></div> '+n(d,2);
+}
+function rows(){
+  var live=_txLiveRows().filter(function(r){return(r.fishNo||0)>0;});
+  if(live.length>0) return farmFilter==='all'?live:live.filter(function(r){return r.farm===farmFilter;});
+  return farmFilter==='all'?RAW:RAW.filter(function(r){return r.farm===farmFilter;});
+}
+function st(rs){
+  var fish=0,bio=0,alarms=0,warns=0,dens=0;
+  rs.forEach(function(r){fish+=r.fishNo;bio+=r.biomass;if(r.alarm)alarms++;if(r.warn)warns++;dens+=r.density;});
+  return {fish:fish,bio:bio,alarms:alarms,warns:warns,avgD:rs.length?dens/rs.length:0,total:rs.length};
+}
+
+// ── SVG Chart Helpers ─────────────────────────
+function donutChart(vals, colors, size){
+  size = size||160;
+  var total = vals.reduce(function(a,b){return a+b;},0);
+  if(!total) return '<svg width="'+size+'" height="'+size+'"><circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+(size/2-8)+'" fill="none" stroke="#e5e7eb" stroke-width="18"/></svg>';
+  var r = size/2-10, cx=size/2, cy=size/2;
+  var circ = 2*Math.PI*r;
+  var offset = 0, paths='';
+  vals.forEach(function(v,i){
+    if(!v) return;
+    var pct = v/total;
+    var dash = pct*circ;
+    var gap  = circ - dash;
+    paths += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+colors[i]+'" stroke-width="18" stroke-dasharray="'+dash.toFixed(2)+' '+gap.toFixed(2)+'" stroke-dashoffset="'+(-offset*circ/1+circ/4*-1+circ*0.25).toFixed(2)+'" transform="rotate(-90 '+cx+' '+cy+')" style="transition:stroke-dasharray .4s"/>';
+    offset += pct;
+  });
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+paths+'</svg>';
+}
+
+function barChartSVG(items, maxVal, W, H, barColor){
+  // items: [{lbl, val}]
+  W=W||320; H=H||160;
+  var pad={t:10,r:8,b:28,l:8};
+  var bw = (W-pad.l-pad.r)/items.length - 4;
+  var svg='<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block">';
+  // grid lines
+  [0.25,0.5,0.75,1].forEach(function(p){
+    var y=pad.t+(H-pad.t-pad.b)*(1-p);
+    svg+='<line x1="'+pad.l+'" y1="'+y+'" x2="'+(W-pad.r)+'" y2="'+y+'" stroke="#e5e7eb" stroke-width="1"/>';
+  });
+  items.forEach(function(item,i){
+    var pct = maxVal>0 ? item.val/maxVal : 0;
+    var bh  = Math.max(2, (H-pad.t-pad.b)*pct);
+    var x   = pad.l + i*(bw+4);
+    var y   = H-pad.b-bh;
+    var col = item.col || barColor || '#067b72';
+    // bar with rounded top
+    svg+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+bh+'" rx="3" fill="'+col+'" opacity="0.9"/>';
+    // value label on top
+    if(item.val>0){
+      var lbl = item.val>=1000?(item.val/1000).toFixed(1)+'k':String(Math.round(item.val));
+      svg+='<text x="'+(x+bw/2)+'" y="'+(y-3)+'" text-anchor="middle" font-size="9" fill="#6b8a87">'+lbl+'</text>';
+    }
+    // x label (truncate)
+    var xl = item.lbl.length>7?item.lbl.slice(0,6)+'…':item.lbl;
+    svg+='<text x="'+(x+bw/2)+'" y="'+(H-pad.b+12)+'" text-anchor="middle" font-size="8.5" fill="#6b8a87">'+xl+'</text>';
+  });
+  svg+='</svg>';
+  return svg;
+}
+
+function sparkLine(vals, W, H, color){
+  W=W||200; H=H||50; color=color||'#067b72';
+  if(vals.length<2) return '';
+  var mx=Math.max.apply(null,vals), mn=Math.min.apply(null,vals);
+  if(mx===mn){mx+=1;mn-=1;}
+  var pts=vals.map(function(v,i){
+    var x=i/(vals.length-1)*W;
+    var y=H-(v-mn)/(mx-mn)*(H-6)-3;
+    return x+','+y;
+  });
+  var area='M'+pts[0]+' '+pts.map(function(p){return 'L'+p;}).join(' ')+' L'+W+','+(H+2)+' L0,'+(H+2)+' Z';
+  var line='M'+pts[0]+' '+pts.map(function(p){return 'L'+p;}).join(' ');
+  return '<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block;overflow:visible">'
+    +'<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+color+'" stop-opacity="0.3"/><stop offset="100%" stop-color="'+color+'" stop-opacity="0.02"/></linearGradient></defs>'
+    +'<path d="'+area+'" fill="url(#sg)"/>'
+    +'<path d="'+line+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'
+    +'<circle cx="'+pts[pts.length-1].split(',')[0]+'" cy="'+pts[pts.length-1].split(',')[1]+'" r="3" fill="'+color+'"/>'
+    +'</svg>';
+}
+
+function renderDashboard(){
+  var rs=rows(), s=st(rs);
+  var f1=st(RAW.filter(function(r){return r.farm==='F1';}));
+  var f2=st(RAW.filter(function(r){return r.farm==='F2';}));
+  var logs=getLogs();
+  var snaps=getSnapshots();
+  var cfg=getSettings();
+
+  var alarmCount=rs.filter(function(r){return r.alarm;}).length;
+  var warnCount=rs.filter(function(r){return r.warn;}).length;
+  var okCount=rs.filter(function(r){return !r.alarm&&!r.warn;}).length;
+
+  // Feed last 7 days
+  var feedDays=[];
+  for(var i=6;i>=0;i--){
+    var d=new Date(); d.setDate(d.getDate()-i);
+    var ds=d.toISOString().slice(0,10);
+    var kg=logs.filter(function(l){return l.type==='feed'&&l.date===ds;}).reduce(function(s,l){return s+(l.kg||0);},0);
+    feedDays.push({lbl:ds.slice(5),val:kg});
+  }
+  var maxFeed=Math.max.apply(null,feedDays.map(function(x){return x.val;}));
+
+  // Biomass by section top 8
+  var secBio={};
+  rs.forEach(function(r){secBio[r.section]=(secBio[r.section]||0)+r.biomass;});
+  var topSec=Object.keys(secBio).map(function(k){return{lbl:k,val:Math.round(secBio[k])};}).sort(function(a,b){return b.val-a.val;}).slice(0,8);
+  var maxSecBio=topSec.length?topSec[0].val:1;
+
+  // Weight trend from snapshots
+  var wtTrend=[];
+  if(snaps.length){
+    snaps.slice().reverse().forEach(function(s){
+      if(s.data){
+        var avg=s.data.reduce(function(a,r){return a+r.avgWt;},0)/s.data.length;
+        wtTrend.push({date:s.date,val:Math.round(avg)});
+      }
+    });
+    var curAvg=rs.reduce(function(a,r){return a+r.avgWt;},0)/rs.length;
+    wtTrend.push({date:'الآن',val:Math.round(curAvg)});
+  }
+
+  // Mortality last 7 days
+  var mortDays=[];
+  for(var j=6;j>=0;j--){
+    var md=new Date(); md.setDate(md.getDate()-j);
+    var mds=md.toISOString().slice(0,10);
+    var mc=logs.filter(function(l){return l.type==='mortality'&&l.date===mds;}).reduce(function(s,l){return s+(l.count||0);},0);
+    mortDays.push({lbl:mds.slice(5),val:mc});
+  }
+  var maxMort=Math.max.apply(null,mortDays.map(function(x){return x.val;}))||1;
+
+  // Top alarm units
+  var topAlarms=rs.filter(function(r){return r.alarm;}).sort(function(a,b){return b.density-a.density;}).slice(0,5);
+
+  var totalFeed=logs.filter(function(l){return l.type==='feed';}).reduce(function(s,l){return s+(l.kg||0);},0);
+  var totalMort=logs.filter(function(l){return l.type==='mortality';}).reduce(function(s,l){return s+(l.count||0);},0);
+
+  var h='';
+  h+='<div class="ph"><div>';
+  h+='<h2>📊 '+(isAr?'لوحة التحكم':'Dashboard')+'</h2>';
+  h+='<p>'+(cfg.species||'Silver Tilapia')+' · '+(cfg.farmName||'Dar Aqua')+' · '+new Date().toLocaleDateString('ar-BH')+'</p>';
+  h+='</div></div>';
+
+  // ── Row 1: KPI cards ──
+  h+='<div class="kpis" style="margin-bottom:16px">';
+  h+='<div class="kpi"><div class="kpi-lbl">'+(isAr?'إجمالي الأسماك':'Total Fish')+'</div><div class="kpi-val">'+fmtK(s.fish)+'</div><div class="kpi-sub">'+s.total+' '+(isAr?'وحدة':'units')+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-lbl">'+(isAr?'الكتلة الحيوية':'Biomass')+'</div><div class="kpi-val">'+n(s.bio/1000,2)+'<span style="font-size:12px"> طن</span></div><div class="kpi-sub">'+n(s.bio,0)+' كجم</div></div>';
+  h+='<div class="kpi '+(alarmCount?'kalarm':'')+'" ><div class="kpi-lbl">🔴 '+(isAr?'تنبيهات':'Alarms')+'</div><div class="kpi-val">'+alarmCount+'</div><div class="kpi-sub">'+(isAr?'كثافة > '+( cfg.densAlarm||25):'density > '+(cfg.densAlarm||25))+'</div></div>';
+  h+='<div class="kpi '+(warnCount?'kwarn':'')+'" ><div class="kpi-lbl">🟡 '+(isAr?'تحذيرات':'Watch')+'</div><div class="kpi-val">'+warnCount+'</div><div class="kpi-sub">'+(isAr?'كثافة > '+(cfg.densWarn||15):'density > '+(cfg.densWarn||15))+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-lbl">'+(isAr?'متوسط الكثافة':'Avg Density')+'</div><div class="kpi-val">'+n(s.avgD,2)+'</div><div class="kpi-sub">كجم/م³</div></div>';
+  h+='</div>';
+
+  // ── Row 2: Donut + Feed bar + Weight trend ──
+  h+='<div style="display:grid;grid-template-columns:1fr 1.6fr 1.2fr;gap:14px;margin-bottom:14px">';
+
+  // Donut — density distribution
+  h+='<div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center">';
+  h+='<div class="card-title" style="width:100%">📦 '+(isAr?'توزيع الكثافة':'Density Split')+'</div>';
+  h+='<div style="position:relative;margin:8px auto">';
+  h+=donutChart([alarmCount,warnCount,okCount],['#dc2626','#d97706','#16a34a'],144);
+  h+='<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">';
+  h+='<div style="font-size:22px;font-weight:700;color:var(--deep)">'+rs.length+'</div>';
+  h+='<div style="font-size:10px;color:var(--muted)">'+(isAr?'وحدة':'units')+'</div>';
+  h+='</div></div>';
+  h+='<div style="display:flex;gap:10px;font-size:11px;margin-top:4px">';
+  h+='<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc2626;margin-inline-end:3px"></span>'+alarmCount+'</span>';
+  h+='<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;margin-inline-end:3px"></span>'+warnCount+'</span>';
+  h+='<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-inline-end:3px"></span>'+okCount+'</span>';
+  h+='</div></div>';
+
+  // Feed bar chart — last 7 days
+  h+='<div class="card">';
+  h+='<div class="card-title">🌾 '+(isAr?'العلف — آخر 7 أيام':'Feed — Last 7 Days')+'</div>';
+  if(maxFeed>0){
+    h+=barChartSVG(feedDays,maxFeed,340,140,'#067b72');
+    h+='<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:4px">'+(isAr?'إجمالي: ':'Total: ')+n(totalFeed,1)+' كجم</div>';
+  } else {
+    h+='<div style="padding:32px;text-align:center;color:var(--muted);font-size:12px">'+(isAr?'لا توجد سجلات علف بعد':'No feed records yet')+'</div>';
+  }
+  h+='</div>';
+
+  // Weight trend sparkline
+  h+='<div class="card">';
+  h+='<div class="card-title">📈 '+(isAr?'تطور متوسط الوزن':'Avg Weight Trend')+'</div>';
+  if(wtTrend.length>=2){
+    h+=sparkLine(wtTrend.map(function(x){return x.val;}),260,90,'#067b72');
+    h+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px">';
+    h+='<span>'+wtTrend[0].val+'g</span><span style="color:var(--teal);font-weight:700">'+wtTrend[wtTrend.length-1].val+'g</span>';
+    h+='</div>';
+    var gain=wtTrend[wtTrend.length-1].val-wtTrend[0].val;
+    h+='<div style="margin-top:8px;font-size:12px;color:'+(gain>=0?'var(--green)':'var(--red)')+';font-weight:600">'+(gain>=0?'▲':'▼')+' '+Math.abs(gain)+'g '+(isAr?'منذ آخر تحديث':'since last update')+'</div>';
+  } else {
+    h+='<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">'+(isAr?'ارفع تقريرين XLS لرؤية التطور':'Upload 2 XLS reports to see trend')+'</div>';
+  }
+  h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<div style="flex:1;background:var(--paper);border-radius:8px;padding:8px;text-align:center">';
+  h+='<div style="font-size:10px;color:var(--muted)">'+(isAr?'متوسط حالي':'Current Avg')+'</div>';
+  h+='<div style="font-size:16px;font-weight:700;color:var(--deep)">'+n(rs.reduce(function(a,r){return a+r.avgWt;},0)/rs.length,0)+'g</div>';
+  h+='</div>';
+  h+='<div style="flex:1;background:var(--paper);border-radius:8px;padding:8px;text-align:center">';
+  h+='<div style="font-size:10px;color:var(--muted)">'+(isAr?'نفوق مسجّل':'Mortality')+'</div>';
+  h+='<div style="font-size:16px;font-weight:700;color:'+(totalMort>0?'var(--amber)':'var(--green)')+'">'+totalMort+'</div>';
+  h+='</div>';
+  h+='</div></div>';
+  h+='</div>'; // end row2
+
+  // ── Row 3: Biomass bar chart + Alarms ──
+  h+='<div class="grid2" style="margin-bottom:14px">';
+
+  // Biomass by section bar chart
+  h+='<div class="card">';
+  h+='<div class="card-title">⚖️ '+(isAr?'الكتلة الحيوية بالقسم':'Biomass by Section')+'</div>';
+  h+=barChartSVG(topSec,maxSecBio,400,150,null);
+  // color bars by alarm status — add colors
+  h+='<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center">'+(isAr?'إجمالي: ':'Total: ')+n(s.bio/1000,2)+' طن</div>';
+  h+='</div>';
+
+  // Mortality bar + top alarms
+  h+='<div class="card">';
+  h+='<div class="card-title">💀 '+(isAr?'الوفيات — آخر 7 أيام':'Mortality — Last 7 Days')+'</div>';
+  if(totalMort>0){
+    h+=barChartSVG(mortDays,maxMort,320,110,'#dc2626');
+  } else {
+    h+='<div style="padding:16px;text-align:center;color:var(--green);font-weight:600;font-size:13px">✅ '+(isAr?'لا وفيات مسجّلة':'No mortality recorded')+'</div>';
+  }
+  // top alarm units mini list
+  if(topAlarms.length){
+    h+='<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">';
+    h+='<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">🔴 '+(isAr?'أعلى كثافة':'Highest Density')+'</div>';
+    topAlarms.forEach(function(r){
+      var pct=Math.min(r.density/40*100,100);
+      h+='<div style="display:grid;grid-template-columns:80px 1fr 50px;gap:6px;align-items:center;font-size:11px;margin-bottom:5px">';
+      h+='<span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.unit)+'</span>';
+      h+='<div style="height:7px;background:var(--line);border-radius:99px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:#dc2626;border-radius:99px"></div></div>';
+      h+='<span style="text-align:end;color:#dc2626;font-weight:700">'+n(r.density,1)+'</span>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  h+='</div>'; // end row3
+
+  // ── Row 4: Farm comparison (all farms) ──
+  if(farmFilter==='all'){
+    h+='<div class="grid2">';
+    // Farm 1 vs 2 visual
+    h+='<div class="card">';
+    h+='<div class="card-title">🏗️ Farm 1 vs Farm 2</div>';
+    var fItems=[
+      {lbl:'Farm 1',val:Math.round(f1.bio),col:'#067b72'},
+      {lbl:'Farm 2',val:Math.round(f2.bio),col:'#b8e178'}
+    ];
+    var fBars=barChartSVG(fItems,Math.max(f1.bio,f2.bio),300,100);
+    h+=fBars;
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px">';
+    [{lbl:'Farm 1',s:f1},{lbl:'Farm 2',s:f2}].forEach(function(x){
+      h+='<div style="background:var(--paper);border-radius:8px;padding:10px">';
+      h+='<div style="font-weight:700;color:var(--deep);margin-bottom:6px">'+x.lbl+'</div>';
+      h+='<div style="color:var(--muted)">وحدات <b style="color:var(--ink)">'+x.s.total+'</b></div>';
+      h+='<div style="color:var(--muted)">أسماك <b style="color:var(--ink)">'+fmtK(x.s.fish)+'</b></div>';
+      h+='<div style="color:var(--muted)">كتلة <b style="color:var(--ink)">'+n(x.s.bio/1000,2)+'t</b></div>';
+      h+='<div style="color:var(--red)">تنبيه <b>'+x.s.alarms+'</b> <span style="color:var(--amber)">· تحذير <b>'+x.s.warns+'</b></span></div>';
+      h+='</div>';
+    });
+    h+='</div></div>';
+
+    // Water quality latest summary
+    h+='<div class="card">';
+    h+='<div class="card-title">💧 '+(isAr?'جودة الماء — آخر قراءة':'Water Quality — Latest')+'</div>';
+    var wLogs=logs.filter(function(l){return l.type==='water';});
+    if(wLogs.length){
+      var wRecent=wLogs.slice(0,20);
+      var params=[
+        {key:'temp',lbl:'🌡️ Temp',unit:'°C',lo:22,hi:32},
+        {key:'doVal',lbl:'💨 DO',unit:'mg/L',lo:5,hi:20},
+        {key:'ph',lbl:'⚗️ pH',unit:'',lo:6.5,hi:9},
+        {key:'ammonia',lbl:'☣️ NH₃',unit:'mg/L',lo:0,hi:0.1}
+      ];
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+      params.forEach(function(p){
+        var vals=wRecent.filter(function(r){return r[p.key]!==null&&r[p.key]!==undefined;}).map(function(r){return r[p.key];});
+        if(!vals.length){h+='<div style="background:var(--paper);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--muted)">'+p.lbl+'</div><div style="color:var(--muted);font-size:12px">—</div></div>';return;}
+        var avg=vals.reduce(function(a,b){return a+b;},0)/vals.length;
+        var mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals);
+        var good=avg>=p.lo&&avg<=p.hi;
+        var col=good?'var(--green)':'var(--red)';
+        h+='<div style="background:var(--paper);border-radius:8px;padding:10px">';
+        h+='<div style="font-size:11px;color:var(--muted);margin-bottom:4px">'+p.lbl+'</div>';
+        h+='<div style="font-size:18px;font-weight:700;color:'+col+'">'+n(avg,2)+p.unit+'</div>';
+        h+='<div style="font-size:10px;color:var(--muted)">↓'+n(mn,1)+' ↑'+n(mx,1)+'</div>';
+        h+='</div>';
+      });
+      h+='</div>';
+    } else {
+      h+='<div style="padding:32px;text-align:center;color:var(--muted);font-size:12px">';
+      h+=(isAr?'سجّل قراءات الماء من الشيت اليومي':'Log water readings from Daily Sheet');
+      h+='</div>';
+    }
+    h+='</div>';
+    h+='</div>'; // end row4
+  }
+
+  return h;
+}
+
+function renderAlarms(){
+  var cfg=getSettings();
+  var dAlarm=cfg.densAlarm||25, dWarn=cfg.densWarn||15;
+  var cAlarm=cfg.cntAlarm||120, cWarn=cfg.cntWarn||80;
+  var allRs=rows();
+
+  // Compute count density for each unit
+  function cntDens(r){
+    var vol=r.volume||(r.biomass&&r.density?Math.round(r.biomass/r.density*10)/10:0);
+    return vol>0?Math.round(r.fishNo/vol):0;
+  }
+
+  // Filter: weight alarm OR count alarm/warn
+  var rs=allRs.filter(function(r){
+    return r.alarm||r.warn||cntDens(r)>=cWarn;
+  }).sort(function(a,b){ return b.density-a.density; });
+
+  var wAlarms=rs.filter(function(r){return r.alarm;}).length;
+  var wWarns=rs.filter(function(r){return r.warn&&!r.alarm;}).length;
+  var cAlarms=rs.filter(function(r){return cntDens(r)>=cAlarm;}).length;
+  var cWarns=rs.filter(function(r){return cntDens(r)>=cWarn&&cntDens(r)<cAlarm;}).length;
+
+  var h='<div class="ph"><div>';
+  h+='<h2>🚨 '+(isAr?'تنبيهات الكثافة':'Density Alarms')+'</h2>';
+  h+='<p>'+rs.length+' '+(isAr?'وحدة تحتاج متابعة':'units need attention')+'</p></div>';
+  h+='<button class="ibtn" style="font-size:12px" onclick="settingsTab=\'alerts\';show(\'settings\')">⚙️ '+(isAr?'تعديل الحدود':'Edit Limits')+'</button></div>';
+
+  // Summary chips
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+  h+='<div style="background:#fee2e2;border-radius:8px;padding:8px 14px;font-size:12px">';
+  h+='<span style="font-weight:700;color:#dc2626">🔴 '+wAlarms+'</span> <span style="color:#991b1b">'+(isAr?'كثافة وزن خطر (>'+dAlarm+' كجم/م³)':'Weight alarm (>'+dAlarm+' kg/m³)')+'</span></div>';
+  h+='<div style="background:#fef9c3;border-radius:8px;padding:8px 14px;font-size:12px">';
+  h+='<span style="font-weight:700;color:#d97706">🟡 '+wWarns+'</span> <span style="color:#92400e">'+(isAr?'تحذير وزن (>'+dWarn+' كجم/م³)':'Weight warn (>'+dWarn+' kg/m³)')+'</span></div>';
+  h+='<div style="background:#fce7f3;border-radius:8px;padding:8px 14px;font-size:12px">';
+  h+='<span style="font-weight:700;color:#be185d">🐟 '+cAlarms+'</span> <span style="color:#9d174d">'+(isAr?'كثافة عدد خطر (>'+cAlarm+' سمكة/م³)':'Count alarm (>'+cAlarm+' fish/m³)')+'</span></div>';
+  h+='<div style="background:#ede9fe;border-radius:8px;padding:8px 14px;font-size:12px">';
+  h+='<span style="font-weight:700;color:#7c3aed">🐠 '+cWarns+'</span> <span style="color:#5b21b6">'+(isAr?'تحذير عدد (>'+cWarn+' سمكة/م³)':'Count warn (>'+cWarn+' fish/m³)')+'</span></div>';
+  h+='</div>';
+
+  h+='<div style="display:flex;flex-direction:column;gap:8px">';
+  rs.forEach(function(r){
+    var cd=cntDens(r);
+    var wCol=r.alarm?'var(--red)':r.warn?'var(--amber)':'var(--muted)';
+    var cCol=cd>=cAlarm?'#be185d':cd>=cWarn?'#7c3aed':'var(--muted)';
+    var bg=r.alarm?'#fff8f8':r.warn?'#fffdf0':'#fdf4ff';
+    var border=r.alarm?'#fca5a5':r.warn?'#fcd34d':'#e9d5ff';
+
+    h+='<div style="background:'+bg+';border:1.5px solid '+border+';border-radius:12px;padding:13px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap" onclick="showProfile(\''+encodeURIComponent(r.unit)+'\')" style="cursor:pointer">';
+    // Left: name
+    h+='<div style="min-width:100px;flex-shrink:0">';
+    h+='<div style="font-weight:700;font-size:14px;color:var(--deep)">'+esc(r.unit)+'</div>';
+    h+='<div style="font-size:11px;color:var(--muted)">'+r.section+' · '+r.startDate+'</div></div>';
+
+    // Weight density
+    h+='<div style="text-align:center;padding:6px 12px;background:rgba(0,0,0,.04);border-radius:8px">';
+    h+='<div style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase">'+(isAr?'كثافة وزن':'Weight Density')+'</div>';
+    h+='<div style="font-weight:700;font-size:18px;color:'+wCol+'">'+n(r.density,1)+'</div>';
+    h+='<div style="font-size:9px;color:var(--muted)">كجم/م³</div></div>';
+
+    // Count density
+    if(cd>0){
+      h+='<div style="text-align:center;padding:6px 12px;background:rgba(0,0,0,.04);border-radius:8px">';
+      h+='<div style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase">'+(isAr?'كثافة عدد':'Count Density')+'</div>';
+      h+='<div style="font-weight:700;font-size:18px;color:'+cCol+'">'+cd+'</div>';
+      h+='<div style="font-size:9px;color:var(--muted)">سمكة/م³</div></div>';
+    }
+
+    // Other stats
+    h+='<div style="text-align:center"><div style="font-size:9px;color:var(--muted)">'+(isAr?'العدد':'Fish')+'</div><div style="font-weight:600;font-size:13px">'+n(r.fishNo,0)+'</div></div>';
+    h+='<div style="text-align:center"><div style="font-size:9px;color:var(--muted)">'+(isAr?'الوزن':'Wt g')+'</div><div style="font-weight:600;font-size:13px">'+n(r.avgWt,0)+'g</div></div>';
+    h+='<div style="text-align:center"><div style="font-size:9px;color:var(--muted)">'+(isAr?'الكتلة':'Bio')+'</div><div style="font-weight:600;font-size:13px">'+n(r.biomass,1)+' kg</div></div>';
+    h+='<div style="margin-inline-start:auto">'+pill(r)+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+function renderUnits(){
+  var rs=rows();
+  var h='<div class="ph"><div><h2>📋 '+(isAr?'جميع الوحدات':'All Units')+'</h2><p>'+rs.length+' '+(isAr?'وحدة نشطة':'active units')+'</p></div></div>';
+  h+='<div class="filters">';
+  h+='<input type="text" placeholder="'+(isAr?'بحث...':'Search...')+'" oninput="filterU(this.value,document.getElementById(\'sf\').value)" style="min-width:150px"/>';
+  h+='<select id="sf" onchange="filterU(document.querySelector(\'.filters input\').value,this.value)">';
+  h+='<option value="">'+(isAr?'كل الحالات':'All Status')+'</option>';
+  h+='<option value="alarm">'+(isAr?'تنبيه':'Alarm')+'</option>';
+  h+='<option value="warn">'+(isAr?'تحذير':'Watch')+'</option>';
+  h+='<option value="ok">'+(isAr?'طبيعي':'OK')+'</option>';
+  h+='</select></div>';
+  h+='<div class="card" style="padding:0"><div class="tbl-scroll"><table>';
+  h+='<thead><tr>';
+  h+='<th>'+(isAr?'الوحدة':'Unit')+'</th><th>'+(isAr?'القسم':'Section')+'</th>';
+  h+='<th>'+(isAr?'العدد':'Fish')+'</th><th>'+(isAr?'وزن بداية':'Start g')+'</th>';
+  h+='<th>'+(isAr?'متوسط وزن':'Avg g')+'</th><th>'+(isAr?'كتلة كجم':'Bio kg')+'</th>';
+  h+='<th>'+(isAr?'الكثافة':'Density')+'</th><th>'+(isAr?'تاريخ البداية':'Start Date')+'</th>';
+  h+='<th>'+(isAr?'الحالة':'Status')+'</th><th></th></tr></thead>';
+  h+='<tbody id="utb">'+urows(rs)+'</tbody>';
+  var totFish=rs.reduce(function(s,r){return s+r.fishNo;},0);
+  var totBio=rs.reduce(function(s,r){return s+r.biomass;},0);
+  h+='<tfoot><tr class="sum-row"><td colspan="2">'+(isAr?'الإجمالي':'Total')+'</td>';
+  h+='<td>'+n(totFish,0)+'</td><td>—</td><td>—</td><td>'+n(totBio,1)+'</td><td colspan="3"></td></tr></tfoot>';
+  h+='</table></div></div>';
+  return h;
+}
+
+function urows(rs){
+  var h='';
+  rs.forEach(function(r){
+    var uid=encodeURIComponent(r.unit);
+    h+='<tr style="cursor:pointer" onclick="showProfile(\''+uid+'\')">';
+    h+='<td><b style="color:var(--teal)">'+esc(r.unit)+'</b></td><td>'+r.section+'</td>';
+    h+='<td>'+n(r.fishNo,0)+'</td><td>'+n(r.startWt,0)+'</td>';
+    h+='<td><b>'+n(r.avgWt,0)+'</b></td><td>'+n(r.biomass,1)+'</td>';
+    h+='<td>'+dbar(r.density)+'</td><td>'+r.startDate+'</td>';
+    h+='<td>'+pill(r)+'</td>';
+    h+='<td><button class="ibtn" style="font-size:11px;padding:4px 8px" onclick="event.stopPropagation();showProfile(\''+uid+'\')">👁 '+(isAr?'بروفايل':'Profile')+'</button></td>';
+    h+='</tr>';
+  });
+  return h;
+}
+
+function filterU(s,status){
+  s=s.toLowerCase();
+  var rs=rows().filter(function(r){
+    var ms=!s||r.unit.toLowerCase().indexOf(s)>=0||r.section.toLowerCase().indexOf(s)>=0;
+    var mt=!status||(status==='alarm'&&r.alarm)||(status==='warn'&&r.warn)||(status==='ok'&&!r.alarm&&!r.warn);
+    return ms&&mt;
+  });
+  var el=document.getElementById('utb');
+  if(el) el.innerHTML=urows(rs);
+}
+
+function renderSections(){
+  var rs=rows(), secMap={};
+  rs.forEach(function(r){
+    if(!secMap[r.section]) secMap[r.section]={sec:r.section,farm:r.farm,cnt:0,fish:0,bio:0,alarms:0,warns:0,wtSum:0};
+    var s=secMap[r.section];
+    s.cnt++;s.fish+=r.fishNo;s.bio+=r.biomass;s.wtSum+=r.avgWt;
+    if(r.alarm)s.alarms++;if(r.warn)s.warns++;
+  });
+  var secs=Object.values(secMap).sort(function(a,b){return b.bio-a.bio;});
+  var h='<div class="ph"><div><h2>🏗️ '+(isAr?'الأقسام':'Sections')+'</h2><p>'+secs.length+' '+(isAr?'قسم':'sections')+'</p></div></div>';
+  h+='<div class="sec-grid">';
+  secs.forEach(function(s){
+    h+='<div class="sec-card">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:start">';
+    h+='<div style="font-weight:700;font-size:13px;color:var(--deep)">'+s.sec+'</div>';
+    h+='<div>';
+    if(s.alarms) h+='<span class="pill pill-alarm" style="padding:1px 6px;font-size:10px">🔴 '+s.alarms+'</span> ';
+    if(s.warns)  h+='<span class="pill pill-warn"  style="padding:1px 6px;font-size:10px">🟡 '+s.warns+'</span>';
+    h+='</div></div>';
+    h+='<div style="font-size:11px;color:var(--muted);margin-top:3px">Farm '+s.farm+' · '+s.cnt+' '+(isAr?'وحدة':'units')+'</div>';
+    h+='<div style="display:flex;gap:12px;margin-top:8px;font-size:11px">';
+    h+='<div><span style="color:var(--muted)">'+(isAr?'أسماك':'Fish')+'</span><div style="font-weight:700;font-size:13px">'+fmtK(s.fish)+'</div></div>';
+    h+='<div><span style="color:var(--muted)">'+(isAr?'كتلة':'Bio')+'</span><div style="font-weight:700;font-size:13px">'+n(s.bio,0)+'</div></div>';
+    h+='<div><span style="color:var(--muted)">'+(isAr?'وزن':'Wt')+'</span><div style="font-weight:700;font-size:13px">'+n(s.wtSum/s.cnt,0)+'g</div></div>';
+    h+='</div></div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+function renderDensity(){
+  var rs=rows().sort(function(a,b){return b.density-a.density;});
+  var maxD=rs.length?rs[0].density:35;
+  var h='<div class="ph"><div><h2>📦 '+(isAr?'تحليل الكثافة':'Density Analysis')+'</h2>';
+  h+='<p>'+(isAr?'مرتبة تنازلياً · الحد الأقصى الموصى 25 كجم/م³':'Sorted desc · Recommended max 25 kg/m³')+'</p></div></div>';
+  h+='<div class="card" style="padding:0"><div class="tbl-scroll"><table>';
+  h+='<thead><tr><th>'+(isAr?'الوحدة':'Unit')+'</th><th>'+(isAr?'الكثافة':'Density')+'</th><th>Bar</th>';
+  h+='<th>'+(isAr?'الحالة':'Status')+'</th><th>'+(isAr?'الكتلة':'Biomass')+'</th><th>'+(isAr?'العدد':'Fish')+'</th><th>'+(isAr?'الوزن':'Wt g')+'</th></tr></thead><tbody>';
+  rs.forEach(function(r){
+    var pct=Math.min(r.density/maxD*100,100);
+    var col=r.alarm?'var(--red)':r.warn?'var(--amber)':'var(--green)';
+    h+='<tr><td><b>'+esc(r.unit)+'</b></td>';
+    h+='<td><b style="color:'+col+';font-size:14px">'+n(r.density,2)+'</b></td>';
+    h+='<td><div class="bar-outer" style="width:110px;display:inline-block;vertical-align:middle"><div class="bar-inner" style="width:'+n(pct,1)+'%;background:'+col+'"></div></div></td>';
+    h+='<td>'+pill(r)+'</td><td>'+n(r.biomass,1)+'</td><td>'+n(r.fishNo,0)+'</td><td>'+n(r.avgWt,0)+'</td></tr>';
+  });
+  h+='</tbody></table></div></div>';
+  return h;
+}
+
+function renderBiomass(){
+  var rs=rows();
+  var byFarm={};
+  rs.forEach(function(r){byFarm[r.farm]=(byFarm[r.farm]||0)+r.biomass;});
+  var total=rs.reduce(function(s,r){return s+r.biomass;},0);
+  var top15=rs.slice().sort(function(a,b){return b.biomass-a.biomass;}).slice(0,15);
+  var maxB=top15.length?top15[0].biomass:1;
+  var h='<div class="ph"><div><h2>⚖️ '+(isAr?'الكتلة الحيوية':'Biomass Overview')+'</h2></div></div>';
+  h+='<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">';
+  h+='<div class="kpi"><div class="kpi-lbl">'+(isAr?'إجمالي الكتلة':'Total Biomass')+'</div><div class="kpi-val">'+n(total/1000,2)+' <span style="font-size:13px">'+(isAr?'طن':'t')+'</span></div><div class="kpi-sub">'+n(total,0)+' كجم</div></div>';
+  Object.keys(byFarm).forEach(function(f){
+    var b=byFarm[f];
+    h+='<div class="kpi"><div class="kpi-lbl">Farm '+f+'</div><div class="kpi-val">'+n(b/1000,2)+' <span style="font-size:13px">'+(isAr?'طن':'t')+'</span></div><div class="kpi-sub">'+n(b/total*100,1)+'% '+(isAr?'من الإجمالي':'of total')+'</div></div>';
+  });
+  h+='</div>';
+  h+='<div class="card"><div class="card-title">'+(isAr?'أعلى 15 وحدة بيوماساً':'Top 15 Units by Biomass')+'</div>';
+  h+='<div style="display:flex;flex-direction:column;gap:9px">';
+  top15.forEach(function(r){
+    var pct=Math.round(r.biomass/maxB*100);
+    h+='<div style="display:grid;grid-template-columns:100px 1fr 90px;gap:10px;align-items:center;font-size:12px">';
+    h+='<b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.unit)+'</b>';
+    h+='<div class="bar-outer"><div class="bar-inner" style="width:'+pct+'%;background:linear-gradient(90deg,var(--teal),var(--lime))"></div></div>';
+    h+='<span style="text-align:end;font-weight:700">'+n(r.biomass,0)+' <span style="font-weight:400;color:var(--muted)">كجم</span></span></div>';
+  });
+  h+='</div></div>';
+  return h;
+}
+
+// ── Logs storage ──────────────────────────────
+// ── Supabase Auth ─────────────────────────────
+var currentUser = null;
+var currentUserRole = null; // 'admin' | 'worker' | 'viewer'
+var authTab = 'login';
+
+function switchAuthTab(t){
+  authTab = t;
+  var loginTab = document.getElementById('atab-login');
+  var regTab   = document.getElementById('atab-register');
+  if(loginTab) loginTab.classList.toggle('on', t==='login');
+  if(regTab)   regTab.classList.toggle('on',   t==='register');
+  var nameWrap = document.getElementById('auth-name-wrap');
+  var roleWrap = document.getElementById('auth-role-wrap');
+  var btn      = document.getElementById('auth-btn');
+  if(nameWrap) nameWrap.style.display = t==='register'?'':'none';
+  if(roleWrap) roleWrap.style.display = t==='register'?'':'none';
+  if(btn) btn.textContent = t==='login'?'🔑 دخول':'📝 تسجيل مستخدم جديد';
+  // Only admin can register
+  if(t==='register'&&currentUser&&currentUserRole!=='admin'){
+    toast('⚠️ المدير فقط يضيف مستخدمين');
+    switchAuthTab('login'); return;
+  };
+  document.getElementById('auth-btn').textContent = t==='login'?'دخول':'إنشاء حساب';
+  document.getElementById('name-field').style.display = t==='register'?'block':'none';
+  setAuthMsg('','');
+}
+
+function setAuthMsg(msg, type){
+  var el=document.getElementById('auth-msg');
+  el.textContent=msg; el.className='auth-msg'+(type?' '+type:'');
+}
+
+// Get the sample capability (cached)
+var _sampleCapability = null;
+async function getAISample(){
+  if(_sampleCapability) return _sampleCapability;
+  try{
+    if(typeof claude !== 'undefined' && claude && claude.use){
+      _sampleCapability = await claude.use('sample');
+      return _sampleCapability;
+    }
+  }catch(e){ console.warn('sample capability:', e.message); }
+  return null;
+}
+
+async async function sbAuth(path, body){
+  // Direct Supabase auth REST call (works on Netlify)
+  var resp = await fetch(SB_URL+'/auth/v1/'+path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SB_KEY
+    },
+    body: JSON.stringify(body)
+  });
+  var data = await resp.json();
+  if(!resp.ok) throw new Error(data.error_description || data.msg || 'Auth error '+resp.status);
+  return data;
+}
+
+DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Dar Aqua — Farm Manager Demo</title>
+<style>
+:root{
+  --teal:#067b72;--deep:#062f35;--lime:#b8e178;--paper:#f0f5f3;
+  --white:#fff;--ink:#153238;--muted:#6b8a87;--line:#dce8e4;
+  --red:#dc2626;--amber:#d97706;--green:#16a34a;
+  --shadow:0 4px 20px #06303511;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.5 'Segoe UI','IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--paper);color:var(--ink)}
+.top{height:56px;background:var(--deep);display:flex;align-items:center;justify-content:space-between;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50}
+.brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:15px}
+.logo{width:32px;height:32px;border-radius:8px;background:var(--lime);color:var(--deep);display:grid;place-items:center;font-size:18px;font-weight:900}
+.top-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:5px 11px;font:inherit;font-size:12px;cursor:pointer}
+.chip:hover{background:rgba(255,255,255,.2)}
+.chip.active{background:var(--lime);color:var(--deep);border-color:var(--lime);font-weight:700}
+.shell{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 56px)}
+.sidebar{background:var(--white);border-inline-end:1px solid var(--line);padding:14px 8px;display:flex;flex-direction:column;gap:2px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto}
+.sg{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted);padding:10px 10px 4px;text-transform:uppercase}
+.nb{display:flex;align-items:center;gap:8px;width:100%;text-align:start;border:0;border-radius:7px;padding:8px 10px;background:transparent;color:var(--muted);font:inherit;font-size:13px;cursor:pointer;border-inline-start:3px solid transparent}
+.nb:hover{background:var(--paper);color:var(--ink)}
+.nb.on{background:#eef7f3;color:var(--teal);border-inline-start-color:var(--teal);font-weight:600}
+.content{padding:20px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:15px 16px;box-shadow:var(--shadow)}
+.kpi-lbl{font-size:11px;color:var(--muted);font-weight:600}
+.kpi-val{font-size:24px;font-weight:700;color:var(--deep);margin:6px 0 2px;line-height:1}
+.kpi-sub{font-size:11px;color:var(--muted)}
+.kpi.kalarm .kpi-val{color:var(--red)}
+.kpi.kwarn .kpi-val{color:var(--amber)}
+.kpi.kok .kpi-val{color:var(--green)}
+.card{background:var(--white);border:1px solid var(--line);border-radius:13px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;color:var(--deep);margin-bottom:14px;display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tbl-wrap{overflow-x:auto;border-radius:9px;border:1px solid var(--line)}
+.tbl-scroll{max-height:480px;overflow-y:auto;border-radius:9px;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th{background:#edf4f1;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;white-space:nowrap;text-align:start;position:sticky;top:0;z-index:2}
+td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:#f5faf8}
+.sum-row td{background:#edf4f1;font-weight:700;border-top:2px solid var(--teal)}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.pill-alarm{background:#fee2e2;color:#991b1b}
+.pill-warn{background:#fef3c7;color:#92400e}
+.pill-ok{background:#dcfce7;color:#166534}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.filters input,.filters select{border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:inherit;font-size:12px;background:var(--white);color:var(--ink);outline:none}
+.filters input:focus,.filters select:focus{border-color:var(--teal)}
+.alarm-list{display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto}
+.alarm-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--white)}
+.alarm-row.is-alarm{border-color:#fca5a5;background:#fff8f8}
+.alarm-row.is-warn{border-color:#fcd34d;background:#fffdf0}
+.alarm-unit{font-weight:700;font-size:13px}
+.alarm-detail{font-size:11px;color:var(--muted);margin-top:2px}
+.sec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.sec-card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.ph h2{font-size:20px;font-weight:700;color:var(--deep)}
+.ph p{font-size:12px;color:var(--muted);margin-top:2px}
+.bar-outer{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar-inner{height:100%;border-radius:99px}
+/* daily log */
+.tabs{display:flex;border-bottom:2px solid var(--line);margin-bottom:18px;gap:0}
+.tab{border:0;background:transparent;font:inherit;font-size:13px;color:var(--muted);padding:10px 18px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-weight:500;transition:.12s}
+.tab.on{color:var(--teal);border-bottom-color:var(--teal);font-weight:700}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font:inherit;font-size:14px;background:var(--white);color:var(--ink);outline:none;transition:.12s;-webkit-appearance:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px #067b7218}
+.field textarea{resize:vertical;min-height:70px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.savebtn{width:100%;padding:14px;background:var(--teal);color:#fff;border:0;border-radius:10px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;letter-spacing:.02em}
+.savebtn:hover{background:#05685f}
+.savebtn:active{transform:scale(.98)}
+.wq-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.wq-ok{background:#dcfce7;color:#15803d}
+.wq-warn{background:#fef3c7;color:#a16207}
+.wq-bad{background:#fee2e2;color:#dc2626}
+.log-card{background:var(--white);border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-bottom:10px;box-shadow:var(--shadow)}
+.log-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.log-unit{font-weight:700;font-size:14px;color:var(--deep)}
+.log-date{font-size:11px;color:var(--muted)}
+.log-vals{display:flex;gap:16px;flex-wrap:wrap;font-size:12px}
+.log-vals span{color:var(--muted)}
+.log-vals strong{color:var(--ink)}
+.del-btn{border:0;background:#fee2e2;color:#dc2626;border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;font-weight:600}
+.toast-msg{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--deep);color:#fff;padding:11px 22px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:.2s;pointer-events:none;white-space:nowrap}
+.toast-msg.show{opacity:1}
+/* ── Mobile nav bar ── */
+.mob-nav{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  background:var(--white);border-top:1px solid var(--line);
+  z-index:80;
+  padding:0 0 env(safe-area-inset-bottom,0);
+  box-shadow:0 -4px 20px #0000000d;
+}
+.mob-nav-inner{display:flex;width:100%}
+.mob-nav button{
+  flex:1;border:0;background:transparent;font:inherit;
+  font-size:9px;color:var(--muted);
+  padding:10px 2px 9px;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
+  font-weight:500;min-width:0;transition:.12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.mob-nav button .mi{font-size:22px;line-height:1.1}
+.mob-nav button.on{color:var(--teal);font-weight:700}
+.mob-nav button.on .mi{transform:scale(1.1)}
+/* Mobile top — hide farm chips, show menu */
+.mob-top-title{display:none;font-size:14px;font-weight:700;color:#fff}
+/* More menu drawer */
+.drawer{display:none;position:fixed;inset:0;z-index:200;background:#0007}
+.drawer.open{display:block}
+.drawer-panel{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0));max-height:70vh;overflow-y:auto;transform:translateY(100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.drawer.open .drawer-panel{transform:translateY(0)}
+.drawer-handle{width:40px;height:4px;background:var(--line);border-radius:99px;margin:0 auto 16px}
+.drawer-item{display:flex;align-items:center;gap:12px;padding:13px 12px;border-radius:10px;font-size:14px;color:var(--ink);cursor:pointer;border:0;background:transparent;width:100%;text-align:start;font:inherit}
+.drawer-item:hover,.drawer-item.on{background:var(--paper);color:var(--teal);font-weight:600}
+.drawer-sg{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted);padding:12px 12px 4px;text-transform:uppercase}
+/* Responsive breakpoints */
+@media(max-width:800px){
+  .shell{grid-template-columns:1fr;min-height:calc(100vh - 56px)}
+  .sidebar{display:none}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:10px}
+  .grid2{grid-template-columns:1fr}
+  .fg3{grid-template-columns:1fr 1fr}
+  .mob-nav{display:block}
+  .content{padding:14px 14px calc(74px + env(safe-area-inset-bottom,0))}
+  .top{padding:0 14px}
+  .top-right .chip:not(#lang-btn){display:none}
+  .mob-top-title{display:block}
+  .brand span{display:none}
+  .ph h2{font-size:17px}
+  .card{padding:14px}
+  table{font-size:11px}
+  td,th{padding:7px 8px}
+  .alarm-row{flex-wrap:wrap;gap:8px}
+  .sec-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .sec-card{padding:10px 11px}
+  .kpi-val{font-size:20px}
+  .tabs{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .tab{padding:10px 14px;font-size:12px}
+  .fg2{grid-template-columns:1fr}
+  .drop-zone{padding:28px 16px}
+  .filters{gap:6px}
+  .filters input{min-width:0;flex:1}
+}
+@media(max-width:400px){
+  .kpis{grid-template-columns:1fr 1fr;gap:8px}
+  .kpi{padding:12px}
+  .kpi-val{font-size:18px}
+}
+/* upload styles */
+.drop-zone{border:2.5px dashed var(--line);border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;transition:.15s;background:var(--white)}
+.drop-zone:hover,.drop-zone.over{border-color:var(--teal);background:#f0faf7}
+.drop-icon{font-size:44px;margin-bottom:10px}
+.drop-title{font-size:16px;font-weight:700;color:var(--deep);margin-bottom:5px}
+.drop-sub{font-size:12px;color:var(--muted)}
+.diff-table{border-collapse:collapse;width:100%;font-size:12px}
+.diff-table th{background:#edf4f1;padding:8px 10px;text-align:start;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.diff-table td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.diff-up{color:var(--green);font-weight:700}
+.diff-down{color:var(--red);font-weight:700}
+.diff-same{color:var(--muted)}
+.step-badge{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--teal);color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
+.step-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.step-body{flex:1}
+.step-title{font-weight:700;font-size:14px;color:var(--deep);margin-bottom:3px}
+.step-desc{font-size:12px;color:var(--muted);line-height:1.6}
+/* ── Sheet inputs fix ── */
+.sh-inp{
+  border:2px solid var(--line) !important;
+  border-radius:7px;
+  font:inherit;
+  font-size:13px;
+  text-align:center;
+  background:#fff !important;
+  color:var(--ink) !important;
+  padding:6px 8px;
+  transition:border-color .15s;
+}
+.sh-inp:focus{
+  border-color:var(--teal) !important;
+  outline:none;
+  box-shadow:0 0 0 3px rgba(6,123,114,.12);
+}
+.sh-inp::placeholder{ color:#9db5b2 !important; }
+.sh-inp-text{
+  border:2px solid var(--line) !important;
+  border-radius:7px;
+  font:inherit;
+  font-size:12px;
+  background:#fff !important;
+  color:var(--ink) !important;
+  padding:6px 8px;
+  transition:border-color .15s;
+}
+.sh-inp-text:focus{ border-color:var(--teal) !important; outline:none; }
+.sh-inp-text::placeholder{ color:#9db5b2 !important; }
+/* Date bar */
+.date-bar{
+  display:flex;align-items:center;gap:8px;
+  background:var(--white);border:1.5px solid var(--line);
+  border-radius:10px;padding:7px 14px;
+  box-shadow:0 1px 4px #0000000a;
+}
+.date-bar input[type=date]{
+  border:0;font:inherit;font-size:15px;font-weight:700;
+  color:var(--deep);background:transparent;outline:none;cursor:pointer;
+}
+.date-chip{
+  background:var(--paper);border:1.5px solid var(--line);
+  border-radius:7px;padding:5px 12px;font:inherit;font-size:12px;
+  font-weight:600;color:var(--ink);cursor:pointer;
+  transition:.12s;white-space:nowrap;
+}
+.date-chip:hover{border-color:var(--teal);color:var(--teal);}
+.date-chip.today{background:var(--teal);color:#fff;border-color:var(--teal);}
+/* auth screen */
+.auth-screen{display:none;position:fixed;inset:0;background:var(--deep);z-index:500;align-items:center;justify-content:center;padding:20px}
+.auth-screen.open{display:flex}
+.auth-box{background:var(--white);border-radius:20px;padding:32px;max-width:420px;width:100%;box-shadow:0 24px 80px #0005}
+.auth-logo{width:56px;height:56px;border-radius:14px;background:var(--lime);color:var(--deep);display:grid;place-items:center;font-size:28px;font-weight:900;margin:0 auto 16px}
+.auth-title{text-align:center;font-size:22px;font-weight:700;color:var(--deep);margin-bottom:4px}
+.auth-sub{text-align:center;font-size:13px;color:var(--muted);margin-bottom:24px}
+.auth-tabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:20px}
+.auth-tab{flex:1;border:0;background:transparent;font:inherit;font-size:13px;color:var(--muted);padding:10px;cursor:pointer;font-weight:500;transition:.12s}
+.auth-tab.on{background:var(--teal);color:#fff;font-weight:700}
+.auth-msg{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:12px;display:none}
+.auth-msg.error{background:#fee2e2;color:#991b1b;display:block}
+.auth-msg.success{background:#dcfce7;color:#166534;display:block}
+.auth-msg.info{background:#f0f9ff;color:#0c4a6e;display:block}
+.user-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 10px;font-size:12px;color:#fff}
+/* wizard */
+.wiz-steps{display:flex;gap:0;margin-bottom:24px;background:var(--white);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.wiz-step{flex:1;text-align:center;padding:12px 6px;font-size:11px;color:var(--muted);font-weight:600;border-inline-end:1px solid var(--line);cursor:pointer;transition:.12s;position:relative}
+.wiz-step:last-child{border-inline-end:0}
+.wiz-step.done{background:#eef7f3;color:var(--teal)}
+.wiz-step.active{background:var(--teal);color:#fff}
+.wiz-step .ws-num{display:block;font-size:18px;margin-bottom:3px}
+.unit-card{background:var(--white);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px}
+.unit-card-info{flex:1;min-width:0}
+.unit-card-name{font-weight:700;font-size:14px;color:var(--deep)}
+.unit-card-meta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.6}
+.unit-card-actions{display:flex;gap:6px;flex-shrink:0}
+.ibtn{border:1px solid var(--line);border-radius:7px;padding:6px 10px;background:var(--white);color:var(--ink);font:inherit;font-size:12px;cursor:pointer;font-weight:500}
+.ibtn:hover{border-color:var(--teal);color:var(--teal)}
+.ibtn.danger{color:var(--red);border-color:#fca5a5;background:#fff8f8}
+.ibtn.danger:hover{background:#fee2e2}
+.modal-overlay{display:none;position:fixed;inset:0;background:#0007;z-index:300;padding:20px;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--white);border-radius:16px;padding:22px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px #0003}
+.modal-box h3{font-size:17px;font-weight:700;color:var(--deep);margin-bottom:16px}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand" onclick="goHome()">
+    <div class="logo">🐟</div>
+    <span>Dar Aqua — Farm Manager</span>
+    <span id="sb-status" style="font-size:11px;font-weight:600;opacity:.8;margin-inline-start:2px">⏳</span>
+  </div>
+  <div class="top-right">
     <button id="back-btn" onclick="goBack()" style="display:none;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 12px;color:#fff;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap">
       <span style="font-size:15px">←</span>
       <span id="back-lbl"></span>
@@ -1376,6 +2520,313 @@ function takeSnapshot(){
 }
 function _generateAlerts(){ return generateAlerts(); }
 // ──────────────────────────────────────────────────────────────
+
+
+// ── User Roles ────────────────────────────────────────────
+var USER_ROLES = {
+  admin:  {label:'مدير',   canEdit:true,  canView:true,  canSettings:true},
+  worker: {label:'عامل',   canEdit:true,  canView:false, canSettings:false},
+  viewer: {label:'مشاهد',  canEdit:false, canView:true,  canSettings:false},
+};
+
+function getUserRole(){ return currentUserRole || 'admin'; }
+function canEdit(){ return !currentUser || getUserRole()==='admin' || getUserRole()==='worker'; }
+function canSettings(){ return !currentUser || getUserRole()==='admin'; }
+
+// Store users locally (for offline + role management)
+var USERS_KEY = 'daracqua_users_v1';
+function getLocalUsers(){
+  try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'[]'); }catch(e){ return []; }
+}
+function saveLocalUsers(arr){ try{ localStorage.setItem(USERS_KEY,JSON.stringify(arr)); }catch(e){} }
+
+// ── Login ──────────────────────────────────────────────────
+function showDashboard(){ show("dashboard"); }
+function doAuthAction(){ if(authTab==='login') doLogin(); else doRegister(); }
+async function doLogin(){
+  var email = (document.getElementById('auth-email')||{}).value||'';
+  var pass  = (document.getElementById('auth-pass')||{}).value||'';
+  if(!email||!pass){ toast('⚠️ ادخل الإيميل وكلمة السر'); return; }
+
+  var btn = document.getElementById('auth-btn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ جاري الدخول...'; }
+
+  try{
+    var data = await sbAuth('token?grant_type=password', {email:email, password:pass});
+    currentUser = data.user || {id:email, email:email};
+
+    // Get role from local users list
+    var locals = getLocalUsers();
+    var localUser = locals.find(function(u){ return u.email===email; });
+    currentUserRole = localUser ? localUser.role : 'admin';
+
+    // Save session
+    try{ localStorage.setItem('daracqua_session_v1', JSON.stringify({
+      access_token: data.access_token,
+      user: currentUser,
+      role: currentUserRole,
+      exp: Date.now() + 86400000
+    })); }catch(e){}
+
+    SB_TOKEN = data.access_token;
+    updateUserUI();
+    show('dashboard');
+    toast('✅ أهلاً '+( currentUser.email||'')+'!');
+  }catch(err){
+    toast('❌ '+err.message);
+    if(btn){ btn.disabled=false; btn.textContent='🔑 دخول'; }
+  }
+}
+
+// ── Register ───────────────────────────────────────────────
+async function doRegister(){
+  var email = (document.getElementById('auth-email')||{}).value||'';
+  var pass  = (document.getElementById('auth-pass')||{}).value||'';
+  var name  = (document.getElementById('auth-name')||{}).value||'';
+  var role  = (document.getElementById('auth-role')||{}).value||'worker';
+  if(!email||!pass){ toast('⚠️ ادخل الإيميل وكلمة السر'); return; }
+  if(pass.length < 6){ toast('⚠️ كلمة السر على الأقل 6 أحرف'); return; }
+  if(getUserRole()!=='admin' && currentUser){ toast('⚠️ المدير فقط يضيف مستخدمين'); return; }
+
+  var btn = document.getElementById('auth-btn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ جاري التسجيل...'; }
+
+  try{
+    var data = await sbAuth('signup', {email:email, password:pass, data:{full_name:name, role:role}});
+
+    // Save to local users list
+    var locals = getLocalUsers();
+    if(!locals.find(function(u){return u.email===email;})){
+      locals.push({email:email, name:name||email, role:role, addedBy:currentUser?currentUser.email:'admin', addedAt:new Date().toISOString()});
+      saveLocalUsers(locals);
+    }
+
+    toast('✅ تم تسجيل '+email+' كـ '+( USER_ROLES[role]||{label:role}).label);
+    switchAuthTab('login');
+    if(btn){ btn.disabled=false; btn.textContent='🔑 دخول'; }
+  }catch(err){
+    toast('❌ '+err.message);
+    if(btn){ btn.disabled=false; btn.textContent='📝 تسجيل'; }
+  }
+}
+
+// ── Logout ─────────────────────────────────────────────────
+async function doLogout(){
+  if(!confirm('تسجيل خروج؟')) return;
+  try{
+    if(SB_TOKEN) await sbAuth('logout', {});
+  }catch(e){}
+  currentUser = null; currentUserRole = null; SB_TOKEN = null;
+  try{ localStorage.removeItem('daracqua_session_v1'); }catch(e){}
+  updateUserUI();
+  show('dashboard');
+  toast('👋 تم تسجيل الخروج');
+}
+
+// ── Restore session on boot ────────────────────────────────
+function restoreSession(){
+  try{
+    var sess = JSON.parse(localStorage.getItem('daracqua_session_v1')||'null');
+    if(sess && sess.exp > Date.now()){
+      currentUser = sess.user;
+      currentUserRole = sess.role || 'admin';
+      SB_TOKEN = sess.access_token;
+      updateUserUI();
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+
+// ── Update UI based on user role ───────────────────────────
+function updateUserUI(){
+  // Update user badge in header
+  var badge = document.getElementById('user-badge');
+  if(badge){
+    if(currentUser){
+      var role = USER_ROLES[currentUserRole]||{label:'مستخدم'};
+      badge.innerHTML = '<span style="font-size:10px;opacity:.7">'+role.label+'</span> '+
+        '<strong>'+(currentUser.email||'').split('@')[0]+'</strong>';
+      badge.onclick = function(){ show('user-management'); };
+    } else {
+      badge.innerHTML = '🔑 دخول';
+      badge.onclick = function(){ show('login-page'); };
+    }
+  }
+
+  // Hide/show settings based on role
+  var settingsBtn = document.querySelector('[data-v="settings"]');
+  if(settingsBtn) settingsBtn.style.display = canSettings()?'':'none';
+}
+
+// ── Render Login Page ──────────────────────────────────────
+function renderLoginPage(){
+  var h = '';
+  h += '<div style="min-height:80vh;display:flex;align-items:center;justify-content:center">';
+  h += '<div style="width:100%;max-width:420px">';
+
+  // Logo
+  h += '<div style="text-align:center;margin-bottom:32px">';
+  h += '<div style="font-size:48px;margin-bottom:8px">🐟</div>';
+  h += '<div style="font-size:22px;font-weight:800;color:var(--deep)">Dar Aqua</div>';
+  h += '<div style="font-size:13px;color:var(--muted)">Farm Manager</div>';
+  h += '</div>';
+
+  h += '<div class="card" style="padding:28px">';
+
+  // Tabs
+  h += '<div style="display:flex;gap:0;margin-bottom:24px;border:2px solid var(--line);border-radius:10px;overflow:hidden">';
+  h += '<button id="atab-login" class="tab on" onclick="switchAuthTab(&quot;login&quot;)" style="flex:1;border:0;border-radius:0;padding:10px">🔑 دخول</button>';
+  h += '<button id="atab-register" class="tab" onclick="switchAuthTab(&quot;register&quot;)" style="flex:1;border:0;border-radius:0;padding:10px">➕ إضافة مستخدم</button>';
+  h += '</div>';
+
+  // Name field (register only)
+  h += '<div id="auth-name-wrap" style="display:none;margin-bottom:14px">';
+  h += '<label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">الاسم</label>';
+  h += '<input id="auth-name" type="text" placeholder="اسم المستخدم" style="width:100%;padding:10px 14px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:14px"/>';
+  h += '</div>';
+
+  // Email
+  h += '<div style="margin-bottom:14px">';
+  h += '<label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">البريد الإلكتروني</label>';
+  h += '<input id="auth-email" type="email" placeholder="email@daraqua.com" style="width:100%;padding:10px 14px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:14px"/>';
+  h += '</div>';
+
+  // Password
+  h += '<div style="margin-bottom:14px">';
+  h += '<label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">كلمة السر</label>';
+  h += '<input id="auth-pass" type="password" placeholder="••••••••" style="width:100%;padding:10px 14px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:14px"/>';
+  h += '</div>';
+
+  // Role (register only)
+  h += '<div id="auth-role-wrap" style="display:none;margin-bottom:20px">';
+  h += '<label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">الدور</label>';
+  h += '<select id="auth-role" style="width:100%;padding:10px 14px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:14px">';
+  h += '<option value="worker">👷 عامل — إدخال بيانات</option>';
+  h += '<option value="viewer">👁️ مشاهد — تقارير فقط</option>';
+  h += '<option value="admin">👑 مدير — صلاحيات كاملة</option>';
+  h += '</select></div>';
+
+  // Submit button
+  h += '<button id="auth-btn" class="savebtn" onclick="doAuthAction()" style="width:100%;padding:12px;font-size:15px">🔑 دخول</button>';
+
+  // Skip login
+  h += '<div style="text-align:center;margin-top:16px">';
+  h += '<button onclick="showDashboard()" style="background:none;border:0;color:var(--muted);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline">تخطي — استمر بدون تسجيل دخول</button>';
+  h += '</div>';
+
+  h += '</div></div></div>';
+  return h;
+}
+
+function setupLoginKeys(){
+  var e=document.getElementById('auth-email');
+  var p=document.getElementById('auth-pass');
+  var b=document.getElementById('auth-btn');
+  if(e) e.onkeydown=function(ev){if(ev.key==='Enter'&&p)p.focus();};
+  if(p) p.onkeydown=function(ev){if(ev.key==='Enter'&&b)b.click();};
+}
+
+// ── Render User Management ─────────────────────────────────
+function renderUserManagement(){
+  if(!canSettings()){
+    return '<div class="ph"><div><h2>👥 إدارة المستخدمين</h2></div></div>'
+      +'<div class="card" style="text-align:center;padding:48px">'
+      +'<div style="font-size:48px">🔒</div>'
+      +'<div style="margin-top:12px;color:var(--muted)">المدير فقط يرى إدارة المستخدمين</div>'
+      +'</div>';
+  }
+
+  var locals = getLocalUsers();
+  var h = '';
+  h += '<div class="ph"><div>';
+  h += '<h2>👥 إدارة المستخدمين</h2>';
+  h += '<p style="font-size:11px;color:var(--muted)">إضافة وإدارة أعضاء الفريق</p>';
+  h += '</div>';
+  if(currentUser){
+    h += '<button class="savebtn" style="width:auto;padding:8px 18px;background:#C0392B;font-size:12px" onclick="doLogout()">🚪 تسجيل خروج</button>';
+  }
+  h += '</div>';
+
+  // Current user card
+  if(currentUser){
+    var role = USER_ROLES[currentUserRole]||{label:'مستخدم'};
+    h += '<div class="card" style="background:linear-gradient(135deg,var(--deep),#0a4f4a);color:#fff;margin-bottom:16px">';
+    h += '<div style="font-size:11px;opacity:.7;margin-bottom:8px">المستخدم الحالي</div>';
+    h += '<div style="font-size:18px;font-weight:700">'+currentUser.email+'</div>';
+    h += '<div style="font-size:12px;opacity:.8;margin-top:4px">'+role.label+' · '+( currentUserRole||'admin')+'</div>';
+    h += '</div>';
+  }
+
+  // Add user button
+  h += '<div class="card" style="margin-bottom:16px">';
+  h += '<div class="card-title">➕ إضافة مستخدم جديد</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  h += '<div class="field"><label>الإيميل</label><input id="new-user-email" type="email" placeholder="email@daraqua.com"/></div>';
+  h += '<div class="field"><label>الاسم</label><input id="new-user-name" type="text" placeholder="اسم العامل"/></div>';
+  h += '<div class="field"><label>كلمة السر</label><input id="new-user-pass" type="password" placeholder="••••••••"/></div>';
+  h += '<div class="field"><label>الدور</label><select id="new-user-role">';
+  h += '<option value="worker">👷 عامل</option>';
+  h += '<option value="viewer">👁️ مشاهد</option>';
+  h += '<option value="admin">👑 مدير</option>';
+  h += '</select></div>';
+  h += '</div>';
+  h += '<button class="savebtn" style="width:auto;padding:9px 22px" onclick="addNewUser()">➕ إضافة</button>';
+  h += '</div>';
+
+  // Users list
+  h += '<div class="card">';
+  h += '<div class="card-title">قائمة المستخدمين ('+locals.length+')</div>';
+  if(!locals.length){
+    h += '<div style="text-align:center;padding:24px;color:var(--muted)">لا يوجد مستخدمين مسجلين بعد</div>';
+  } else {
+    h += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    h += '<thead><tr style="background:var(--deep);color:#fff">';
+    ['الإيميل','الاسم','الدور','أُضيف بواسطة','إجراء'].forEach(function(c){
+      h += '<th style="padding:8px;text-align:right;font-weight:600">'+c+'</th>';
+    });
+    h += '</tr></thead><tbody>';
+    locals.forEach(function(u,i){
+      var role = USER_ROLES[u.role]||{label:u.role};
+      var roleColor = u.role==='admin'?'var(--teal)':u.role==='worker'?'var(--amber)':'var(--muted)';
+      h += '<tr style="background:'+(i%2===0?'var(--light)':'#fff')+'">';
+      h += '<td style="padding:8px;font-weight:600;color:var(--deep)">'+u.email+'</td>';
+      h += '<td style="padding:8px">'+( u.name||'—')+'</td>';
+      h += '<td style="padding:8px"><span style="background:'+roleColor+';color:#fff;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700">'+role.label+'</span></td>';
+      h += '<td style="padding:8px;color:var(--muted);font-size:11px">'+( u.addedBy||'admin')+'</td>';
+      h += '<td style="padding:8px"><button data-email="'+u.email+'" onclick="removeUser(this.dataset.email)" style="background:#fee2e2;color:var(--red);border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px">🗑 حذف</button></td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+  return h;
+}
+
+async function addNewUser(){
+  var email = (document.getElementById('new-user-email')||{}).value||'';
+  var pass  = (document.getElementById('new-user-pass')||{}).value||'';
+  var name  = (document.getElementById('new-user-name')||{}).value||'';
+  var role  = (document.getElementById('new-user-role')||{}).value||'worker';
+  if(!email||!pass){ toast('⚠️ الإيميل وكلمة السر مطلوبين'); return; }
+  if(pass.length<6){ toast('⚠️ كلمة السر على الأقل 6 أحرف'); return; }
+  try{
+    await sbAuth('signup', {email:email, password:pass, data:{full_name:name, role:role}});
+    var locals = getLocalUsers();
+    locals.push({email:email, name:name||email, role:role, addedBy:currentUser?currentUser.email:'admin', addedAt:new Date().toISOString()});
+    saveLocalUsers(locals);
+    toast('✅ تم إضافة '+email);
+    show('user-management');
+  }catch(err){ toast('❌ '+err.message); }
+}
+
+function removeUser(email){
+  if(!confirm('حذف المستخدم '+email+'؟')) return;
+  var locals = getLocalUsers().filter(function(u){return u.email!==email;});
+  saveLocalUsers(locals);
+  toast('🗑 تم حذف '+email);
+  show('user-management');
+}
 
 async function ensureFarm(){
   var cfg = getSettings();
@@ -7002,7 +8453,7 @@ function sheetChangeDate(sheet,val){
   else if(sheet==='wq'){_wqSheetDate=val;show('tx-wq');}
 }
 
-var VIEWS={dashboard:renderDashboard,alarms:renderAlarms,units:renderUnits,sections:renderSections,density:renderDensity,biomass:renderBiomass,daily:renderDaily,logbook:renderLogbook,upload:renderUpload,calcs:renderCalcs,smart:renderSmart,settings:renderSettings,trend:renderTrend,pdf:renderPDF,setup:renderSetup,ai:renderAI,profile:renderProfile,'site-overview':renderSiteOverview,'tx-feeding':renderTxFeeding,'tx-mortality':renderTxMortality,'tx-sampling':renderTxSampling,'tx-transfer':renderTxTransfer,'tx-harvesting':renderTxHarvesting,'tx-stocking':renderTxStocking,'unit-tx':renderUnitTx,'tx-wq':renderTxWaterQuality,'tx-reports':renderTxReports,'feeding-regime':renderFeedingRegime,'unit-trend':renderUnitTrend,'daily-overview':renderDailyOverview,'farm-report':renderPDFReport,'feed-inventory':renderFeedInventory,'photo-entry':renderPhotoEntry};
+var VIEWS={dashboard:renderDashboard,alarms:renderAlarms,units:renderUnits,sections:renderSections,density:renderDensity,biomass:renderBiomass,daily:renderDaily,logbook:renderLogbook,upload:renderUpload,calcs:renderCalcs,smart:renderSmart,settings:renderSettings,trend:renderTrend,pdf:renderPDF,setup:renderSetup,ai:renderAI,profile:renderProfile,'site-overview':renderSiteOverview,'tx-feeding':renderTxFeeding,'tx-mortality':renderTxMortality,'tx-sampling':renderTxSampling,'tx-transfer':renderTxTransfer,'tx-harvesting':renderTxHarvesting,'tx-stocking':renderTxStocking,'unit-tx':renderUnitTx,'tx-wq':renderTxWaterQuality,'tx-reports':renderTxReports,'feeding-regime':renderFeedingRegime,'unit-trend':renderUnitTrend,'daily-overview':renderDailyOverview,'login-page':function(){var h=renderLoginPage();setTimeout(setupLoginKeys,50);return h;},'user-management':renderUserManagement,'farm-report':renderPDFReport,'feed-inventory':renderFeedInventory,'photo-entry':renderPhotoEntry};
 
 function goHome(){ show('dashboard'); }
 
@@ -7314,7 +8765,8 @@ async function bootApp(){
     cfg.geminiKey = 'AQ.Ab8RN6LnT8dj47MMg1ggXOAjGeqeaQVhEdis_dfIt8lCZfXTXw';
     saveSettings(cfg);
   }
-  currentUser = {id:'default', email:'mohamed@daraqua.com'};
+  // Restore session if exists
+  restoreSession();
   // Auto daily snapshot
   setTimeout(function(){ try{ takeSnapshot(); }catch(e){} }, 2000);
   show('dashboard');
