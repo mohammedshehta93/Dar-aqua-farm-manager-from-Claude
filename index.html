@@ -1348,10 +1348,31 @@ function takeSnapshot(){
   try{
     var snaps = JSON.parse(localStorage.getItem('daracqua_snapshots_v1')||'[]');
     snaps.unshift(snap);
-    if(snaps.length>90) snaps=snaps.slice(0,90); // keep 90 days
+    if(snaps.length>365) snaps=snaps.slice(0,365); // keep 1 year locally
     localStorage.setItem('daracqua_snapshots_v1',JSON.stringify(snaps));
     _snapsCache = null; // invalidate cache
   }catch(e){}
+
+  // Save to Supabase for permanent cloud storage
+  if(sbReady && SB_FARM_ID){
+    try{
+      sbFetch('snapshots', {
+        method: 'POST',
+        body: JSON.stringify({
+          farm_id:       SB_FARM_ID,
+          snapshot_date: today,
+          tot_fish:      snap.totFish,
+          tot_bio:       snap.totBio,
+          active_units:  snap.activeUnits,
+          feed_last24h:  snap.feedLast24h,
+          mort_last24h:  snap.mortLast24h,
+          alarms:        snap.alarms,
+          warns:         snap.warns,
+          data:          snap
+        })
+      });
+    }catch(e){ console.warn('Snapshot Supabase save:', e.message); }
+  }
 }
 function _generateAlerts(){ return generateAlerts(); }
 // ──────────────────────────────────────────────────────────────
@@ -1916,7 +1937,7 @@ function getSnapshots(){
 
 async function saveSnapshot(snap){
   var arr = getSnapshots(); arr.unshift(snap);
-  if(arr.length>10) arr=arr.slice(0,10);
+  if(arr.length>365) arr=arr.slice(0,365); // keep 1 year in localStorage
   _snapsCache=arr;
   try{ localStorage.setItem(HISTORY_KEY,JSON.stringify(arr)); }catch(e){}
   if(sbReady && SB_FARM_ID){
@@ -1928,10 +1949,29 @@ async function saveSnapshot(snap){
 async function loadSnapshotsFromSB(){
   if(!sbReady||!SB_FARM_ID) return;
   try{
-    var rows=await sbFetch('snapshots?farm_id=eq.'+SB_FARM_ID+'&order=snapshot_date.desc&limit=10');
-    var snaps=rows.map(function(r){return r.data;}).filter(Boolean);
-    _snapsCache=snaps;
-    try{ localStorage.setItem(HISTORY_KEY,JSON.stringify(snaps)); }catch(e){}
+    // Load all snapshots for full history (years of data)
+    var rows = await sbFetch('snapshots?farm_id=eq.'+SB_FARM_ID+'&order=snapshot_date.desc&limit=3650');
+    if(!rows||!rows.length) return;
+    var snaps = rows.map(function(r){
+      // Use full data object if available, else reconstruct from fields
+      if(r.data) return r.data;
+      return {
+        date:        r.snapshot_date,
+        totFish:     r.tot_fish,
+        totBio:      r.tot_bio,
+        activeUnits: r.active_units,
+        feedLast24h: r.feed_last24h,
+        mortLast24h: r.mort_last24h,
+        alarms:      r.alarms,
+        warns:       r.warns,
+        farmName:    'Dar Aqua',
+        units:       []
+      };
+    }).filter(Boolean);
+    _snapsCache = snaps;
+    // Cache locally (keep last 365)
+    try{ localStorage.setItem('daracqua_snapshots_v1', JSON.stringify(snaps.slice(0,365))); }catch(e){}
+    console.log('Loaded '+snaps.length+' snapshots from Supabase');
   }catch(e){ console.warn('Load snaps:',e.message); }
 }
 
@@ -5227,10 +5267,12 @@ function renderDailyOverview(){
   h += '</div>';
 
   // Biomass chart (last 30 days)
-  var chart30 = snaps.slice(0,30).reverse();
+  // Show last 90 days by default, with option to see all
+  var chartDays = 90;
+  var chart30 = snaps.slice(0,chartDays).reverse();
   if(chart30.length > 1){
     h += '<div class="card" style="margin-bottom:16px">';
-    h += '<div class="card-title">📈 Biomass — آخر '+chart30.length+' يوم</div>';
+    h += '<div class="card-title">📈 Biomass — آخر '+chart30.length+' يوم (من '+( chart30.length)+' snapshot محفوظ من أصل '+snaps.length+')</div>';
     var maxBio = Math.max.apply(null, chart30.map(function(s){return s.totBio||0;}));
     var minBio = Math.min.apply(null, chart30.map(function(s){return s.totBio||0;}));
     h += '<div style="display:flex;align-items:flex-end;gap:3px;height:80px;padding:8px 0">';
@@ -5259,7 +5301,7 @@ function renderDailyOverview(){
     h += '<th style="padding:8px;text-align:right;font-weight:700">'+c+'</th>';
   });
   h += '</tr></thead><tbody>';
-  snaps.slice(0,30).forEach(function(s,i){
+  snaps.slice(0,365).forEach(function(s,i){
     var isToday = i===0;
     h += '<tr style="background:'+(isToday?'var(--light)':i%2===0?'#fff':'var(--paper)')+'">';
     h += '<td style="padding:7px 8px;font-weight:'+(isToday?'700':'400')+';color:'+(isToday?'var(--teal)':'var(--ink)')+'">'+s.date+(isToday?' 🔵':'')+'</td>';
