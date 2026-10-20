@@ -414,6 +414,17 @@ tr:hover td{background:#f5faf8}
 <div class="toast-msg" id="toast"></div>
 
 <script>
+// ── Supabase Config ──────────────────────────────────────
+var SB_URL   = 'https://mjtxibdxqxrgykuyftsr.supabase.co';
+var SB_KEY   = 'sb_publishable_ewZ1G10CJIIUcZHYaEd22w_ud573IW3';
+var SB_TOKEN = null;
+var SB_FARM_ID = null;
+var sbReady  = false;
+var currentUser = null;
+var currentUserRole = null;
+var authTab  = 'login';
+// ─────────────────────────────────────────────────────────
+
 const RAW=[
 {"unit": "F1.S01T01", "farm": "F1", "section": "F1.S01", "batch": "Sil25102025Dar-02", "species": "Silver Tilapia", "startDate": "2026-08-10", "fishNo": 791, "startWt": 220.0, "avgWt": 275.0, "biomass": 217.525, "density": 21.7525, "mortality": 19, "survival": 97.65, "feedKg": 124.3, "fcrUTD": 2.8094, "fcrLTD": 1.9773, "growthDay": 0.7857, "stockBiomass": 178.2, "prodDays": 70, "ltdDays": 359, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": true},
 {"unit": "F1.S01T02", "farm": "F1", "section": "F1.S01", "batch": "Sil09032026Dar", "species": "Silver Tilapia", "startDate": "2026-09-05", "fishNo": 835, "startWt": 90.0, "avgWt": 160.0, "biomass": 133.6, "density": 13.36, "mortality": 5, "survival": 99.4, "feedKg": 89.6, "fcrUTD": 1.5091, "fcrLTD": 1.5645, "growthDay": 1.6098, "stockBiomass": 74.9, "prodDays": 44, "ltdDays": 224, "hatchery": "Dar Aqua", "volume": 10.0, "alarm": false, "warn": false},
