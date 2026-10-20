@@ -1,0 +1,38 @@
+{
+  "name": "Dar Aqua Farm Manager",
+  "short_name": "Dar Aqua",
+  "description": "إدارة مزارع الأسماك — Dar Aqua Agriculture",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D3B38",
+  "theme_color": "#0D3B38",
+  "orientation": "any",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Feeding",
+      "url": "/?v=tx-feeding",
+      "description": "إدخال بيانات التغذية"
+    },
+    {
+      "name": "Daily Report",
+      "url": "/?v=daily-overview",
+      "description": "التقرير اليومي"
+    }
+  ]
+}
