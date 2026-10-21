@@ -2095,10 +2095,13 @@ function applyUpdate(){
   uploadState.parsed = null;
   toast(isAr?'✅ تم تحديث البيانات — '+changed+' تغيير':'✅ Data updated — '+changed+' changes');
   show('dashboard');
-  // Register Service Worker for PWA
+  // Unregister any cached service workers to ensure fresh content
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').catch(function(e){console.warn('SW:',e);});
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){ r.unregister(); });
+    });
   }
+
 }
 
 function restoreSnapshot(date){
