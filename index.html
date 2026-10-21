@@ -1294,6 +1294,39 @@ function removeUser(email){
   toast('🗑 تم حذف '+email); show('user-management');
 }
 
+async function sbFetch(path, opts){
+  var cfg=getSettings();
+  var url=(SB_URL||cfg.sbUrl||'').replace(/\/+$/,'');
+  var key=SB_KEY||cfg.sbKey||'';
+  if(!url||!key) throw new Error('Supabase not configured');
+  var hdrs={'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+(SB_TOKEN||key),'Prefer':'return=representation'};
+  var resp=await fetch(url+'/rest/v1/'+path,Object.assign({headers:hdrs},opts||{}));
+  if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error(e.message||e.details||'SB '+resp.status);}
+  var t=await resp.text();return t?JSON.parse(t):[];
+}
+async function saveSBConfigAndConnect(){
+  var url=(document.getElementById('sb-url')||{}).value||'';
+  var key=(document.getElementById('sb-key')||{}).value||'';
+  if(!url||!key){toast('⚠️ ادخل URL و Anon Key');return;}
+  var cfg=getSettings(); cfg.sbUrl=url; cfg.sbKey=key; saveSettings(cfg);
+  SB_URL=url; SB_KEY=key;
+  var btn=document.getElementById('sb-connect-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ جاري الاتصال...';}
+  try{
+    await ensureFarm();
+    if(sbReady){
+      toast('✅ تم الاتصال بـ Supabase!');
+      showSBStatus(true);
+      await Promise.all([loadTXFromSB(),loadSnapshotsFromSB()]);
+      show('settings');
+    }
+  }catch(e){
+    toast('❌ فشل: '+e.message);
+    sbReady=false; showSBStatus(false);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='🔗 حفظ وتوصيل';}
+  }
+}
 async function ensureFarm(){
   var cfg = getSettings();
   var farmName = cfg.farmName || 'Dar Aqua';
@@ -2887,7 +2920,7 @@ function renderSettings(){
     h+='<div class="field"><label>🔑 Anon Key</label><input id="sb-key" type="password" value="'+(typeof SB_KEY!=='undefined'?SB_KEY:'')+'" placeholder="eyJ..." style="font-family:monospace;font-size:12px"/></div>';
     h+='</div>';
     h+='<div style="display:flex;gap:8px;margin-top:12px">';
-    h+='<button class="savebtn" style="width:auto;padding:9px 20px" onclick="saveSBConfig()">💾 حفظ وتوصيل</button>';
+    h+='<button class="savebtn" style="width:auto;padding:9px 20px" id="sb-connect-btn" onclick="saveSBConfigAndConnect()">💾 حفظ وتوصيل</button>';
     if(sbOk) h+='<button class="ibtn" onclick="forceSyncTX()">🔄 مزامنة فورية</button>';
     h+='</div></div>';
     h+='<div class="card">';
@@ -2917,7 +2950,7 @@ function renderSettings(){
     h+='<div style="font-size:11px;color:var(--muted)">تنبيهات النفوق والكثافة وانقطاع التغذية</div></div>';
     h+='<button class="savebtn" style="width:auto;padding:8px 18px;margin-inline-start:auto" onclick="toggleNotif()">'+(notifEnabled?'إلغاء':'تفعيل')+'</button>';
     h+='</div>';
-    h+='<div class="fg2"><div class="field"><label>مفتاح Gemini AI</label><input type="password" id="nf-gemkey" value="'+(s.geminiKey||'')+'" placeholder="AIza..."/></div></div>';
+    
     h+='<button class="savebtn" onclick="applySettings()">💾 حفظ</button>';
     h+='</div>';
   }
@@ -2946,15 +2979,7 @@ function settingsAddUnitRow(){
   saveFarmUnits(units);
   show('settings');
 }
-function saveSBConfig(){
-  var urlEl=document.getElementById('sb-url');
-  var keyEl=document.getElementById('sb-key');
-  var cfg=getSettings();
-  if(urlEl&&urlEl.value) cfg.sbUrl=urlEl.value.trim();
-  if(keyEl&&keyEl.value) cfg.sbKey=keyEl.value.trim();
-  saveSettings(cfg);
-  toast('✅ تم الحفظ — أعد تحميل الصفحة لتفعيل الاتصال');
-}
+function saveSBConfig(){ saveSBConfigAndConnect(); }
 function forceSyncTX(){
   if(sbReady&&SB_FARM_ID){ _txSyncToSB(getTX()); toast('🔄 جاري المزامنة...'); }
   else toast('⚠️ غير متصل بـ Supabase');
@@ -7468,6 +7493,7 @@ async function bootApp(){
     cfg.geminiKey = 'AQ.Ab8RN6LnT8dj47MMg1ggXOAjGeqeaQVhEdis_dfIt8lCZfXTXw';
     saveSettings(cfg);
   }
+  var _bc=getSettings(); if(_bc.sbUrl) SB_URL=_bc.sbUrl; if(_bc.sbKey) SB_KEY=_bc.sbKey;
   restoreSession();
   setTimeout(function(){try{takeSnapshot();}catch(e){}},2000);
   show('dashboard');
