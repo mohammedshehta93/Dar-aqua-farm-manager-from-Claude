@@ -4497,7 +4497,7 @@ async function openBookReport(){
     +'<tfoot><tr><td colspan="3">TOTAL</td><td style="text-align:right">'+totHarvKg.toFixed(2)+' kg</td><td></td><td style="text-align:right">'+totHarvRev.toFixed(2)+' BD</td><td></td></tr></tfoot></table>'
   ) : '')
 
-  +'<div style="text-align:center;color:#aaa;font-size:8pt;margin-top:28px;border-top:1px solid #eee;padding-top:10px">Dar Aqua Agriculture — Farm Manager Report  |  '+dateLabel+'  |  Confidential</div>'
+  +'<div id="fr-stop-banner" style="text-align:center;color:#aaa;font-size:8pt;margin-top:28px;border-top:1px solid #eee;padding-top:10px">Dar Aqua Agriculture — Farm Manager Report  |  '+dateLabel+'  |  Confidential</div>'
   +'</div></body></html>';
 
   // Publish as new artifact so it opens in its own tab with full print access
@@ -5380,9 +5380,23 @@ function frRecalc(){
   el=document.getElementById('kpi-tf');        if(el){el.textContent=tf===0?'🛑 STOP':'×'+n(tf,2);el.style.color=tf===0||tf<0.8?'var(--red)':tf<0.95?'var(--amber)':'var(--green)';}
   el=document.getElementById('kpi-df');        if(el){el.textContent=df===0?'🛑 STOP':'×'+n(df,2);el.style.color=df===0||df<0.8?'var(--red)':df<1?'var(--amber)':'var(--green)';}
   el=document.getElementById('footer-sugg');   if(el) el.textContent=n(totSugg,2)+' كجم';
-  // Full re-render needed to show/hide STOP banner
+  // Update STOP banner without full re-render
   var blocked=isFeedingBlocked(temp,doVal);
-  if(blocked.blocked) show('feeding-regime');
+  var banner=document.getElementById('fr-stop-banner');
+  var grid=document.getElementById('fr-grid-wrap');
+  if(blocked.blocked){
+    if(!banner){
+      // Need full render only if banner doesn't exist yet
+      show('feeding-regime');
+    } else {
+      banner.style.display='';
+      if(banner.querySelector) { var sr=banner.querySelector('.fr-stop-reason'); if(sr) sr.innerHTML=blocked.reason||''; }
+      if(grid) grid.style.opacity='0.3';
+    }
+  } else {
+    if(banner) banner.style.display='none';
+    if(grid) grid.style.opacity='1';
+  }
   var gb=document.getElementById('fr-grid-body');if(gb) gb.innerHTML=_frGridRows(liveRs,todayFeed,temp,doVal);
 }
 
