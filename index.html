@@ -2913,6 +2913,13 @@ function renderSettings(){
     var byType={};
     txAll.forEach(function(t){byType[t.type]=(byType[t.type]||0)+1;});
     h+='<div class="card" style="margin-bottom:14px">';
+    h+='<div class="card" style="margin-bottom:14px">';
+    h+='<div class="card-title">🤖 Anthropic API Key</div>';
+    h+='<div class="fg2"><div class="field"><label>API Key</label>';
+    h+='<input type="password" id="st-anthropic-key" value="'+(s.anthropicKey||'')+'" placeholder="sk-ant-..."/>';
+    h+='</div></div>';
+    h+='<button class="savebtn" style="width:auto;padding:8px 18px" onclick="saveAnthropicKey()">💾 حفظ</button>';
+    h+='</div>';
     h+='<div class="card-title">🔗 Supabase — مزامنة البيانات</div>';
     h+='<div style="display:flex;align-items:center;gap:12px;padding:14px;background:'+(sbOk?'#dcfce7':'#fef3c7')+';border-radius:10px;margin-bottom:14px">';
     h+='<div style="font-size:28px">'+(sbOk?'✅':'⚠️')+'</div>';
@@ -2982,6 +2989,16 @@ function settingsAddUnitRow(){
   saveFarmUnits(units);
   show('settings');
 }
+
+function saveAnthropicKey(){
+  var el = document.getElementById('st-anthropic-key');
+  if(!el||!el.value){ toast('⚠️ ادخل الـ API Key'); return; }
+  var cfg = getSettings(_settingsFarm);
+  cfg.anthropicKey = el.value.trim();
+  saveSettings(cfg, _settingsFarm);
+  toast('✅ تم حفظ Anthropic API Key');
+}
+
 function saveSBConfig(){ saveSBConfigAndConnect(); }
 function forceSyncTX(){
   if(sbReady&&SB_FARM_ID){ _txSyncToSB(getTX()); toast('🔄 جاري المزامنة...'); }
@@ -6481,10 +6498,17 @@ async function photoSendToAI(){
     for(var i=0;i<byteStr.length;i++) arr[i]=byteStr.charCodeAt(i);
     var imgBlob = new Blob([arr], {type:'image/jpeg'});
 
-    // Call Netlify AI proxy with image
-    var aiResp = await fetch('https://candid-naiad-8afc22.netlify.app/.netlify/functions/ai', {
+    // Call Anthropic API directly (key stored in settings)
+    var apiKey = getSettings().anthropicKey || '';
+    if(!apiKey) throw new Error('ادخل Anthropic API Key في Control Center → الإعدادات');
+    var aiResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 2000,
@@ -6494,7 +6518,7 @@ async function photoSendToAI(){
         ]}]
       })
     });
-    if(!aiResp.ok) throw new Error('AI proxy error: ' + aiResp.status);
+    if(!aiResp.ok) throw new Error('Anthropic API error: ' + aiResp.status);
     var aiData = await aiResp.json();
     var text = (aiData.content && aiData.content[0]) ? aiData.content[0].text : '';
 
