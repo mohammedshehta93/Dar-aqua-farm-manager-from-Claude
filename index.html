@@ -6457,10 +6457,8 @@ async function photoSendToAI(){
 
   try{
     // Use sample capability (works in published artifact, no CSP issues)
-    var sample = await claude.use('sample');
-    if(!sample){
-      throw new Error('sample capability غير متاح — تأكد إنك مسجل دخولك على claude.ai');
-    }
+    // Use Netlify AI proxy (works on GitHub Pages via candid-naiad)
+    var sample = null; // Not using claude.use on GitHub Pages
 
     // Convert base64 to Blob for image input
     var b64 = _photoState.imageB64;
@@ -6469,15 +6467,22 @@ async function photoSendToAI(){
     for(var i=0;i<byteStr.length;i++) arr[i]=byteStr.charCodeAt(i);
     var imgBlob = new Blob([arr], {type:'image/jpeg'});
 
-    // Check if images supported
-    var limits = await sample.limits();
-    var text = '';
-    if(limits.images){
-      var result = await sample(prompt, {images:[imgBlob], modelTier:'complex'});
-      text = result.text || '';
-    } else {
-      throw new Error('Image analysis غير مدعوم في هذا الحساب');
-    }
+    // Call Netlify AI proxy with image
+    var aiResp = await fetch('https://candid-naiad-8afc22.netlify.app/.netlify/functions/ai', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: _photoState.imageType||'image/jpeg', data: _photoState.imageB64 }},
+          { type: 'text',  text: prompt }
+        ]}]
+      })
+    });
+    if(!aiResp.ok) throw new Error('AI proxy error: ' + aiResp.status);
+    var aiData = await aiResp.json();
+    var text = (aiData.content && aiData.content[0]) ? aiData.content[0].text : '';
 
     // Clean and parse JSON
     text = text.replace(/```json/g,'').replace(/```/g,'').trim();
