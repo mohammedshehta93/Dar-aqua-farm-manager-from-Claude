@@ -5920,7 +5920,92 @@ function getAllFeedBalances(){
 var _invTab = 'stock';   // 'stock' | 'movements' | 'report'
 var _invFeedFilter = '';
 
+
+// ── Feed Inventory Helpers ────────────────────────────────
+
+// Get available feed types from inventory (only in-stock)
+function getAvailableFeedTypes(){
+  var inv = getFeedInv();
+  // Calculate balance per feed type
+  var balance = {};
+  inv.forEach(function(e){
+    var t = e.feedType||'';
+    if(!balance[t]) balance[t] = 0;
+    if(e.txType==='purchase'||e.txType==='in') balance[t] += (e.kg||0);
+    else if(e.txType==='usage'||e.txType==='out') balance[t] -= (e.kg||0);
+  });
+  // Return only types with stock > 0
+  return Object.keys(balance).filter(function(t){ return balance[t] > 0; }).sort();
+}
+
+// Get balance for a specific feed type
+function getFeedBalance(feedType){
+  var inv = getFeedInv();
+  var bal = 0;
+  inv.forEach(function(e){
+    if((e.feedType||'') !== feedType) return;
+    if(e.txType==='purchase'||e.txType==='in') bal += (e.kg||0);
+    else if(e.txType==='usage'||e.txType==='out') bal -= (e.kg||0);
+  });
+  return Math.max(0, bal);
+}
+
+// Get all feed types with their balances
+function getFeedBalanceSummary(){
+  var inv = getFeedInv();
+  var balance = {};
+  inv.forEach(function(e){
+    var t = e.feedType||'';
+    if(!balance[t]) balance[t] = {feedType:t, purchased:0, used:0, balance:0};
+    if(e.txType==='purchase'||e.txType==='in') balance[t].purchased += (e.kg||0);
+    else if(e.txType==='usage'||e.txType==='out') balance[t].used += (e.kg||0);
+  });
+  Object.keys(balance).forEach(function(t){
+    balance[t].balance = balance[t].purchased - balance[t].used;
+  });
+  return Object.values(balance).sort(function(a,b){ return a.feedType>b.feedType?1:-1; });
+}
+
+// Deduct feed from inventory when feeding is saved
+function deductFeedFromInventory(feedType, kg, date, units){
+  if(!feedType || !kg || kg <= 0) return;
+  var bal = getFeedBalance(feedType);
+  if(bal <= 0) return; // Nothing to deduct
+  addFeedInv({
+    feedType: feedType,
+    kg: -Math.abs(kg), // negative = usage
+    txType: 'usage',
+    date: date,
+    notes: 'Auto: feeding '+units+' ('+kg.toFixed(2)+'kg)',
+  });
+}
+
+// Check if enough feed is available
+function checkFeedAvailable(feedType, kgNeeded){
+  if(!feedType) return {ok:false, msg:'اختر نوع العلف'};
+  var bal = getFeedBalance(feedType);
+  if(bal <= 0) return {ok:false, msg:'❌ '+feedType+' غير متوفر في المخزون'};
+  if(bal < kgNeeded) return {ok:false, msg:'⚠️ المخزون ('+bal.toFixed(1)+' كجم) أقل من المطلوب ('+kgNeeded.toFixed(1)+' كجم)'};
+  return {ok:true, bal:bal};
+}
+
 function renderFeedInventory(){
+  var summary=getFeedBalanceSummary();
+  var summaryHTML='';
+  if(summary.length){
+    summaryHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">';
+    summary.forEach(function(s){
+      var color=s.balance<=0?'var(--red)':s.balance<20?'var(--amber)':'var(--green)';
+      var pct=s.purchased>0?Math.min(100,s.balance/s.purchased*100):0;
+      summaryHTML+='<div class="card" style="padding:12px;border-top:3px solid '+color+'">';
+      summaryHTML+='<div style="font-size:12px;font-weight:700;color:var(--deep);margin-bottom:6px">'+s.feedType+'</div>';
+      summaryHTML+='<div style="font-size:20px;font-weight:800;color:'+color+'">'+s.balance.toFixed(1)+'<span style="font-size:11px;font-weight:400"> كجم</span></div>';
+      summaryHTML+='<div style="font-size:10px;color:var(--muted);margin-top:4px">مشترى: '+s.purchased.toFixed(1)+' | مستخدم: '+s.used.toFixed(1)+'</div>';
+      summaryHTML+='<div style="height:4px;background:#eee;border-radius:2px;margin-top:6px"><div style="height:4px;background:'+color+';border-radius:2px;width:'+pct.toFixed(0)+'%"></div></div>';
+      summaryHTML+='</div>';
+    });
+    summaryHTML+='</div>';
+  }
   var today  = new Date().toISOString().slice(0,10);
   var feedTypes = getFeedTypes();
   var balances  = getAllFeedBalances();
@@ -6957,8 +7042,14 @@ function renderTxFeeding(){
   var liveRs=_txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
   var txToday=getTX().filter(function(t){return t.type==='feeding'&&t.date===savedDate;});
   var feedMap={};txToday.forEach(function(t){if(!feedMap[t.unit])feedMap[t.unit]={kg:0,feed:'',meal:'صباح'};feedMap[t.unit].kg+=(t.kg||0);if(t.feed)feedMap[t.unit].feed=t.feed;});
-  var feedTypes=['Starter 0.5mm','Starter 1mm','Starter 1.5mm','Grower 2mm','Grower 3mm','Finisher 4mm','Finisher 6mm'];
-  var feedOpts=feedTypes.map(function(f){return'<option>'+f+'</option>';}).join('');
+  // Get feed types from inventory if available, otherwise use defaults
+  var invTypes = getAvailableFeedTypes();
+  var feedTypes = invTypes.length > 0 ? invTypes : ['Starter 0.5mm','Starter 1mm','Starter 1.5mm','Grower 2mm','Grower 3mm','Finisher 4mm','Finisher 6mm'];
+  var feedOpts = (invTypes.length > 0 ? '' : '<option value="">-- اختر نوع العلف --</option>') +
+    feedTypes.map(function(f){
+      var bal = invTypes.length > 0 ? getFeedBalance(f) : 0;
+      return '<option value="'+f+'">'+f+(invTypes.length>0?' ('+bal.toFixed(0)+' كجم)':'')+'</option>';
+    }).join('');
   var totToday=txToday.reduce(function(s,t){return s+(t.kg||0);},0);
   var h='';
   h+='<div class="ph"><div><h2>🌾 Feeding</h2><p style="font-size:11px;color:var(--muted)">كل الوحدات في شيت واحد · '+savedDate+'</p></div>';
@@ -6995,15 +7086,65 @@ h+='<input type="date" id="fd-date" value="'+savedDate+'" onclick="try{this.show
 function feedSaveAll(){
   var date=document.getElementById('fd-date').value;
   var liveRs=_txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
-  var saved=0;
+  
+  // Collect all feeding entries first
+  var entries = [];
   liveRs.forEach(function(r){
-    var el=document.getElementById('fd-kg-'+r.unit);var kg=parseFloat(el?el.value:0)||0;if(kg<=0)return;
+    var el=document.getElementById('fd-kg-'+r.unit); var kg=parseFloat(el?el.value:0)||0; if(kg<=0)return;
     var feed=(document.getElementById('fd-feed-'+r.unit)||{}).value||'';
     var meal=(document.getElementById('fd-meal-'+r.unit)||{}).value||'صباح';
     var notes=(document.getElementById('fd-notes-'+r.unit)||{}).value||'';
-    addTX({type:'feeding',date:date,unit:r.unit,kg:kg,feed:feed,meal:meal,notes:notes});saved++;
+    entries.push({unit:r.unit, kg:kg, feed:feed, meal:meal, notes:notes});
   });
-  toast('✅ تم حفظ '+saved+' وحدة · '+date);_feedSheetDate=date;show('tx-feeding');
+  
+  if(!entries.length){ toast('⚠️ لا توجد بيانات للحفظ'); return; }
+  
+  // Check inventory - group by feed type
+  var byFeed = {};
+  entries.forEach(function(e){
+    var t = e.feed||'';
+    if(!byFeed[t]) byFeed[t] = {kg:0, units:[]};
+    byFeed[t].kg += e.kg;
+    byFeed[t].units.push(e.unit);
+  });
+  
+  // Check if inventory tracking is active (inventory has items)
+  var hasInventory = getFeedInv().length > 0;
+  
+  if(hasInventory){
+    // Validate all feed types have sufficient stock
+    var errors = [];
+    Object.keys(byFeed).forEach(function(feedType){
+      if(!feedType){ errors.push('بعض الوحدات بدون نوع علف'); return; }
+      var check = checkFeedAvailable(feedType, byFeed[feedType].kg);
+      if(!check.ok) errors.push(feedType+': '+check.msg);
+    });
+    
+    if(errors.length){
+      toast('❌ '+errors[0]);
+      return; // Block saving if inventory insufficient
+    }
+  }
+  
+  // Save all TX entries
+  var saved = 0;
+  entries.forEach(function(e){
+    addTX({type:'feeding', date:date, unit:e.unit, kg:e.kg, feed:e.feed, meal:e.meal, notes:e.notes});
+    saved++;
+  });
+  
+  // Deduct from inventory per feed type
+  if(hasInventory){
+    Object.keys(byFeed).forEach(function(feedType){
+      if(!feedType) return;
+      var totalKg = byFeed[feedType].kg;
+      var units   = byFeed[feedType].units;
+      deductFeedFromInventory(feedType, totalKg, date, units.join(', '));
+    });
+  }
+  
+  toast('✅ تم حفظ '+saved+' وحدة · '+date+(hasInventory?' · تم خصم العلف من المخزون':''));
+  _feedSheetDate=date; show('tx-feeding');
 }
 function feedCopyYesterday(){
   var d=new Date(_feedSheetDate||new Date().toISOString().slice(0,10));d.setDate(d.getDate()-1);
