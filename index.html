@@ -8824,9 +8824,8 @@ async function aiSendQuestion(){
 
   try{
     var cfg = getSettings();
-    var cfToken   = cfg.cfToken   || '';
+    var cfToken   = cfg.cfToken   || 'worker';
     var cfAccount = cfg.cfAccount || '245302f87be8752301a52cc8f9942e9f';
-    if(!cfToken){ throw new Error('ادخل Cloudflare API Token في Control Center → التكامل'); }
 
     // ── Build rich farm context ──
     var liveRs  = _txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
