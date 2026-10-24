@@ -291,7 +291,7 @@ tr:hover td{background:#f5faf8}
     <span id="sb-status" style="font-size:11px;font-weight:600;opacity:.8;margin-inline-start:2px">⏳</span>
   </div>
   <div class="top-right">
-    <span id="user-badge" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 12px;font-size:12px;color:#fff;margin-inline-end:8px;white-space:nowrap" onclick="currentUser?show('user-management'):show('login-page')">🔑 دخول</span><button id="back-btn" onclick="goBack()" style="display:none;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 12px;color:#fff;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap">
+    <span id="offline-status" style="cursor:pointer;display:inline-flex;align-items:center;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 10px;font-size:11px;color:#fff;margin-inline-end:6px;white-space:nowrap" onclick="syncOfflineQueue()">🟢 متصل</span><span id="user-badge" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 12px;font-size:12px;color:#fff;margin-inline-end:8px;white-space:nowrap" onclick="currentUser?show('user-management'):show('login-page')">🔑 دخول</span><button id="back-btn" onclick="goBack()" style="display:none;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 12px;color:#fff;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap">
       <span style="font-size:15px">←</span>
       <span id="back-lbl"></span>
     </button>
@@ -331,6 +331,7 @@ tr:hover td{background:#f5faf8}
     <button class="nb" data-v="feed-cost" onclick="show('feed-cost')">💰 Feed Cost</button>
     <button class="nb" data-v="smart" onclick="show('smart')" id="smart-btn">🔔 التنبيهات الذكية</button>
     <div class="sg">Transactions</div>
+    <button class="nb" data-v="quick-feed" onclick="show('quick-feed')" style="border-inline-start:3px solid var(--lime);font-weight:700;background:rgba(6,123,114,.1)">⚡ Quick Feed</button>
     <button class="nb" data-v="photo-entry" onclick="show('photo-entry')" style="border-inline-start:3px solid #f59e0b;font-weight:800;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e">📸 Photo Data Entry</button>
     <button class="nb" data-v="feeding-regime" onclick="show('feeding-regime')" style="border-inline-start:3px solid var(--lime);color:var(--teal);font-weight:700">📐 Feeding Regime</button>
     <button class="nb" data-v="feed-inventory" onclick="show('feed-inventory')" style="border-inline-start:3px solid #f59e0b;font-weight:700">🏪 Feed Inventory</button>
@@ -342,6 +343,7 @@ tr:hover td{background:#f5faf8}
     <button class="nb" data-v="tx-stocking" onclick="show('tx-stocking')">🐠 Stocking</button>
     <button class="nb" data-v="tx-wq" onclick="show('tx-wq')">💧 Water Quality</button>
     <button class="nb" data-v="unit-tx" onclick="show('unit-tx')">📋 Unit History</button>
+    <button class="nb" onclick="openExecutiveReport()" style="border-inline-start:3px solid var(--amber);font-weight:600">📄 تقرير تنفيذي PDF</button>
     <button class="nb" data-v="tx-reports" onclick="show('tx-reports')" style="border-inline-start:3px solid var(--teal)">📑 التقارير</button>
     <div class="sg">المزرعة</div>
     <button class="nb" data-v="units" onclick="show('units')">📋 جميع الوحدات</button>
@@ -2371,6 +2373,7 @@ function applyUpdate(){
   uploadState.parsed = null;
   toast(isAr?'✅ تم تحديث البيانات — '+changed+' تغيير':'✅ Data updated — '+changed+' changes');
   show('dashboard');
+  updateOfflineStatus();
   // Unregister any cached service workers to ensure fresh content
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations().then(function(regs){
@@ -5898,6 +5901,491 @@ function generateDailySchedule(date){
     totalKg:+schedule.reduce(function(s,r){return s+r.totalKg;},0).toFixed(1)};
 }
 
+
+// ══════════════════════════════════════════════════════════
+// QUICK FEED — Fast mobile-optimized feeding entry
+// ══════════════════════════════════════════════════════════
+
+var _qfState = { farm: '', section: '', date: '', meal: 'صباح' };
+
+function renderQuickFeed(){
+  var today = new Date().toISOString().slice(0,10);
+  if(!_qfState.date) _qfState.date = today;
+
+  var liveRs = _txLiveRows().filter(function(r){
+    return (r.fishNo||0)>0 && (farmFilter==='all'||r.farm===farmFilter);
+  });
+
+  // Get unique farms and sections
+  var farms = {};
+  liveRs.forEach(function(r){ farms[r.farm||'F1']=1; });
+  var farmList = Object.keys(farms).sort();
+  if(!_qfState.farm && farmList.length) _qfState.farm = farmList[0];
+
+  var sections = {};
+  liveRs.filter(function(r){return r.farm===_qfState.farm;}).forEach(function(r){
+    var sec = r.unit.match(/\.(S\d+)/);
+    if(sec) sections[sec[1]]=1;
+  });
+  var secList = Object.keys(sections).sort();
+  if(!_qfState.section && secList.length) _qfState.section = secList[0];
+
+  // Units in selected section
+  var units = liveRs.filter(function(r){
+    return r.farm===_qfState.farm &&
+      (!_qfState.section || r.unit.includes('.'+_qfState.section+'T'));
+  });
+
+  // Today's already-fed units
+  var fedToday = {};
+  getTX().filter(function(t){
+    return t.type==='feeding' && t.date===_qfState.date;
+  }).forEach(function(t){ fedToday[t.unit]=(fedToday[t.unit]||0)+(t.kg||0); });
+
+  // Available feed types
+  var feedTypes = getAvailableFeedTypes();
+  var defaultFeed = feedTypes.length ? feedTypes[0] : '';
+
+  var h = '';
+
+  // ── Header ──
+  h += '<div class="ph" style="position:sticky;top:0;background:var(--deep);color:#fff;margin:-14px -14px 14px;padding:12px 14px;z-index:10">';
+  h += '<div><h2 style="color:#fff;margin:0;font-size:18px">⚡ Quick Feed</h2>';
+  h += '<p style="font-size:11px;opacity:.7;margin:2px 0">إدخال سريع — '+_qfState.date+'</p></div>';
+  h += '<button onclick="show(&quot;tx-feeding&quot;)" style="background:rgba(255,255,255,.2);border:0;color:#fff;padding:8px 14px;border-radius:8px;font:inherit;font-size:13px;cursor:pointer">📋 الشيت الكامل</button>';
+  h += '</div>';
+
+  // ── Filter bar ──
+  h += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
+
+  // Farm selector
+  h += '<select id="qf-farm-sel" onchange="qfChangeFarm(this.value)" style="padding:8px 12px;border:2px solid var(--teal);border-radius:10px;font:inherit;font-size:14px;font-weight:700;color:var(--teal)">';
+  farmList.forEach(function(f){
+    h += '<option value="'+f+'"'+(f===_qfState.farm?' selected':'')+'>🏭 '+f+'</option>';
+  });
+  h += '</select>';
+
+  // Section selector
+  h += '<select id="qf-sec-sel" onchange="qfChangeSec(this.value)" style="padding:8px 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:14px">';
+  h += '<option value="">كل الأقسام</option>';
+  secList.forEach(function(s){
+    h += '<option value="'+s+'"'+( s===_qfState.section?' selected':'')+'>'+s+'</option>';
+  });
+  h += '</select>';
+
+  // Meal selector
+  h += '<select id="qf-meal-sel" onchange="_qfState.meal=this.value" style="padding:8px 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:14px">';
+  ['صباح','ظهر','مساء'].forEach(function(m){
+    h += '<option'+(m===_qfState.meal?' selected':'')+'>'+m+'</option>';
+  });
+  h += '</select>';
+
+  // Date
+  h += '<input type="date" id="qf-date-inp" value="'+_qfState.date+'" onclick="try{this.showPicker()}catch(e){}" onchange="qfChangeDate(this.value)" style="padding:8px 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:14px"/>';
+  h += '</div>';
+
+  // ── Apply SFR button ──
+  h += '<div style="display:flex;gap:8px;margin-bottom:14px">';
+  h += '<button onclick="qfApplySFR()" class="savebtn" style="flex:1;padding:12px;font-size:14px;background:var(--teal)">📊 تطبيق SFR تلقائياً</button>';
+  h += '<button onclick="qfSaveAll()" class="savebtn" style="flex:1;padding:12px;font-size:15px;font-weight:800">✅ حفظ الكل</button>';
+  h += '</div>';
+
+  if(!units.length){
+    h += '<div class="card" style="text-align:center;padding:32px;color:var(--muted)">لا توجد وحدات في هذا القسم</div>';
+    return h;
+  }
+
+  // ── Unit cards ──
+  units.forEach(function(r){
+    var fedKg   = fedToday[r.unit]||0;
+    var isFed   = fedKg > 0;
+    var sched   = generateDailySchedule(_qfState.date);
+    var schedU  = sched.schedule.find(function(s){return s.unit===r.unit;});
+    var suggest = schedU ? schedU.totalKg/3 : 0; // per meal
+
+    h += '<div class="card" style="margin-bottom:10px;border-inline-start:4px solid '+(isFed?'var(--green)':'var(--line)')+';padding:14px">';
+
+    // Unit header
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+    h += '<div>';
+    h += '<div style="font-size:16px;font-weight:800;color:var(--teal)">'+r.unit+'</div>';
+    h += '<div style="font-size:11px;color:var(--muted)">';
+    h += r.fishNo.toLocaleString()+' سمكة · '+(r.avgWt||0).toFixed(0)+'g · '+(r.biomass||0).toFixed(0)+' kg bio';
+    h += '</div></div>';
+    if(isFed){
+      h += '<div style="background:#dcfce7;color:var(--green);padding:4px 10px;border-radius:99px;font-size:12px;font-weight:700">✅ '+fedKg.toFixed(1)+' kg</div>';
+    }
+    h += '</div>';
+
+    // Input row
+    h += '<div style="display:flex;gap:8px;align-items:center">';
+
+    // KG input — large for mobile
+    h += '<div style="flex:1">';
+    h += '<input type="number" id="qf-kg-'+r.unit+'" ';
+    h += 'value="'+(suggest>0?suggest.toFixed(2):'')+'" ';
+    h += 'min="0" max="50" step="0.1" inputmode="decimal" ';
+    h += 'placeholder="كجم" ';
+    h += 'style="width:100%;padding:12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:22px;font-weight:700;text-align:center;color:var(--deep)"';
+    h += '/></div>';
+
+    // Feed type
+    var invTypes = getAvailableFeedTypes();
+    h += '<select id="qf-feed-'+r.unit+'" style="padding:10px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:13px;min-width:100px">';
+    if(!invTypes.length){
+      h += '<option value="">نوع العلف</option>';
+    } else {
+      invTypes.forEach(function(f){
+        h += '<option value="'+f+'"'+(f===defaultFeed?' selected':'')+'>'+f+'</option>';
+      });
+    }
+    h += '</select>';
+
+    // Quick save button
+    h += '<button data-unit="'+r.unit+'" onclick="qfSaveOne(this.dataset.unit)" style="padding:12px 16px;background:var(--teal);color:#fff;border:0;border-radius:10px;font:inherit;font-size:18px;cursor:pointer;min-width:52px">💾</button>';
+    h += '</div>';
+
+    // Suggest hint
+    if(suggest>0){
+      h += '<div style="font-size:11px;color:var(--muted);margin-top:6px">💡 SFR: '+suggest.toFixed(2)+' كجم/وجبة</div>';
+    }
+    h += '</div>';
+  });
+
+  // ── Bottom save all ──
+  h += '<div style="position:sticky;bottom:0;background:var(--paper);padding:12px 0;margin-top:8px">';
+  h += '<button onclick="qfSaveAll()" class="savebtn" style="width:100%;padding:16px;font-size:16px;font-weight:800">✅ حفظ كل الوحدات</button>';
+  h += '</div>';
+
+  return h;
+}
+
+
+function qfChangeFarm(v){ _qfState.farm=v; _qfState.section=''; show('quick-feed'); }
+function qfChangeSec(v){ _qfState.section=v; show('quick-feed'); }
+function qfChangeDate(v){ _qfState.date=v; show('quick-feed'); }
+function qfApplySFR(){
+  var sched = generateDailySchedule(_qfState.date);
+  var applied = 0;
+  sched.schedule.forEach(function(s){
+    if(s.blocked) return;
+    var unit = s.unit;
+    if(_qfState.section && !unit.includes('.'+_qfState.section+'T')) return;
+    var el = document.getElementById('qf-kg-'+unit);
+    if(el){ el.value = (s.totalKg/3).toFixed(2); applied++; }
+  });
+  toast('✅ تم تطبيق SFR على '+applied+' وحدة');
+}
+
+function qfSaveOne(unit){
+  var kgEl   = document.getElementById('qf-kg-'+unit);
+  var feedEl = document.getElementById('qf-feed-'+unit);
+  var kg     = parseFloat(kgEl?kgEl.value:0)||0;
+  if(kg<=0){ toast('⚠️ ادخل الكمية'); return; }
+  var feed = feedEl?feedEl.value:'';
+
+  // Check inventory
+  if(getFeedInv().length){
+    var check = checkFeedAvailable(feed, kg);
+    if(!check.ok){ toast(check.msg); return; }
+  }
+
+  addTX({type:'feeding', date:_qfState.date, unit:unit, kg:kg, feed:feed, meal:_qfState.meal});
+  if(kgEl) kgEl.style.background='#dcfce7';
+  toast('✅ '+unit+': '+kg+' كجم');
+}
+
+function qfSaveAll(){
+  var units = _txLiveRows().filter(function(r){
+    return (r.fishNo||0)>0 &&
+      r.farm===_qfState.farm &&
+      (!_qfState.section||r.unit.includes('.'+_qfState.section+'T'));
+  });
+  var saved=0, errors=[];
+
+  // Calculate total needed
+  var byFeed = {};
+  units.forEach(function(r){
+    var kgEl = document.getElementById('qf-kg-'+r.unit);
+    var feedEl = document.getElementById('qf-feed-'+r.unit);
+    var kg = parseFloat(kgEl?kgEl.value:0)||0;
+    var feed = feedEl?feedEl.value:'';
+    if(kg<=0) return;
+    if(!byFeed[feed]) byFeed[feed]=0;
+    byFeed[feed]+=kg;
+  });
+
+  // Check inventory
+  if(getFeedInv().length){
+    var blocked = [];
+    Object.keys(byFeed).forEach(function(f){
+      var check = checkFeedAvailable(f, byFeed[f]);
+      if(!check.ok) blocked.push(f+': '+check.msg);
+    });
+    if(blocked.length){ toast('❌ '+blocked[0]); return; }
+  }
+
+  units.forEach(function(r){
+    var kgEl   = document.getElementById('qf-kg-'+r.unit);
+    var feedEl = document.getElementById('qf-feed-'+r.unit);
+    var kg     = parseFloat(kgEl?kgEl.value:0)||0;
+    if(kg<=0) return;
+    var feed = feedEl?feedEl.value:'';
+    addTX({type:'feeding', date:_qfState.date, unit:r.unit, kg:kg, feed:feed, meal:_qfState.meal});
+    saved++;
+  });
+
+  if(saved) toast('✅ تم حفظ '+saved+' وحدة — '+_qfState.meal+' '+_qfState.date);
+  show('quick-feed');
+}
+
+// ══════════════════════════════════════════════════════════
+// OFFLINE MODE — Queue & Sync
+// ══════════════════════════════════════════════════════════
+
+var OFFLINE_QUEUE_KEY = 'daracqua_offline_queue_v1';
+
+function getOfflineQueue(){
+  try{ return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY)||'[]'); }catch(e){ return []; }
+}
+function saveOfflineQueue(q){
+  try{ localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q)); }catch(e){}
+}
+
+function addToOfflineQueue(op, data){
+  var q = getOfflineQueue();
+  q.push({op:op, data:data, ts:new Date().toISOString(), id:Date.now()+'_'+Math.random().toString(36).slice(2,5)});
+  saveOfflineQueue(q);
+  updateOfflineStatus();
+}
+
+async function syncOfflineQueue(){
+  if(!sbReady||!SB_FARM_ID) return;
+  var q = getOfflineQueue();
+  if(!q.length) return;
+
+  var failed = [];
+  for(var i=0;i<q.length;i++){
+    var item = q[i];
+    try{
+      if(item.op==='upsert_tx'){
+        await _txUpsertOne(item.data);
+      } else if(item.op==='delete_tx'){
+        await _txDeleteOne(item.data.id);
+      } else if(item.op==='upsert_feedinv'){
+        await _feedInvUpsertOne(item.data);
+      }
+    }catch(e){
+      failed.push(item);
+    }
+  }
+  saveOfflineQueue(failed);
+  updateOfflineStatus();
+  if(q.length-failed.length>0){
+    console.log('Synced '+(q.length-failed.length)+' offline operations');
+    if(q.length-failed.length>0) toast('✅ تمت مزامنة '+(q.length-failed.length)+' عملية محفوظة');
+  }
+}
+
+function updateOfflineStatus(){
+  var isOnline  = navigator.onLine;
+  var qLen      = getOfflineQueue().length;
+  var statusEl  = document.getElementById('offline-status');
+  if(!statusEl) return;
+
+  if(!isOnline){
+    statusEl.textContent = '📴 غير متصل';
+    statusEl.style.background = '#fee2e2';
+    statusEl.style.color = 'var(--red)';
+  } else if(qLen>0){
+    statusEl.textContent = '🔄 '+qLen+' في الانتظار';
+    statusEl.style.background = '#fef3c7';
+    statusEl.style.color = 'var(--amber)';
+    // Try to sync
+    syncOfflineQueue();
+  } else {
+    statusEl.textContent = '🟢 متصل';
+    statusEl.style.background = '#dcfce7';
+    statusEl.style.color = 'var(--green)';
+  }
+}
+
+// Hook into addTX for offline support
+var _origAddTXBase = addTX;
+addTX = function(obj){
+  var result = _origAddTXBase(obj);
+  // If offline, queue for later sync
+  if(!navigator.onLine || !sbReady){
+    addToOfflineQueue('upsert_tx', obj);
+  }
+  return result;
+};
+
+// Monitor online/offline events
+if(typeof window !== 'undefined'){
+  window.addEventListener('online',  function(){ updateOfflineStatus(); syncOfflineQueue(); });
+  window.addEventListener('offline', function(){ updateOfflineStatus(); });
+}
+
+// ══════════════════════════════════════════════════════════
+// EXECUTIVE REPORT — Professional PDF for management
+// ══════════════════════════════════════════════════════════
+
+function generateExecutiveReport(){
+  var today  = new Date().toISOString().slice(0,10);
+  var cfg    = getSettings();
+  var liveRs = _txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
+  var allTX  = getTX();
+  var pl     = calcPL();
+
+  // 30-day window
+  var d30 = new Date(); d30.setDate(d30.getDate()-30);
+  var d30s = d30.toISOString().slice(0,10);
+  var tx30 = allTX.filter(function(t){return (t.date||'')>=d30s;});
+
+  // Metrics
+  var totFish = liveRs.reduce(function(s,r){return s+(r.fishNo||0);},0);
+  var totBio  = liveRs.reduce(function(s,r){return s+(r.biomass||0);},0);
+  var avgDens = liveRs.length?liveRs.reduce(function(s,r){return s+(r.density||0);},0)/liveRs.length:0;
+  var highD   = liveRs.filter(function(r){return(r.density||0)>=25;}).length;
+
+  var feed30  = tx30.filter(function(t){return t.type==='feeding';}).reduce(function(s,t){return s+(t.kg||0);},0);
+  var mort30  = tx30.filter(function(t){return t.type==='mortality';}).reduce(function(s,t){return s+(t.count||0);},0);
+  var harv30  = tx30.filter(function(t){return t.type==='harvesting';}).reduce(function(s,t){return s+(t.kg||0);},0);
+  var rev30   = tx30.filter(function(t){return t.type==='harvesting';}).reduce(function(s,t){return s+(t.kg||0)*(t.price||0);},0);
+
+  // Survival
+  var survData = getSurvivalData();
+  var avgSurv  = survData.length?survData.reduce(function(s,r){return s+r.survRate;},0)/survData.length:100;
+
+  // Build HTML report
+  var h = '<!DOCTYPE html><html dir="rtl" lang="ar"><head>';
+  h += '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+  h += '<title>Executive Report — '+( cfg.farmName||'Dar Aqua')+' — '+today+'</title>';
+  h += '<style>';
+  h += 'body{font-family:Arial,sans-serif;margin:0;padding:0;background:#fff;color:#1a1a1a;direction:rtl}';
+  h += '.cover{background:linear-gradient(135deg,#0D3B38,#067B72);color:#fff;padding:60px 50px;min-height:280px}';
+  h += '.cover h1{font-size:32px;margin:0 0 8px;font-weight:900}';
+  h += '.cover .sub{font-size:16px;opacity:.8;margin-bottom:40px}';
+  h += '.cover .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:40px}';
+  h += '.cover .meta-item{background:rgba(255,255,255,.15);padding:16px;border-radius:10px}';
+  h += '.cover .meta-item .label{font-size:11px;opacity:.7;margin-bottom:4px}';
+  h += '.cover .meta-item .value{font-size:20px;font-weight:800}';
+  h += '.section{padding:30px 50px;border-bottom:1px solid #eee}';
+  h += '.section h2{color:#0D3B38;font-size:18px;margin-bottom:20px;padding-bottom:8px;border-bottom:2px solid #067B72}';
+  h += '.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}';
+  h += '.kpi{background:#f8fffe;border:1px solid #e0f2f1;border-radius:10px;padding:16px;text-align:center}';
+  h += '.kpi .k-val{font-size:26px;font-weight:900;color:#0D3B38}';
+  h += '.kpi .k-lbl{font-size:11px;color:#666;margin-top:4px}';
+  h += '.kpi .k-sub{font-size:10px;color:#999;margin-top:2px}';
+  h += '.highlight{background:linear-gradient(135deg,#0D3B38,#067B72);color:#fff;padding:20px;border-radius:12px;margin:16px 0}';
+  h += '.highlight .h-val{font-size:36px;font-weight:900}';
+  h += '.highlight .h-lbl{font-size:13px;opacity:.8}';
+  h += 'table{width:100%;border-collapse:collapse;font-size:12px}';
+  h += 'th{background:#0D3B38;color:#fff;padding:10px;text-align:right;font-weight:700}';
+  h += 'td{padding:9px 10px;border-bottom:1px solid #eee}';
+  h += 'tr:nth-child(even){background:#f8fffe}';
+  h += '.status-ok{color:#067B72;font-weight:700}';
+  h += '.status-warn{color:#d97706;font-weight:700}';
+  h += '.status-crit{color:#dc2626;font-weight:700}';
+  h += '.footer{padding:20px 50px;background:#f5f5f5;text-align:center;font-size:11px;color:#999}';
+  h += '@media print{.no-print{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}';
+  h += '</style></head><body>';
+
+  // Print button
+  h += '<div class="no-print" style="position:fixed;top:16px;left:16px;z-index:100">';
+  h += '<button onclick="window.print()" style="background:#0D3B38;color:#fff;border:0;padding:12px 20px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700">🖨️ طباعة / حفظ PDF</button>';
+  h += '</div>';
+
+  // Cover
+  h += '<div class="cover">';
+  h += '<h1>'+(cfg.farmName||'Dar Aqua Agriculture')+'</h1>';
+  h += '<div class="sub">تقرير تنفيذي — Executive Report</div>';
+  h += '<div style="font-size:13px;opacity:.7">الفترة: آخر 30 يوم | تاريخ الإصدار: '+today+'</div>';
+  h += '<div class="meta">';
+  h += '<div class="meta-item"><div class="label">الموقع</div><div class="value">'+(cfg.location||'Bahrain')+'</div></div>';
+  h += '<div class="meta-item"><div class="label">النوع</div><div class="value">'+(cfg.species||'Silver Tilapia')+'</div></div>';
+  h += '<div class="meta-item"><div class="label">تاريخ التقرير</div><div class="value">'+today+'</div></div>';
+  h += '</div></div>';
+
+  // Executive Summary
+  h += '<div class="section">';
+  h += '<h2>📊 الملخص التنفيذي — Executive Summary</h2>';
+  h += '<div class="kpi-grid">';
+  [{val:(totFish/1000).toFixed(1)+'K',lbl:'إجمالي الأسماك',sub:'وحدة نشطة: '+liveRs.length},
+   {val:(totBio/1000).toFixed(2)+' MT',lbl:'الكتلة الحيوية — Biomass',sub:'متوسط كثافة: '+avgDens.toFixed(1)+' kg/m³'},
+   {val:avgSurv.toFixed(1)+'%',lbl:'معدل النجاة',sub:'من إجمالي الزريعة'},
+   {val:'BD '+pl.grossProfit.toFixed(0),lbl:'الربح الإجمالي',sub:'هامش: '+pl.profitMargin+'%'},
+  ].forEach(function(k){
+    h += '<div class="kpi"><div class="k-val">'+k.val+'</div><div class="k-lbl">'+k.lbl+'</div><div class="k-sub">'+k.sub+'</div></div>';
+  });
+  h += '</div>';
+
+  // P&L highlight
+  h += '<div class="highlight">';
+  h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">';
+  h += '<div><div class="h-lbl">إيراد الحصاد (30 يوم)</div><div class="h-val">BD '+rev30.toFixed(0)+'</div></div>';
+  h += '<div><div class="h-lbl">تكلفة العلف الكلية</div><div class="h-val">BD '+pl.feedCost.toFixed(0)+'</div></div>';
+  h += '<div><div class="h-lbl">صافي الربح</div><div class="h-val">BD '+pl.grossProfit.toFixed(0)+'</div></div>';
+  h += '</div></div>';
+  h += '</div>';
+
+  // Operations (30 days)
+  h += '<div class="section">';
+  h += '<h2>🌾 العمليات — آخر 30 يوم</h2>';
+  h += '<div class="kpi-grid">';
+  [{val:feed30.toFixed(0)+' kg',lbl:'إجمالي التغذية',sub:''},
+   {val:mort30.toLocaleString(),lbl:'النفوق',sub:'آخر 30 يوم'},
+   {val:harv30.toFixed(0)+' kg',lbl:'الحصاد',sub:'BD '+rev30.toFixed(0)+' إيراد'},
+   {val:highD,lbl:'وحدات كثافة عالية',sub:'≥25 kg/m³'},
+  ].forEach(function(k){
+    h += '<div class="kpi"><div class="k-val">'+k.val+'</div><div class="k-lbl">'+k.lbl+'</div><div class="k-sub">'+k.sub+'</div></div>';
+  });
+  h += '</div></div>';
+
+  // Top units table
+  h += '<div class="section">';
+  h += '<h2>🏊 أعلى الوحدات أداءً</h2>';
+  h += '<table><thead><tr>';
+  ['الوحدة','الأسماك','Av.Wt (g)','Bio (kg)','الكثافة','الحالة'].forEach(function(c){
+    h += '<th>'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  liveRs.slice().sort(function(a,b){return(b.biomass||0)-(a.biomass||0);}).slice(0,15).forEach(function(r){
+    var d = r.density||0;
+    var cls = d>=25?'status-crit':d>=20?'status-warn':'status-ok';
+    var status = d>=25?'⛔ كثافة عالية':d>=20?'⚠️ مراقبة':'✅ طبيعي';
+    h += '<tr>';
+    h += '<td style="font-weight:700;color:#067B72">'+r.unit+'</td>';
+    h += '<td>'+(r.fishNo||0).toLocaleString()+'</td>';
+    h += '<td>'+(r.avgWt||0).toFixed(0)+'</td>';
+    h += '<td>'+(r.biomass||0).toFixed(0)+'</td>';
+    h += '<td class="'+cls+'">'+d.toFixed(1)+'</td>';
+    h += '<td class="'+cls+'">'+status+'</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+
+  // Footer
+  h += '<div class="footer">';
+  h += '<div style="font-weight:700;color:#0D3B38;margin-bottom:4px">'+(cfg.farmName||'Dar Aqua Agriculture')+'</div>';
+  h += '<div>تم إنشاء هذا التقرير بواسطة Dar Aqua Farm Manager | '+today+'</div>';
+  h += '<div style="margin-top:8px">Bahrain · Silver Tilapia · RAS System</div>';
+  h += '</div>';
+  h += '</body></html>';
+  return h;
+}
+
+function openExecutiveReport(){
+  var html = generateExecutiveReport();
+  var win = window.open('','_blank');
+  if(!win){ toast('⚠️ السماح بالـ Popup مطلوب'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(function(){ win.print(); }, 800);
+}
+
 function renderFeedingSchedule(){
   var today  = new Date().toISOString().slice(0,10);
   var cfg    = getSettings();
@@ -8907,7 +9395,7 @@ function sheetChangeDate(sheet,val){
   else if(sheet==='wq'){_wqSheetDate=val;show('tx-wq');}
 }
 
-var VIEWS={dashboard:renderDashboard,alarms:renderAlarms,units:renderUnits,sections:renderSections,density:renderDensity,biomass:renderBiomass,daily:renderDaily,logbook:renderLogbook,upload:renderUpload,calcs:renderCalcs,smart:renderSmart,settings:renderSettings,trend:renderTrend,pdf:renderPDF,setup:renderSetup,ai:renderAI,profile:renderProfile,'site-overview':renderSiteOverview,'tx-feeding':renderTxFeeding,'tx-mortality':renderTxMortality,'tx-sampling':renderTxSampling,'tx-transfer':renderTxTransfer,'tx-harvesting':renderTxHarvesting,'tx-stocking':renderTxStocking,'unit-tx':renderUnitTx,'tx-wq':renderTxWaterQuality,'tx-reports':renderTxReports,'feeding-regime':renderFeedingRegime,'unit-trend':renderUnitTrend,'daily-overview':renderDailyOverview,'feeding-schedule':renderFeedingSchedule,'alert-settings':renderAlertSettings,'cost-dashboard':renderCostDashboard,'historical-benchmarks':renderHistoricalBenchmarks,'whatsapp-report':renderWhatsAppReport,'survival-tracker':renderSurvivalTracker,'growth-curves':renderGrowthCurves,'harvest-planner':renderHarvestPlanner,'batch-comparison':renderBatchComparison,'mortality-analysis':renderMortalityAnalysis,'wq-trends':renderWQTrends,'feed-cost':renderFeedCostCalc,'login-page':function(){var h=renderLoginPage();setTimeout(setupLoginKeys,50);return h;},'user-management':renderUserManagement,'farm-report':renderPDFReport,'feed-inventory':renderFeedInventory,'photo-entry':renderPhotoEntry};
+var VIEWS={dashboard:renderDashboard,alarms:renderAlarms,units:renderUnits,sections:renderSections,density:renderDensity,biomass:renderBiomass,daily:renderDaily,logbook:renderLogbook,upload:renderUpload,calcs:renderCalcs,smart:renderSmart,settings:renderSettings,trend:renderTrend,pdf:renderPDF,setup:renderSetup,ai:renderAI,profile:renderProfile,'site-overview':renderSiteOverview,'tx-feeding':renderTxFeeding,'tx-mortality':renderTxMortality,'tx-sampling':renderTxSampling,'tx-transfer':renderTxTransfer,'tx-harvesting':renderTxHarvesting,'tx-stocking':renderTxStocking,'unit-tx':renderUnitTx,'tx-wq':renderTxWaterQuality,'tx-reports':renderTxReports,'feeding-regime':renderFeedingRegime,'unit-trend':renderUnitTrend,'daily-overview':renderDailyOverview,'quick-feed':renderQuickFeed,'feeding-schedule':renderFeedingSchedule,'alert-settings':renderAlertSettings,'cost-dashboard':renderCostDashboard,'historical-benchmarks':renderHistoricalBenchmarks,'whatsapp-report':renderWhatsAppReport,'survival-tracker':renderSurvivalTracker,'growth-curves':renderGrowthCurves,'harvest-planner':renderHarvestPlanner,'batch-comparison':renderBatchComparison,'mortality-analysis':renderMortalityAnalysis,'wq-trends':renderWQTrends,'feed-cost':renderFeedCostCalc,'login-page':function(){var h=renderLoginPage();setTimeout(setupLoginKeys,50);return h;},'user-management':renderUserManagement,'farm-report':renderPDFReport,'feed-inventory':renderFeedInventory,'photo-entry':renderPhotoEntry};
 
 function goHome(){ show('dashboard'); }
 
