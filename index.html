@@ -313,43 +313,64 @@ tr:hover td{background:#f5faf8}
 
 <div class="shell">
   <nav class="sidebar">
-    <div class="sg">الرئيسية</div>
+    <!-- DASHBOARD -->
+    <div class="sg">🏠 الرئيسية</div>
     <button class="nb on" data-v="dashboard" onclick="show('dashboard')">📊 لوحة التحكم</button>
     <button class="nb" data-v="site-overview" onclick="show('site-overview')">🗂️ Site Overview</button>
-    <button class="nb" data-v="daily-overview" onclick="show('daily-overview')" style="border-inline-start:3px solid var(--lime);font-weight:600">📅 التقرير اليومي</button>
-    <button class="nb" data-v="feeding-schedule" onclick="show('feeding-schedule')" style="border-inline-start:3px solid var(--teal);font-weight:600">📅 جدول التغذية</button>
-    <button class="nb" data-v="cost-dashboard" onclick="show('cost-dashboard')">💰 Cost & Revenue</button>
-    <button class="nb" data-v="historical-benchmarks" onclick="show('historical-benchmarks')">📆 Historical Benchmarks</button>
-    <button class="nb" data-v="alert-settings" onclick="show('alert-settings')">🔔 إعدادات التنبيهات</button>
-    <button class="nb" data-v="whatsapp-report" onclick="show('whatsapp-report')">📱 تقرير WhatsApp</button>
-    <button class="nb" data-v="growth-curves" onclick="show('growth-curves')">📈 Growth Curves</button>
-    <button class="nb" data-v="harvest-planner" onclick="show('harvest-planner')">🎣 Harvest Planner</button>
-    <button class="nb" data-v="survival-tracker" onclick="show('survival-tracker')">📊 Survival Tracker</button>
-    <button class="nb" data-v="batch-comparison" onclick="show('batch-comparison')">🔬 Batch Comparison</button>
-    <button class="nb" data-v="mortality-analysis" onclick="show('mortality-analysis')">💀 Mortality Analysis</button>
-    <button class="nb" data-v="wq-trends" onclick="show('wq-trends')">💧 Water Quality Trends</button>
-    <button class="nb" data-v="feed-cost" onclick="show('feed-cost')">💰 Feed Cost</button>
-    <button class="nb" data-v="smart" onclick="show('smart')" id="smart-btn">🔔 التنبيهات الذكية</button>
-    <div class="sg">Transactions</div>
-    <button class="nb" data-v="quick-feed" onclick="show('quick-feed')" style="border-inline-start:3px solid var(--lime);font-weight:700;background:rgba(6,123,114,.1)">⚡ Quick Feed</button>
-    <button class="nb" data-v="photo-entry" onclick="show('photo-entry')" style="border-inline-start:3px solid #f59e0b;font-weight:800;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e">📸 Photo Data Entry</button>
-    <button class="nb" data-v="feeding-regime" onclick="show('feeding-regime')" style="border-inline-start:3px solid var(--lime);color:var(--teal);font-weight:700">📐 Feeding Regime</button>
-    <button class="nb" data-v="feed-inventory" onclick="show('feed-inventory')" style="border-inline-start:3px solid #f59e0b;font-weight:700">🏪 Feed Inventory</button>
+    <button class="nb" data-v="daily-overview" onclick="show('daily-overview')">📅 التقرير اليومي</button>
+    <button class="nb" data-v="alarms" onclick="show('alarms')">🔔 التنبيهات الذكية</button>
+
+    <!-- TRANSACTIONS -->
+    <div class="sg">📋 TRANSACTIONS</div>
+    <button class="nb" data-v="quick-feed" onclick="show('quick-feed')" style="border-inline-start:3px solid var(--lime);font-weight:700">⚡ Quick Feed</button>
+    <button class="nb" data-v="photo-entry" onclick="show('photo-entry')">📸 Photo Data Entry</button>
     <button class="nb" data-v="tx-feeding" onclick="show('tx-feeding')">🌾 Feeding</button>
     <button class="nb" data-v="tx-mortality" onclick="show('tx-mortality')">💀 Mortality</button>
     <button class="nb" data-v="tx-sampling" onclick="show('tx-sampling')">🔬 Sampling</button>
     <button class="nb" data-v="tx-transfer" onclick="show('tx-transfer')">🔄 Transfer</button>
     <button class="nb" data-v="tx-harvesting" onclick="show('tx-harvesting')">🎣 Harvesting</button>
-    <button class="nb" data-v="tx-stocking" onclick="show('tx-stocking')">🐠 Stocking</button>
-    <button class="nb" data-v="tx-wq" onclick="show('tx-wq')">💧 Water Quality</button>
-    <button class="nb" data-v="unit-tx" onclick="show('unit-tx')">📋 Unit History</button>
+    <button class="nb" data-v="tx-stocking" onclick="show('tx-stocking')">🐟 Stocking</button>
+    <button class="nb" data-v="tx-water-quality" onclick="show('tx-water-quality')">💧 Water Quality</button>
+    <button class="nb" data-v="unit-tx" onclick="show('unit-tx')">📜 Unit History</button>
+    <button class="nb" data-v="tx-reports" onclick="show('tx-reports')">📊 التقارير</button>
+
+    <!-- PRODUCTION -->
+    <div class="sg">🌱 الإنتاج</div>
+    <button class="nb" data-v="feeding-regime" onclick="show('feeding-regime')">📐 Feeding Regime</button>
+    <button class="nb" data-v="feeding-schedule" onclick="show('feeding-schedule')" style="border-inline-start:3px solid var(--teal);font-weight:600">📅 جدول التغذية</button>
+    <button class="nb" data-v="feed-inventory" onclick="show('feed-inventory')">🏪 Feed Inventory</button>
+    <button class="nb" data-v="growth-curves" onclick="show('growth-curves')">📈 Growth Curves</button>
+    <button class="nb" data-v="harvest-planner" onclick="show('harvest-planner')">🎣 Harvest Planner</button>
+    <button class="nb" data-v="feeding-schedule" onclick="show('feeding-schedule')">📅 Feeding Schedule</button>
+
+    <!-- ANALYSIS -->
+    <div class="sg">📊 التحليل</div>
+    <button class="nb" data-v="survival-tracker" onclick="show('survival-tracker')">📊 Survival Tracker</button>
+    <button class="nb" data-v="batch-comparison" onclick="show('batch-comparison')">🔬 Batch Comparison</button>
+    <button class="nb" data-v="mortality-analysis" onclick="show('mortality-analysis')">💀 Mortality Analysis</button>
+    <button class="nb" data-v="wq-trends" onclick="show('wq-trends')">💧 Water Quality Trends</button>
+    <button class="nb" data-v="growth-curves" onclick="show('growth-curves')">📈 Growth Curves</button>
+    <button class="nb" data-v="historical-benchmarks" onclick="show('historical-benchmarks')">📆 Historical Benchmarks</button>
+
+    <!-- FINANCIAL -->
+    <div class="sg">💰 المالية</div>
+    <button class="nb" data-v="cost-dashboard" onclick="show('cost-dashboard')">💰 Cost & Revenue</button>
+    <button class="nb" data-v="feed-cost" onclick="show('feed-cost')">📉 Feed Cost</button>
+
+    <!-- REPORTS -->
+    <div class="sg">📄 التقارير</div>
     <button class="nb" onclick="openExecutiveReport()" style="border-inline-start:3px solid var(--amber);font-weight:600">📄 تقرير تنفيذي PDF</button>
-    <button class="nb" data-v="tx-reports" onclick="show('tx-reports')" style="border-inline-start:3px solid var(--teal)">📑 التقارير</button>
-    <div class="sg">المزرعة</div>
-    <button class="nb" data-v="units" onclick="show('units')">📋 جميع الوحدات</button>
-    <button class="nb" data-v="ai" onclick="show('ai')" id="ai-btn">🤖 المستشار الذكي</button>
-    <div class="sg">الإعداد</div>
-    <button class="nb" data-v="user-management" onclick="show('user-management')" style="border-inline-start:3px solid var(--amber);font-weight:600">👥 إدارة المستخدمين</button>
+    <button class="nb" data-v="whatsapp-report" onclick="show('whatsapp-report')">📱 تقرير WhatsApp</button>
+    <button class="nb" data-v="alert-settings" onclick="show('alert-settings')">🔔 التنبيهات</button>
+
+    <!-- FARM -->
+    <div class="sg">🏭 المزرعة</div>
+    <button class="nb" data-v="all-units" onclick="show('all-units')">🏊 جميع الوحدات</button>
+    <button class="nb" data-v="smart" onclick="show('smart')">🤖 المستشار الذكي</button>
+
+    <!-- SETTINGS -->
+    <div class="sg">⚙️ الإعداد</div>
+    <button class="nb" data-v="user-management" onclick="show('user-management')">👥 إدارة المستخدمين</button>
     <button class="nb" data-v="settings" onclick="show('settings')" style="border-inline-start:3px solid var(--teal);font-weight:700;color:var(--teal)">⚙️ Control Center</button>
   </nav>
   <div class="content" id="content"></div>
@@ -688,6 +709,105 @@ function sparkLine(vals, W, H, color){
     +'<path d="'+line+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'
     +'<circle cx="'+pts[pts.length-1].split(',')[0]+'" cy="'+pts[pts.length-1].split(',')[1]+'" r="3" fill="'+color+'"/>'
     +'</svg>';
+}
+
+
+// ── Weight Color Coding ─────────────────────────────────
+function getWeightColor(avgWtG){
+  if(!avgWtG) return '';
+  if(avgWtG >= 400) return 'var(--green)';   // Large: green
+  if(avgWtG >= 300) return 'var(--amber)';   // Medium: amber
+  return 'var(--red)';                        // Small: red
+}
+function getWeightBg(avgWtG){
+  if(!avgWtG) return '';
+  if(avgWtG >= 400) return '#dcfce7';
+  if(avgWtG >= 300) return '#fef3c7';
+  return '#fee2e2';
+}
+function getWeightLabel(avgWtG){
+  if(!avgWtG) return '';
+  if(avgWtG >= 400) return '🟢 كبير';
+  if(avgWtG >= 300) return '🟡 متوسط';
+  return '🔴 صغير';
+}
+
+
+// ── Themes ──────────────────────────────────────────────
+var THEMES = {
+  teal: {
+    name: 'Dar Aqua (افتراضي)',
+    deep: '#0D3B38', teal: '#067B72', lime: '#a3e635',
+    amber: '#f59e0b', red: '#dc2626', green: '#16a34a',
+    bg: '#f0f8f7', card: '#ffffff', ink: '#1a1a1a'
+  },
+  blue: {
+    name: 'Ocean Blue',
+    deep: '#1e3a5f', teal: '#2563eb', lime: '#60a5fa',
+    amber: '#f59e0b', red: '#dc2626', green: '#16a34a',
+    bg: '#eff6ff', card: '#ffffff', ink: '#1a1a1a'
+  },
+  dark: {
+    name: 'Dark Mode',
+    deep: '#111827', teal: '#10b981', lime: '#a3e635',
+    amber: '#f59e0b', red: '#f87171', green: '#34d399',
+    bg: '#1f2937', card: '#374151', ink: '#f9fafb'
+  },
+  purple: {
+    name: 'Royal Purple',
+    deep: '#4c1d95', teal: '#7c3aed', lime: '#a78bfa',
+    amber: '#f59e0b', red: '#dc2626', green: '#16a34a',
+    bg: '#f5f3ff', card: '#ffffff', ink: '#1a1a1a'
+  },
+  green: {
+    name: 'Forest Green',
+    deep: '#14532d', teal: '#15803d', lime: '#86efac',
+    amber: '#f59e0b', red: '#dc2626', green: '#16a34a',
+    bg: '#f0fdf4', card: '#ffffff', ink: '#1a1a1a'
+  },
+};
+
+function applyTheme(key){
+  var t = THEMES[key] || THEMES.teal;
+  var root = document.documentElement;
+  root.style.setProperty('--deep',  t.deep);
+  root.style.setProperty('--teal',  t.teal);
+  root.style.setProperty('--lime',  t.lime);
+  root.style.setProperty('--amber', t.amber);
+  root.style.setProperty('--red',   t.red);
+  root.style.setProperty('--green', t.green);
+  root.style.setProperty('--light', t.bg);
+  root.style.setProperty('--white', t.card);
+  root.style.setProperty('--ink',   t.ink);
+  localStorage.setItem('daracqua_theme', key);
+  toast('✅ تم تطبيق Theme: '+t.name);
+}
+
+function loadSavedTheme(){
+  var saved = localStorage.getItem('daracqua_theme');
+  if(saved && THEMES[saved]) applyTheme(saved);
+}
+
+function renderThemeSelector(){
+  var current = localStorage.getItem('daracqua_theme')||'teal';
+  var h = '<div class="card" style="margin-bottom:14px">';
+  h += '<div class="card-title">🎨 Themes — اختر لون الأداة</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">';
+  Object.entries(THEMES).forEach(function(e){
+    var key=e[0], t=e[1];
+    var isActive = key===current;
+    h += '<div data-theme="'+key+'" onclick="applyTheme(this.dataset.theme)" style="cursor:pointer;padding:14px;border-radius:12px;border:3px solid '+(isActive?t.teal:'transparent')+';background:'+t.bg+';transition:all .2s">';
+    h += '<div style="display:flex;gap:6px;margin-bottom:8px">';
+    [t.deep,t.teal,t.lime,t.amber].forEach(function(c){
+      h += '<div style="width:18px;height:18px;border-radius:50%;background:'+c+'"></div>';
+    });
+    h += '</div>';
+    h += '<div style="font-size:12px;font-weight:700;color:'+t.ink+'">'+t.name+'</div>';
+    if(isActive) h += '<div style="font-size:10px;color:'+t.teal+';margin-top:4px">✅ نشط</div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+  return h;
 }
 
 function renderDashboard(){
@@ -2374,6 +2494,7 @@ function applyUpdate(){
   toast(isAr?'✅ تم تحديث البيانات — '+changed+' تغيير':'✅ Data updated — '+changed+' changes');
   show('dashboard');
   updateOfflineStatus();
+  loadSavedTheme();
   // Unregister any cached service workers to ensure fresh content
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations().then(function(regs){
@@ -3197,7 +3318,8 @@ function renderSettings(){
     txAll.forEach(function(t){byType[t.type]=(byType[t.type]||0)+1;});
     h+='<div class="card" style="margin-bottom:14px">';
     h+='<div class="card" style="margin-bottom:14px">';
-    h+='<div class="card-title">🤖 Cloudflare AI — المستشار الذكي (مجاني)</div>';
+    h+=renderThemeSelector();
+  h+='<div class="card-title">🤖 Cloudflare AI — المستشار الذكي (مجاني)</div>';
     h+='<div class="fg2">';
     h+='<div class="field"><label>API Token</label>';
     h+='<input type="password" id="st-cf-token" value="'+(s.cfToken||'')+'" placeholder="cfut_..."/>';
@@ -9027,7 +9149,7 @@ function renderSiteOverview(){
       switch(col.id){
         case 'uid':h+='<td><strong style="color:var(--teal)">'+r.unit+'</strong></td>';break;
         case 'fishNo':h+='<td><strong>'+fmtK(r.fishNo||0)+'</strong></td>';break;
-        case 'avgWt':h+='<td><strong>'+n(r.avgWt||0,1)+'</strong></td>';break;
+        case 'avgWt':var __wc=getWeightColor(r.avgWt||0),__wb=getWeightBg(r.avgWt||0);h+='<td style="background:'+__wb+';color:'+__wc+'"><strong>'+n(r.avgWt||0,1)+'</strong></td>';break;
         case 'biomass':h+='<td>'+n(r.biomass||0,1)+'</td>';break;
         case 'density':var dc=density>=(cfg.densAlarm||25)?'var(--red)':density>=(cfg.densWarn||15)?'var(--amber)':'var(--green)';h+='<td style="font-weight:700;color:'+dc+'">'+n(density,2)+'</td>';break;
         case 'utdFeed':h+='<td>'+(utdFeed?n(utdFeed,1):'—')+'</td>';break;
