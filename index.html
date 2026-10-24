@@ -3197,11 +3197,15 @@ function renderSettings(){
     txAll.forEach(function(t){byType[t.type]=(byType[t.type]||0)+1;});
     h+='<div class="card" style="margin-bottom:14px">';
     h+='<div class="card" style="margin-bottom:14px">';
-    h+='<div class="card-title">🤖 Anthropic API Key</div>';
-    h+='<div class="fg2"><div class="field"><label>API Key</label>';
-    h+='<input type="password" id="st-anthropic-key" value="'+(s.anthropicKey||'')+'" placeholder="sk-ant-..."/>';
+    h+='<div class="card-title">🤖 Cloudflare AI — المستشار الذكي (مجاني)</div>';
+    h+='<div class="fg2">';
+    h+='<div class="field"><label>API Token</label>';
+    h+='<input type="password" id="st-cf-token" value="'+(s.cfToken||'')+'" placeholder="cfut_..."/>';
+    h+='</div>';
+    h+='<div class="field"><label>Account ID</label>';
+    h+='<input type="text" id="st-cf-account" value="'+(s.cfAccount||'245302f87be8752301a52cc8f9942e9f')+'" placeholder="Account ID"/>';
     h+='</div></div>';
-    h+='<button class="savebtn" style="width:auto;padding:8px 18px" onclick="saveAnthropicKey()">💾 حفظ</button>';
+    h+='<button class="savebtn" style="width:auto;padding:8px 18px" onclick="saveCFKey()">💾 حفظ</button>';
     h+='</div>';
     h+='<div class="card-title">🔗 Supabase — مزامنة البيانات</div>';
     h+='<div style="display:flex;align-items:center;gap:12px;padding:14px;background:'+(sbOk?'#dcfce7':'#fef3c7')+';border-radius:10px;margin-bottom:14px">';
@@ -3273,13 +3277,15 @@ function settingsAddUnitRow(){
   show('settings');
 }
 
-function saveAnthropicKey(){
-  var el = document.getElementById('st-anthropic-key');
-  if(!el||!el.value){ toast('⚠️ ادخل الـ API Key'); return; }
+function saveCFKey(){
+  var t = document.getElementById('st-cf-token');
+  var a = document.getElementById('st-cf-account');
+  if(!t||!t.value){ toast('⚠️ ادخل الـ API Token'); return; }
   var cfg = getSettings(_settingsFarm);
-  cfg.anthropicKey = el.value.trim();
+  cfg.cfToken   = t.value.trim();
+  cfg.cfAccount = (a&&a.value) ? a.value.trim() : '245302f87be8752301a52cc8f9942e9f';
   saveSettings(cfg, _settingsFarm);
-  toast('✅ تم حفظ Anthropic API Key');
+  toast('✅ تم حفظ Cloudflare AI Token');
 }
 
 function saveSBConfig(){ saveSBConfigAndConnect(); }
@@ -8817,8 +8823,10 @@ async function aiSendQuestion(){
   chatEl.scrollTop=chatEl.scrollHeight;
 
   try{
-    var apiKey = getSettings().anthropicKey||'';
-    if(!apiKey){ throw new Error('ادخل Anthropic API Key في Control Center → التكامل'); }
+    var cfg = getSettings();
+    var cfToken   = cfg.cfToken   || '';
+    var cfAccount = cfg.cfAccount || '245302f87be8752301a52cc8f9942e9f';
+    if(!cfToken){ throw new Error('ادخل Cloudflare API Token في Control Center → التكامل'); }
 
     // ── Build rich farm context ──
     var liveRs  = _txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
@@ -8913,27 +8921,30 @@ async function aiSendQuestion(){
     // Add current question with farm context
     messages.push({role:'user', content:farmCtx + '\n---\n## سؤال المستخدم\n' + question});
 
-    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // Add system prompt to messages
+    var cfMessages = [{role:'user', content: systemPrompt + '\n\n' + messages[messages.length-1].content}];
+    if(messages.length > 1){
+      cfMessages = messages.slice(0,-1).concat([{role:'user', content: systemPrompt + '\n\n' + messages[messages.length-1].content}]);
+    }
+
+    var resp = await fetch('https://api.cloudflare.com/client/v4/accounts/'+cfAccount+'/ai/run/@cf/meta/llama-3.1-8b-instruct', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Authorization': 'Bearer '+cfToken
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        messages: cfMessages,
         max_tokens: 1500,
-        system: systemPrompt,
-        messages: messages
+        stream: false
       })
     });
     if(!resp.ok){
       var err=await resp.json().catch(function(){return{};});
-      throw new Error(err.error&&err.error.message ? err.error.message : 'API error '+resp.status);
+      throw new Error(err.errors&&err.errors[0] ? err.errors[0].message : 'Cloudflare API error '+resp.status);
     }
     var data = await resp.json();
-    var answer = data.content&&data.content[0]&&data.content[0].text ? data.content[0].text : 'عذراً، لم أتمكن من توليد رد.';
+    var answer = data.result&&data.result.response ? data.result.response : 'عذراً، لم أتمكن من توليد رد.';
 
     _aiHistory.push({role:'assistant',content:answer});
 
