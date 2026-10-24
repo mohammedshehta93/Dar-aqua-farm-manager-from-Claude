@@ -1335,6 +1335,256 @@ async function saveSBConfigAndConnect(){
     if(btn){btn.disabled=false;btn.textContent='🔗 حفظ وتوصيل';}
   }
 }
+
+// ══════════════════════════════════════════════════════════
+// SUPABASE SYNC — Full bidirectional sync
+// ══════════════════════════════════════════════════════════
+
+var _syncQueue   = [];   // pending upserts when offline
+var _syncRunning = false;
+
+// ── TX Sync ───────────────────────────────────────────────
+
+async function _txUpsertOne(tx){
+  if(!sbReady||!SB_FARM_ID) return;
+  try{
+    await sbFetch('transactions', {
+      method: 'POST',
+      headers: {'Prefer':'resolution=merge-duplicates'},
+      body: JSON.stringify({
+        id:      tx.id,
+        farm_id: SB_FARM_ID,
+        type:    tx.type||'',
+        date:    tx.date||'',
+        unit:    tx.unit||'',
+        data:    tx,
+        ts:      tx.ts||new Date().toISOString()
+      })
+    });
+  }catch(e){ console.warn('TX upsert failed:',e.message); }
+}
+
+async function _txDeleteOne(id){
+  if(!sbReady||!SB_FARM_ID) return;
+  try{
+    await sbFetch('transactions?id=eq.'+encodeURIComponent(id)+'&farm_id=eq.'+SB_FARM_ID,
+      {method:'DELETE'});
+  }catch(e){ console.warn('TX delete failed:',e.message); }
+}
+
+async function _txSyncToSB(txArr){
+  if(!sbReady||!SB_FARM_ID||!txArr||!txArr.length) return;
+  // Batch upsert in chunks of 50
+  var chunks = [];
+  for(var i=0;i<txArr.length;i+=50) chunks.push(txArr.slice(i,i+50));
+  for(var c=0;c<chunks.length;c++){
+    try{
+      var rows = chunks[c].map(function(t){return{
+        id:t.id, farm_id:SB_FARM_ID, type:t.type||'', date:t.date||'',
+        unit:t.unit||'', data:t, ts:t.ts||new Date().toISOString()
+      };});
+      await sbFetch('transactions', {
+        method:'POST',
+        headers:{'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify(rows)
+      });
+    }catch(e){ console.warn('Batch TX sync failed chunk '+c+':',e.message); }
+  }
+  toast('✅ تم مزامنة '+txArr.length+' معاملة مع Supabase');
+}
+
+async function loadTXFromSB(){
+  if(!sbReady||!SB_FARM_ID) return;
+  try{
+    // Load all TX for this farm - paginate if needed
+    var all = [], page = 0, limit = 1000;
+    while(true){
+      var rows = await sbFetch('transactions?farm_id=eq.'+SB_FARM_ID
+        +'&order=ts.desc&limit='+limit+'&offset='+(page*limit));
+      if(!rows||!rows.length) break;
+      rows.forEach(function(r){ if(r.data) all.push(r.data); });
+      if(rows.length < limit) break;
+      page++;
+      if(page > 10) break; // safety
+    }
+    if(!all.length) return;
+    // Merge with local (SB is source of truth)
+    var local = getTX();
+    var sbIds  = {};
+    all.forEach(function(t){ sbIds[t.id]=1; });
+    // Keep local TX not in SB yet (pending upload)
+    var pending = local.filter(function(t){ return !sbIds[t.id]; });
+    var merged  = all.concat(pending);
+    // Sort by date desc
+    merged.sort(function(a,b){return (b.date||'')>(a.date||'')?1:-1;});
+    if(merged.length>5000) merged=merged.slice(0,5000);
+    saveTX(merged);
+    _txCache = null;
+    console.log('Loaded '+all.length+' TX from Supabase, '+pending.length+' pending upload');
+    // Upload pending
+    if(pending.length) await _txSyncToSB(pending);
+  }catch(e){ console.warn('loadTXFromSB:',e.message); }
+}
+
+// ── Feed Inventory Sync ───────────────────────────────────
+
+async function _feedInvUpsertOne(entry){
+  if(!sbReady||!SB_FARM_ID) return;
+  try{
+    await sbFetch('feed_inventory', {
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({
+        id:      entry.id,
+        farm_id: SB_FARM_ID,
+        feed_type: entry.feedType||'',
+        kg:      entry.kg||0,
+        tx_type: entry.txType||'purchase',
+        date:    entry.date||'',
+        price:   entry.price||null,
+        notes:   entry.notes||'',
+        data:    entry,
+        ts:      entry.ts||new Date().toISOString()
+      })
+    });
+  }catch(e){ console.warn('FeedInv upsert:',e.message); }
+}
+
+async function loadFeedInvFromSB(){
+  if(!sbReady||!SB_FARM_ID) return;
+  try{
+    var rows = await sbFetch('feed_inventory?farm_id=eq.'+SB_FARM_ID+'&order=date.desc&limit=500');
+    if(!rows||!rows.length) return;
+    var entries = rows.map(function(r){ return r.data||r; }).filter(Boolean);
+    _feedInvCache = null;
+    try{ localStorage.setItem(FEED_INV_KEY, JSON.stringify(entries)); }catch(e){}
+    _feedInvCache = entries;
+    console.log('Loaded '+entries.length+' feed inventory entries from Supabase');
+  }catch(e){ console.warn('loadFeedInvFromSB:',e.message); }
+}
+
+// ── Units Sync ────────────────────────────────────────────
+
+async function loadUnitsFromSB(){
+  if(!sbReady||!SB_FARM_ID) return;
+  try{
+    var rows = await sbFetch('farm_units?farm_id=eq.'+SB_FARM_ID+'&limit=500');
+    if(!rows||!rows.length) return;
+    var units = rows.map(function(r){ return r.data||r; }).filter(Boolean);
+    saveFarmUnits(units);
+    console.log('Loaded '+units.length+' units from Supabase');
+  }catch(e){ console.warn('loadUnitsFromSB:',e.message); }
+}
+
+async function _unitUpsertOne(unit){
+  if(!sbReady||!SB_FARM_ID) return;
+  try{
+    await sbFetch('farm_units', {
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({
+        id:      unit.id||unit.name||'',
+        farm_id: SB_FARM_ID,
+        data:    unit
+      })
+    });
+  }catch(e){ console.warn('Unit upsert:',e.message); }
+}
+
+// ── Auto-sync hooks ───────────────────────────────────────
+
+// Patch addTX to also sync to SB
+var _origAddTX = addTX;
+addTX = function(obj){
+  var result = _origAddTX(obj);
+  if(sbReady&&SB_FARM_ID){
+    _txUpsertOne(obj).catch(function(e){ console.warn('addTX SB:', e.message); });
+  }
+  return result;
+};
+
+// Patch deleteTX to also delete from SB
+var _origDeleteTX = deleteTX;
+deleteTX = function(id){
+  _origDeleteTX(id);
+  if(sbReady&&SB_FARM_ID){
+    _txDeleteOne(id).catch(function(e){ console.warn('deleteTX SB:', e.message); });
+  }
+};
+
+// Patch addFeedInv to also sync to SB
+// addFeedInv SB sync handled inside the function
+
+// ── Sync Status UI ────────────────────────────────────────
+
+function showSBStatus(ok){
+  var el = document.getElementById('sb-status');
+  if(!el) return;
+  if(ok){
+    el.textContent = '🟢 متصل';
+    el.style.color = 'var(--green)';
+  } else {
+    el.textContent = '🔴 غير متصل';
+    el.style.color = 'var(--red)';
+  }
+}
+
+
+function forceSyncAll(){
+  if(!sbReady||!SB_FARM_ID){ toast('⚠️ غير متصل بـ Supabase'); return; }
+  toast('🔄 جاري المزامنة الكاملة...');
+  Promise.all([
+    _txSyncToSB(getTX()),
+  ]).then(function(){
+    toast('✅ تمت المزامنة الكاملة');
+  }).catch(function(e){ toast('❌ '+e.message); });
+}
+function forceSyncTX(){
+  if(!sbReady||!SB_FARM_ID){
+    toast('⚠️ غير متصل بـ Supabase — سجل دخول وفعّل الاتصال أولاً');
+    return;
+  }
+  var tx = getTX();
+  toast('🔄 جاري مزامنة '+tx.length+' معاملة...');
+  _txSyncToSB(tx);
+}
+
+// ── Realtime Sync (polling every 30s when active) ────────
+
+var _realtimeInterval = null;
+
+function startRealtimeSync(){
+  if(_realtimeInterval) return;
+  _realtimeInterval = setInterval(async function(){
+    if(!sbReady||!SB_FARM_ID||!navigator.onLine) return;
+    try{
+      // Check for new TX from other users
+      var lastCheck = localStorage.getItem('daracqua_last_sync')||'2000-01-01';
+      var rows = await sbFetch('transactions?farm_id=eq.'+SB_FARM_ID
+        +'&ts=gt.'+encodeURIComponent(lastCheck)+'&order=ts.asc&limit=100');
+      if(rows&&rows.length){
+        var local = getTX();
+        var localIds = {};
+        local.forEach(function(t){ localIds[t.id]=1; });
+        var newOnes = rows.filter(function(r){ return r.data&&!localIds[r.data.id]; })
+                         .map(function(r){ return r.data; });
+        if(newOnes.length){
+          newOnes.forEach(function(t){ local.push(t); });
+          local.sort(function(a,b){return (b.date||'')>(a.date||'')?1:-1;});
+          saveTX(local); _txCache=null;
+          toast('🔄 '+newOnes.length+' معاملة جديدة من مستخدم آخر');
+          show(currentView); // refresh current view
+        }
+        localStorage.setItem('daracqua_last_sync', new Date().toISOString());
+      }
+    }catch(e){}
+  }, 30000); // every 30 seconds
+}
+
+function stopRealtimeSync(){
+  if(_realtimeInterval){ clearInterval(_realtimeInterval); _realtimeInterval=null; }
+}
+
 async function ensureFarm(){
   var cfg = getSettings();
   var farmName = cfg.farmName || 'Dar Aqua';
@@ -2679,7 +2929,11 @@ function addFeedInv(obj){
   var arr=getFeedInv();
   obj.id=obj.id||(Date.now()+'fi');
   obj.ts=new Date().toISOString();
-  arr.push(obj); saveFeedInv(arr); return obj;
+  arr.push(obj); saveFeedInv(arr);
+  if(sbReady&&SB_FARM_ID){
+    _feedInvUpsertOne(obj).catch(function(e){console.warn('addFeedInv SB:',e.message);});
+  }
+  return obj;
 }
 function deleteFeedInv(id){ saveFeedInv(getFeedInv().filter(function(e){return e.id!==id;})); }
 // ────────────────────────────────────────────────────────────
@@ -6599,14 +6853,7 @@ function saveFeedInv(arr){
   _feedInvCache=arr;
   try{ localStorage.setItem(FEED_INV_KEY,JSON.stringify(arr)); }catch(e){}
 }
-function addFeedInv(obj){
-  var arr=getFeedInv();
-  obj.id=Date.now()+'_'+Math.random().toString(36).slice(2,5);
-  obj.ts=new Date().toISOString();
-  arr.push(obj);
-  saveFeedInv(arr);
-  return obj;
-}
+// addFeedInv defined above with SB sync
 function deleteFeedInv(id){
   saveFeedInv(getFeedInv().filter(function(x){return x.id!==id;}));
 }
@@ -7603,34 +7850,123 @@ async function aiSendQuestion(){
   chatEl.scrollTop=chatEl.scrollHeight;
 
   try{
-    var sample=await claude.use('sample');
-    if(!sample){ throw new Error('AI غير متاح'); }
+    var apiKey = getSettings().anthropicKey||'';
+    if(!apiKey){ throw new Error('ادخل Anthropic API Key في Control Center → التكامل'); }
 
-    // Build context
-    var liveRs=_txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
-    var txAll=getTX();
-    var last7=new Date(); last7.setDate(last7.getDate()-7);
-    var last7s=last7.toISOString().slice(0,10);
-    var recentTX=txAll.filter(function(t){return t.date>=last7s;}).slice(0,100);
-    var alerts=generateAlerts();
+    // ── Build rich farm context ──
+    var liveRs  = _txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
+    var txAll   = getTX();
+    var cfg     = getSettings();
+    var today   = new Date().toISOString().slice(0,10);
+    var last14  = new Date(); last14.setDate(last14.getDate()-14);
+    var last14s = last14.toISOString().slice(0,10);
+    var recentTX = txAll.filter(function(t){return t.date>=last14s;});
+    var alerts   = generateAlerts();
 
-    var ctx='أنت مستشار زراعة مائية متخصص في تربية البلطي في البحرين. أجب بالعربية بشكل مختصر وعملي.\n\n';
-    ctx+='## بيانات المزرعة الحالية:\n';
-    ctx+='- إجمالي الأسماك: '+liveRs.reduce(function(s,r){return s+(r.fishNo||0);},0).toLocaleString()+' سمكة\n';
-    ctx+='- الكتلة الحيوية: '+n(liveRs.reduce(function(s,r){return s+(r.biomass||0);},0)/1000,2)+' طن\n';
-    ctx+='- عدد الوحدات النشطة: '+liveRs.length+'\n';
-    ctx+='- علف آخر 7 أيام: '+n(recentTX.filter(function(t){return t.type==='feeding';}).reduce(function(s,t){return s+(t.kg||0);},0),1)+' كجم\n';
-    ctx+='- نفوق آخر 7 أيام: '+recentTX.filter(function(t){return t.type==='mortality';}).reduce(function(s,t){return s+(t.count||0);},0)+' سمكة\n';
-    ctx+='- التنبيهات الحرجة: '+alerts.filter(function(a){return a.level==='critical';}).length+'\n';
-    if(alerts.length){
-      ctx+='\n## أبرز التنبيهات:\n';
-      alerts.slice(0,5).forEach(function(a){ ctx+='- '+a.title+': '+a.msg+'\n'; });
+    // Farm totals
+    var totFish = liveRs.reduce(function(s,r){return s+(r.fishNo||0);},0);
+    var totBio  = liveRs.reduce(function(s,r){return s+(r.biomass||0);},0);
+    var highDens = liveRs.filter(function(r){return(r.density||0)>=25;});
+    var warnDens = liveRs.filter(function(r){return(r.density||0)>=20&&(r.density||0)<25;});
+
+    // Recent feeding
+    var feedKg14 = recentTX.filter(function(t){return t.type==='feeding';}).reduce(function(s,t){return s+(t.kg||0);},0);
+    var mort14   = recentTX.filter(function(t){return t.type==='mortality';}).reduce(function(s,t){return s+(t.count||0);},0);
+
+    // Latest sampling per unit
+    var latestSamp={};
+    txAll.filter(function(t){return t.type==='sampling';}).sort(function(a,b){return a.date>b.date?1:-1;}).forEach(function(t){if(!latestSamp[t.unit])latestSamp[t.unit]=t;});
+
+    // Feed inventory
+    var feedSummary = getFeedBalanceSummary();
+
+    // Survival data
+    var survData = getSurvivalData();
+    var lowSurv  = survData.filter(function(r){return r.survRate<90;});
+
+    // Build system prompt with full farm context
+    var systemPrompt = 'أنت مستشار زراعة مائية خبير متخصص في تربية البلطي الفضي (Silver Tilapia) في أنظمة RAS في البحرين. عندك وصول كامل لبيانات مزرعة دار أكوا الحقيقية. أجب بالعربية بشكل مختصر وعملي ومباشر. استند دائماً للبيانات الفعلية في ردودك.';
+
+    var farmCtx = '## بيانات مزرعة دار أكوا — ' + today + '\n\n';
+    farmCtx += '### إحصائيات عامة\n';
+    farmCtx += '- الأسماك الكلية: ' + totFish.toLocaleString() + ' سمكة\n';
+    farmCtx += '- الكتلة الحيوية: ' + (totBio/1000).toFixed(3) + ' MT\n';
+    farmCtx += '- الوحدات النشطة: ' + liveRs.length + '\n';
+    farmCtx += '- وحدات كثافة عالية (≥25): ' + highDens.length + '\n';
+    farmCtx += '- وحدات تحت المراقبة (20-25): ' + warnDens.length + '\n';
+    farmCtx += '- علف آخر 14 يوم: ' + feedKg14.toFixed(1) + ' كجم\n';
+    farmCtx += '- نفوق آخر 14 يوم: ' + mort14 + ' سمكة\n';
+
+    if(highDens.length){
+      farmCtx += '\n### وحدات كثافة عالية (⛔ >25 kg/m³)\n';
+      highDens.slice(0,8).forEach(function(r){
+        farmCtx += '- ' + r.unit + ': ' + (r.density||0).toFixed(1) + ' kg/m³ | ' + (r.avgWt||0).toFixed(0) + 'g | ' + (r.fishNo||0) + ' سمكة\n';
+      });
     }
-    ctx+='\n## سؤال المستخدم:\n'+question;
 
-    var msgs=[{role:'user',content:ctx}];
-    var result=await sample(msgs,{modelTier:'default'});
-    var answer=result.text||'عذراً، لم أتمكن من توليد رد.';
+    if(alerts.length){
+      farmCtx += '\n### التنبيهات الحالية\n';
+      alerts.slice(0,6).forEach(function(a){
+        farmCtx += '- [' + (a.level==='critical'?'حرج':'تحذير') + '] ' + a.title + ': ' + a.msg + '\n';
+      });
+    }
+
+    // Recent sampling
+    var sampEntries = Object.entries(latestSamp).slice(0,10);
+    if(sampEntries.length){
+      farmCtx += '\n### آخر بيانات Sampling\n';
+      sampEntries.forEach(function(e){
+        var s=e[1];
+        farmCtx += '- ' + e[0] + ': ' + (s.avgWt||0).toFixed(0) + 'g | SGR: ' + (s.sgr?s.sgr.toFixed(3):'—') + ' | تاريخ: ' + s.date + '\n';
+      });
+    }
+
+    // Feed inventory
+    if(feedSummary.length){
+      farmCtx += '\n### مخزون العلف\n';
+      feedSummary.forEach(function(f){
+        farmCtx += '- ' + f.feedType + ': ' + f.balance.toFixed(0) + ' كجم متاح\n';
+      });
+    }
+
+    // Low survival
+    if(lowSurv.length){
+      farmCtx += '\n### وحدات نسبة نجاة منخفضة (<90%)\n';
+      lowSurv.slice(0,5).forEach(function(r){
+        farmCtx += '- ' + r.unit + ': ' + r.survRate + '% (نفوق: ' + r.mortality + ')\n';
+      });
+    }
+
+    // Build messages with conversation history
+    var messages = [];
+    // Add history (last 6 turns)
+    _aiHistory.slice(-6).forEach(function(m){
+      messages.push({role:m.role, content:m.content});
+    });
+    // Add current question with farm context
+    messages.push({role:'user', content:farmCtx + '\n---\n## سؤال المستخدم\n' + question});
+
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: messages
+      })
+    });
+    if(!resp.ok){
+      var err=await resp.json().catch(function(){return{};});
+      throw new Error(err.error&&err.error.message ? err.error.message : 'API error '+resp.status);
+    }
+    var data = await resp.json();
+    var answer = data.content&&data.content[0]&&data.content[0].text ? data.content[0].text : 'عذراً، لم أتمكن من توليد رد.';
 
     _aiHistory.push({role:'assistant',content:answer});
 
@@ -8387,14 +8723,26 @@ async function bootApp(){
   }
   // Show dashboard from localStorage
   show('dashboard');
-  // Connect Supabase
-  try {
-    await ensureFarm();
-    if(sbReady){
-      await Promise.all([loadLogsFromSB(), loadSnapshotsFromSB(), loadUnitsFromSB(), loadTXFromSB()]);
-      show('dashboard', true);
-    }
-  } catch(e){ console.warn('Boot error:', e); }
+  // Connect Supabase in background
+  if(SB_URL && SB_KEY){
+    (async function(){
+      try{
+        await ensureFarm();
+        if(sbReady){
+          showSBStatus(true);
+          // Load all data from SB in parallel
+          await Promise.all([
+            loadTXFromSB(),
+            loadFeedInvFromSB(),
+            loadSnapshotsFromSB(),
+            loadUnitsFromSB(),
+          ]);
+          startRealtimeSync(); // Start polling for updates
+          show(currentView); // Refresh current view with SB data
+        }
+      }catch(e){ console.warn('Boot SB error:', e.message); showSBStatus(false); }
+    })();
+  }
 }
 
 // ── Init ──────────────────────────────────────
