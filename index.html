@@ -135,12 +135,26 @@ tr:hover td{background:#f5faf8}
 @media(max-width:800px){
   .shell{grid-template-columns:1fr;min-height:calc(100vh - 56px)}
   .sidebar{display:none}
-  .kpis{grid-template-columns:repeat(2,1fr);gap:10px}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:8px}
+  .kpi{padding:10px 8px}
+  .kpi-val{font-size:20px}
   .grid2{grid-template-columns:1fr}
   .fg3{grid-template-columns:1fr 1fr}
+  .fg2{grid-template-columns:1fr}
   .mob-nav{display:block}
-  .content{padding:14px 14px calc(74px + env(safe-area-inset-bottom,0))}
-  .top{padding:0 14px}
+  .content{padding:10px 10px calc(80px + env(safe-area-inset-bottom,0))}
+  .top{padding:0 10px}
+  .card{padding:12px}
+  .card-title{font-size:13px}
+  table{font-size:11px}
+  th,td{padding:5px 6px!important}
+  .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  input[type="number"],input[type="text"],input[type="email"],input[type="password"],select{
+    font-size:16px!important;padding:10px 12px!important
+  }
+  .savebtn{padding:12px!important;font-size:14px!important;min-height:44px}
+  .nb{padding:10px 12px!important;font-size:13px!important;min-height:44px}
+  .ph h2{font-size:16px}
   .top-right .chip:not(#lang-btn){display:none}
   .mob-top-title{display:block}
   .brand span{display:none}
@@ -303,6 +317,10 @@ tr:hover td{background:#f5faf8}
     <button class="nb on" data-v="dashboard" onclick="show('dashboard')">📊 لوحة التحكم</button>
     <button class="nb" data-v="site-overview" onclick="show('site-overview')">🗂️ Site Overview</button>
     <button class="nb" data-v="daily-overview" onclick="show('daily-overview')" style="border-inline-start:3px solid var(--lime);font-weight:600">📅 التقرير اليومي</button>
+    <button class="nb" data-v="feeding-schedule" onclick="show('feeding-schedule')" style="border-inline-start:3px solid var(--teal);font-weight:600">📅 جدول التغذية</button>
+    <button class="nb" data-v="cost-dashboard" onclick="show('cost-dashboard')">💰 Cost & Revenue</button>
+    <button class="nb" data-v="historical-benchmarks" onclick="show('historical-benchmarks')">📆 Historical Benchmarks</button>
+    <button class="nb" data-v="alert-settings" onclick="show('alert-settings')">🔔 إعدادات التنبيهات</button>
     <button class="nb" data-v="whatsapp-report" onclick="show('whatsapp-report')">📱 تقرير WhatsApp</button>
     <button class="nb" data-v="growth-curves" onclick="show('growth-curves')">📈 Growth Curves</button>
     <button class="nb" data-v="harvest-planner" onclick="show('harvest-planner')">🎣 Harvest Planner</button>
@@ -5829,6 +5847,467 @@ function generateWhatsAppReport(){
   return lines.join('\n');
 }
 
+
+// ══════════════════════════════════════════════════════════
+// FEEDING SCHEDULE — Auto daily schedule from SFR
+// ══════════════════════════════════════════════════════════
+
+function generateDailySchedule(date){
+  date = date || new Date().toISOString().slice(0,10);
+  var cfg    = getSettings();
+  var liveRs = _txLiveRows().filter(function(r){
+    return (r.fishNo||0)>0 && (farmFilter==='all'||r.farm===farmFilter);
+  });
+  var waterTemp = cfg.waterTemp || cfg.optTemp || 28;
+  var waterDO   = cfg.waterDO   || 7;
+  var schedule  = [];
+
+  liveRs.forEach(function(r){
+    var sfr    = getSFRAdjusted(r.avgWt||0, r.farm||farmFilter, waterTemp, waterDO);
+    var bio    = r.biomass || 0;
+    var totalKg = bio * sfr / 100;
+    if(totalKg <= 0) return;
+
+    // Split into 3 meals
+    var meals = [
+      {meal:'صباح 8am',  pct:0.35, kg:+(totalKg*0.35).toFixed(2)},
+      {meal:'ظهر 12pm', pct:0.35, kg:+(totalKg*0.35).toFixed(2)},
+      {meal:'مساء 4pm', pct:0.30, kg:+(totalKg*0.30).toFixed(2)},
+    ];
+
+    // Get recommended feed type from inventory
+    var availFeed = getAvailableFeedTypes();
+    var feedType  = availFeed.length ? availFeed[0] : (cfg.defaultFeedType||'');
+
+    schedule.push({
+      unit:    r.unit,
+      farm:    r.farm||'',
+      fishNo:  r.fishNo||0,
+      avgWt:   +(r.avgWt||0).toFixed(0),
+      bio:     +bio.toFixed(1),
+      sfr:     +(sfr*100).toFixed(2),
+      totalKg: +totalKg.toFixed(2),
+      meals:   meals,
+      feedType:feedType,
+      density: +(r.density||0).toFixed(1),
+      blocked: isFeedingBlocked ? isFeedingBlocked(waterTemp, waterDO).blocked : false,
+    });
+  });
+
+  return {date:date, waterTemp:waterTemp, waterDO:waterDO, schedule:schedule,
+    totalKg:+schedule.reduce(function(s,r){return s+r.totalKg;},0).toFixed(1)};
+}
+
+function renderFeedingSchedule(){
+  var today  = new Date().toISOString().slice(0,10);
+  var cfg    = getSettings();
+  var sched  = generateDailySchedule(today);
+  var liveRs = sched.schedule;
+
+  var h = '<div class="ph"><div>';
+  h += '<h2>📅 جدول التغذية اليومي</h2>';
+  h += '<p style="font-size:11px;color:var(--muted)">'+today+' · مولد تلقائياً من SFR</p>';
+  h += '</div>';
+  h += '<button class="savebtn" style="width:auto;padding:8px 18px;font-size:12px" onclick="applyScheduleToSheet()">✅ تطبيق على شيت التغذية</button>';
+  h += '</div>';
+
+  // Water params
+  h += '<div class="card" style="margin-bottom:14px;padding:12px">';
+  h += '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">';
+  h += '<div class="field" style="margin:0"><label style="font-size:11px">🌡️ درجة الحرارة (°C)</label>';
+  h += '<input type="number" id="sched-temp" value="'+sched.waterTemp+'" min="15" max="35" step="0.5" oninput="refreshSchedule()" style="width:80px;padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:16px"/></div>';
+  h += '<div class="field" style="margin:0"><label style="font-size:11px">💨 DO (mg/L)</label>';
+  h += '<input type="number" id="sched-do" value="'+sched.waterDO+'" min="0" max="15" step="0.1" oninput="refreshSchedule()" style="width:80px;padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:16px"/></div>';
+  h += '<div style="font-size:13px;font-weight:700;color:var(--teal)">إجمالي: '+sched.totalKg+' كجم</div>';
+  h += '</div></div>';
+
+  if(!liveRs.length){
+    h += '<div class="card" style="text-align:center;padding:32px;color:var(--muted)">لا توجد وحدات نشطة</div>';
+    return h;
+  }
+
+  // Summary by farm
+  var byFarm = {};
+  liveRs.forEach(function(r){
+    if(!byFarm[r.farm]) byFarm[r.farm]={units:0,kg:0};
+    byFarm[r.farm].units++;
+    byFarm[r.farm].kg+=r.totalKg;
+  });
+
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">';
+  Object.entries(byFarm).forEach(function(e){
+    h += '<div class="card" style="padding:12px;text-align:center">';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--deep)">🏭 '+e[0]+'</div>';
+    h += '<div style="font-size:20px;font-weight:800;color:var(--teal)">'+e[1].kg.toFixed(1)+'<span style="font-size:11px"> كجم</span></div>';
+    h += '<div style="font-size:10px;color:var(--muted)">'+e[1].units+' وحدة</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Schedule table
+  h += '<div class="card"><div style="overflow-x:auto">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--deep);color:#fff">';
+  ['الوحدة','Bio(kg)','SFR%','كجم/يوم','صباح','ظهر','مساء','نوع العلف','الحالة'].forEach(function(c){
+    h += '<th style="padding:8px;text-align:right;white-space:nowrap">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+
+  liveRs.forEach(function(r,i){
+    var bg = r.blocked?'#fee2e2':i%2===0?'var(--light)':'#fff';
+    h += '<tr style="background:'+bg+'">';
+    h += '<td style="padding:7px 8px;font-weight:700;color:var(--teal)">'+r.unit+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right">'+r.bio+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right;color:var(--amber)">'+r.sfr+'%</td>';
+    h += '<td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--deep)">'+r.totalKg+'</td>';
+    r.meals.forEach(function(m){
+      h += '<td style="padding:7px 8px;text-align:right">'+(r.blocked?'—':m.kg)+'</td>';
+    });
+    h += '<td style="padding:7px 8px;font-size:10px;color:var(--muted)">'+( r.feedType||'—')+'</td>';
+    h += '<td style="padding:7px 8px;text-align:center">'+(r.blocked?'⛔ موقوف':'✅')+'</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div></div>';
+  return h;
+}
+
+function refreshSchedule(){
+  var tempEl = document.getElementById('sched-temp');
+  var doEl   = document.getElementById('sched-do');
+  var cfg = getSettings(_settingsFarm);
+  if(tempEl) cfg.waterTemp = parseFloat(tempEl.value)||28;
+  if(doEl)   cfg.waterDO   = parseFloat(doEl.value)||7;
+  saveSettings(cfg, _settingsFarm);
+  show('feeding-schedule');
+}
+
+function applyScheduleToSheet(){
+  // Pre-fill feeding sheet with scheduled amounts
+  var sched = generateDailySchedule(new Date().toISOString().slice(0,10));
+  sched.schedule.forEach(function(r){
+    if(r.blocked) return;
+    var kgEl   = document.getElementById('fd-kg-'+r.unit);
+    var feedEl = document.getElementById('fd-feed-'+r.unit);
+    if(kgEl)   kgEl.value   = r.totalKg;
+    if(feedEl && r.feedType) feedEl.value = r.feedType;
+  });
+  show('tx-feeding');
+  toast('✅ تم تطبيق الجدول على شيت التغذية');
+}
+
+// ══════════════════════════════════════════════════════════
+// 3. WHATSAPP ALERTS — Auto alerts for critical events
+// ══════════════════════════════════════════════════════════
+
+var _lastAlertSent = {};
+
+function checkAndSendAlerts(){
+  var alerts = generateAlerts();
+  var critical = alerts.filter(function(a){return a.level==='critical';});
+  if(!critical.length) return;
+
+  var now = Date.now();
+  var newAlerts = critical.filter(function(a){
+    var lastSent = _lastAlertSent[a.id||a.title]||0;
+    return now - lastSent > 3600000; // don't repeat within 1 hour
+  });
+
+  if(!newAlerts.length) return;
+
+  // Generate WhatsApp alert message
+  var lines = [];
+  lines.push('⚠️ *تنبيه حرج — Dar Aqua Farm*');
+  lines.push('📅 '+new Date().toISOString().slice(0,16).replace('T',' '));
+  lines.push('─────────────────────');
+  newAlerts.forEach(function(a){
+    lines.push('🔴 *'+a.title+'*');
+    lines.push('   '+a.msg);
+  });
+  lines.push('─────────────────────');
+  lines.push('🔗 افتح الأداة للتفاصيل');
+
+  var msg = lines.join('\n');
+
+  // Mark as sent
+  newAlerts.forEach(function(a){ _lastAlertSent[a.id||a.title] = now; });
+
+  // Show in-app notification + WhatsApp link
+  var waUrl = 'https://wa.me/?text='+encodeURIComponent(msg);
+
+  // Show alert banner
+  toast('🔴 '+newAlerts.length+' تنبيه حرج! — <a href="'+waUrl+'" target="_blank" style="color:#fff;text-decoration:underline">إرسال WhatsApp</a>', 8000);
+
+  // Browser notification if enabled
+  if(isNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
+    new Notification('⚠️ Dar Aqua Alert', {
+      body: newAlerts[0].msg,
+      icon: '/icon-192.png'
+    });
+  }
+}
+
+// Auto-check alerts every 5 minutes
+var _alertInterval = null;
+function startAlertMonitor(){
+  if(_alertInterval) return;
+  _alertInterval = setInterval(checkAndSendAlerts, 300000);
+  checkAndSendAlerts(); // Check immediately
+}
+
+function renderAlertSettings(){
+  var cfg = getSettings();
+  var h = '';
+  h += '<div class="ph"><div><h2>🔔 إعدادات التنبيهات</h2>';
+  h += '<p style="font-size:11px;color:var(--muted)">تنبيهات تلقائية للأحداث الحرجة</p></div></div>';
+
+  // Notification status
+  var notifOn = isNotifEnabled();
+  h += '<div class="card" style="margin-bottom:14px">';
+  h += '<div class="card-title">🔔 إشعارات المتصفح</div>';
+  h += '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:'+(notifOn?'#dcfce7':'#f1f5f9')+';border-radius:10px">';
+  h += '<div style="font-size:24px">'+(notifOn?'🔔':'🔕')+'</div>';
+  h += '<div><div style="font-weight:700">'+(notifOn?'مفعّلة':'غير مفعّلة')+'</div>';
+  h += '<div style="font-size:11px;color:var(--muted)">تنبيهات كثافة عالية وانقطاع تغذية وDO منخفض</div></div>';
+  h += '<button class="savebtn" style="width:auto;padding:8px 16px;margin-inline-start:auto" onclick="toggleNotif()">'+( notifOn?'إيقاف':'تفعيل')+'</button>';
+  h += '</div></div>';
+
+  // WhatsApp alerts
+  h += '<div class="card" style="margin-bottom:14px">';
+  h += '<div class="card-title">📱 تنبيهات WhatsApp</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">عند وقوع حدث حرج، يظهر رابط مباشر لإرسال تنبيه على WhatsApp</div>';
+  h += '<button class="savebtn" style="width:auto;padding:9px 20px" onclick="checkAndSendAlerts()">🔍 فحص التنبيهات الآن</button>';
+  h += '</div>';
+
+  // Alert thresholds
+  h += '<div class="card">';
+  h += '<div class="card-title">⚙️ حدود التنبيه</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+  [{id:'st-alert-dens',lbl:'كثافة حرجة (kg/m³)',val:cfg.alertDensity||25,min:15,max:40},
+   {id:'st-warn-dens', lbl:'كثافة تحذير (kg/m³)',val:cfg.warnDensity||20,min:10,max:35},
+   {id:'st-alert-do',  lbl:'DO حرج (mg/L)',val:cfg.alertDO||2,min:0,max:8},
+   {id:'st-alert-temp',lbl:'درجة حرارة حرجة (°C)',val:cfg.alertTemp||33,min:25,max:40},
+  ].forEach(function(f){
+    h += '<div class="field"><label>'+f.lbl+'</label>';
+    h += '<input type="number" id="'+f.id+'" value="'+f.val+'" min="'+f.min+'" max="'+f.max+'" step="0.5"/></div>';
+  });
+  h += '</div>';
+  h += '<button class="savebtn" onclick="saveAlertSettings()" style="margin-top:12px">💾 حفظ</button>';
+  h += '</div>';
+  return h;
+}
+
+function saveAlertSettings(){
+  var cfg = getSettings(_settingsFarm);
+  var g = function(id,def){ var el=document.getElementById(id); return el?parseFloat(el.value)||def:def; };
+  cfg.alertDensity = g('st-alert-dens',25);
+  cfg.warnDensity  = g('st-warn-dens',20);
+  cfg.alertDO      = g('st-alert-do',2);
+  cfg.alertTemp    = g('st-alert-temp',33);
+  saveSettings(cfg, _settingsFarm);
+  toast('✅ تم حفظ إعدادات التنبيه');
+}
+
+// ══════════════════════════════════════════════════════════
+// 4. COST & REVENUE DASHBOARD (P&L)
+// ══════════════════════════════════════════════════════════
+
+function calcPL(){
+  var cfg    = getSettings();
+  var allTX  = getTX();
+  var inv    = getFeedInv();
+  var liveRs = _txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
+
+  // Feed cost
+  var feedCostMap = {};
+  inv.filter(function(e){return e.txType==='purchase'&&e.price>0;}).forEach(function(e){
+    feedCostMap[e.feedType] = e.price;
+  });
+
+  var feedTX = allTX.filter(function(t){return t.type==='feeding'&&(farmFilter==='all'||t.unit&&t.unit.startsWith(farmFilter+'.'));});
+  var totalFeedKg   = feedTX.reduce(function(s,t){return s+(t.kg||0);},0);
+  var totalFeedCost = feedTX.reduce(function(s,t){
+    var price = feedCostMap[t.feed]||cfg.defaultFeedPrice||0;
+    return s+(t.kg||0)*price;
+  },0);
+
+  // Harvest revenue
+  var harvTX = allTX.filter(function(t){return (t.type==='harvesting'||t.type==='harvest')&&(farmFilter==='all'||!t.unit||t.unit.startsWith(farmFilter+'.'));});
+  var totalHarvKg  = harvTX.reduce(function(s,t){return s+(t.kg||0);},0);
+  var totalHarvRev = harvTX.reduce(function(s,t){return s+(t.kg||0)*(t.price||cfg.harvestPrice||0);},0);
+
+  // Current inventory value (live biomass)
+  var totBio   = liveRs.reduce(function(s,r){return s+(r.biomass||0);},0);
+  var bioValue = totBio*(cfg.harvestPrice||3.5);
+
+  // Mortality loss
+  var mortTX    = allTX.filter(function(t){return t.type==='mortality'&&(farmFilter==='all'||t.unit&&t.unit.startsWith(farmFilter+'.'));});
+  var mortCount = mortTX.reduce(function(s,t){return s+(t.count||0);},0);
+  var avgWtAll  = liveRs.length?liveRs.reduce(function(s,r){return s+(r.avgWt||0);},0)/liveRs.length:0;
+  var mortValue = mortCount*(avgWtAll/1000)*(cfg.harvestPrice||3.5);
+
+  // P&L
+  var totalRevenue = totalHarvRev + bioValue;
+  var totalCost    = totalFeedCost;
+  var grossProfit  = totalRevenue - totalCost;
+  var profitMargin = totalRevenue>0?(grossProfit/totalRevenue*100):0;
+  var costPerKg    = totalHarvKg>0?totalFeedCost/totalHarvKg:0;
+
+  return {
+    feedKg:+totalFeedKg.toFixed(1), feedCost:+totalFeedCost.toFixed(2),
+    harvKg:+totalHarvKg.toFixed(1), harvRev:+totalHarvRev.toFixed(2),
+    bioValue:+bioValue.toFixed(2), mortCount:mortCount, mortValue:+mortValue.toFixed(2),
+    totalRevenue:+totalRevenue.toFixed(2), totalCost:+totalCost.toFixed(2),
+    grossProfit:+grossProfit.toFixed(2), profitMargin:+profitMargin.toFixed(1),
+    costPerKg:+costPerKg.toFixed(3), totBio:+totBio.toFixed(0)
+  };
+}
+
+function renderCostDashboard(){
+  var pl  = calcPL();
+  var cfg = getSettings();
+  var h   = '<div class="ph"><div><h2>💰 Cost & Revenue Dashboard</h2>';
+  h += '<p style="font-size:11px;color:var(--muted)">P&L لكل الدورات المسجلة</p></div></div>';
+
+  // Settings row
+  h += '<div class="card" style="margin-bottom:14px;padding:12px">';
+  h += '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">';
+  h += '<div class="field" style="margin:0"><label style="font-size:11px">سعر الحصاد (BD/kg)</label>';
+  h += '<input type="number" id="cost-price" value="'+(cfg.harvestPrice||3.5)+'" min="0" max="20" step="0.1" oninput="saveCostPrice()" style="width:80px;padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit"/></div>';
+  h += '<div class="field" style="margin:0"><label style="font-size:11px">سعر العلف الافتراضي (BD/kg)</label>';
+  h += '<input type="number" id="cost-feed-price" value="'+(cfg.defaultFeedPrice||0.8)+'" min="0" max="5" step="0.05" oninput="saveCostPrice()" style="width:80px;padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit"/></div>';
+  h += '</div></div>';
+
+  // KPI cards
+  var kpis = [
+    {icon:'🌾',lbl:'إجمالي العلف',val:pl.feedKg+' كجم',sub:'تكلفة: BD '+pl.feedCost,c:'var(--amber)'},
+    {icon:'🎣',lbl:'إجمالي الحصاد',val:pl.harvKg+' كجم',sub:'إيراد: BD '+pl.harvRev,c:'var(--teal)'},
+    {icon:'⚖️',lbl:'Biomass حالي',val:(pl.totBio/1000).toFixed(1)+' MT',sub:'قيمة: BD '+pl.bioValue,c:'var(--deep)'},
+    {icon:'💀',lbl:'خسارة النفوق',val:pl.mortCount+' سمكة',sub:'BD '+pl.mortValue,c:'var(--red)'},
+    {icon:'💰',lbl:'إجمالي الإيراد',val:'BD '+pl.totalRevenue,sub:'حصاد + مخزون',c:'var(--green)'},
+    {icon:'📉',lbl:'إجمالي التكلفة',val:'BD '+pl.totalCost,sub:'علف فقط',c:'var(--red)'},
+    {icon:'📊',lbl:'الربح الإجمالي',val:'BD '+pl.grossProfit,sub:pl.profitMargin+'% هامش',
+     c:pl.grossProfit>=0?'var(--green)':'var(--red)'},
+    {icon:'🔢',lbl:'تكلفة/kg محصود',val:'BD '+pl.costPerKg,sub:'من العلف',c:'var(--muted)'},
+  ];
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px">';
+  kpis.forEach(function(k){
+    h += '<div class="card" style="padding:12px;text-align:center">';
+    h += '<div style="font-size:22px">'+k.icon+'</div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin:4px 0">'+k.lbl+'</div>';
+    h += '<div style="font-size:15px;font-weight:800;color:'+k.c+'">'+k.val+'</div>';
+    h += '<div style="font-size:10px;color:var(--muted)">'+k.sub+'</div></div>';
+  });
+  h += '</div>';
+
+  // P&L Summary card
+  h += '<div class="card" style="background:linear-gradient(135deg,'+(pl.grossProfit>=0?'#0D3B38,#067B72':'#7f1d1d,#991b1b')+';color:#fff;margin-bottom:14px">';
+  h += '<div style="font-size:13px;opacity:.8;margin-bottom:8px">الربح والخسارة الإجمالي</div>';
+  h += '<div style="font-size:32px;font-weight:900">'+(pl.grossProfit>=0?'+ ':'- ')+'BD '+Math.abs(pl.grossProfit)+'</div>';
+  h += '<div style="font-size:12px;opacity:.8;margin-top:4px">هامش الربح: '+pl.profitMargin+'%</div>';
+  h += '</div>';
+
+  // Note if no feed prices set
+  if(pl.feedCost===0){
+    h += '<div style="background:#fef3c7;border:1px solid var(--amber);border-radius:8px;padding:12px;font-size:12px;margin-bottom:12px">⚠️ لم يتم إدخال أسعار العلف — أضف السعر عند شراء العلف في Feed Inventory للحصول على أرقام دقيقة</div>';
+  }
+
+  return h;
+}
+
+function saveCostPrice(){
+  var cfg = getSettings(_settingsFarm);
+  var p1  = document.getElementById('cost-price');
+  var p2  = document.getElementById('cost-feed-price');
+  if(p1) cfg.harvestPrice     = parseFloat(p1.value)||3.5;
+  if(p2) cfg.defaultFeedPrice = parseFloat(p2.value)||0.8;
+  saveSettings(cfg, _settingsFarm);
+}
+
+// ══════════════════════════════════════════════════════════
+// 5. HISTORICAL BENCHMARKS
+// ══════════════════════════════════════════════════════════
+
+function renderHistoricalBenchmarks(){
+  var snaps   = JSON.parse(localStorage.getItem('daracqua_snapshots_v1')||'[]');
+  var allTX   = getTX();
+
+  var h = '<div class="ph"><div><h2>📆 Historical Benchmarks</h2>';
+  h += '<p style="font-size:11px;color:var(--muted)">مقارنة الأداء عبر الزمن</p></div></div>';
+
+  if(snaps.length<2){
+    return h+'<div class="card" style="text-align:center;padding:48px">'
+      +'<div style="font-size:48px;margin-bottom:12px">📆</div>'
+      +'<div style="font-weight:700;margin-bottom:8px">تحتاج بيانات أكثر</div>'
+      +'<div style="color:var(--muted);font-size:12px">الـ snapshots اليومية ستبني تاريخاً للمقارنة تلقائياً</div>'
+      +'</div>';
+  }
+
+  // Monthly aggregates from snapshots
+  var byMonth = {};
+  snaps.forEach(function(s){
+    var m = (s.date||'').slice(0,7);
+    if(!m) return;
+    if(!byMonth[m]) byMonth[m]={month:m,snapCount:0,totFish:0,totBio:0,feed:0,mort:0,alarms:0};
+    byMonth[m].snapCount++;
+    byMonth[m].totFish += s.totFish||0;
+    byMonth[m].totBio  += s.totBio||0;
+    byMonth[m].alarms  += s.alarms||0;
+    byMonth[m].mort    += s.mortLast24h||0;
+  });
+  // Average per month
+  Object.values(byMonth).forEach(function(m){
+    m.avgFish = +(m.totFish/m.snapCount).toFixed(0);
+    m.avgBio  = +(m.totBio/m.snapCount).toFixed(3);
+  });
+
+  // Add feed from TX
+  allTX.filter(function(t){return t.type==='feeding';}).forEach(function(t){
+    var m = (t.date||'').slice(0,7);
+    if(byMonth[m]) byMonth[m].feed+=t.kg||0;
+  });
+
+  var months = Object.values(byMonth).sort(function(a,b){return a.month>b.month?1:-1;});
+
+  // Biomass trend chart
+  h += '<div class="card" style="margin-bottom:14px">';
+  h += '<div class="card-title">📈 متوسط Biomass الشهري (MT)</div>';
+  var maxBio = Math.max.apply(null, months.map(function(m){return m.avgBio;}));
+  h += '<div style="display:flex;align-items:flex-end;gap:4px;height:100px;padding:8px 0">';
+  months.forEach(function(m,i){
+    var pct = maxBio>0?(m.avgBio/maxBio*100):0;
+    var isLast = i===months.length-1;
+    h += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">';
+    h += '<div style="font-size:9px;color:var(--teal);font-weight:700">'+(m.avgBio/1000).toFixed(2)+'</div>';
+    h += '<div style="width:100%;background:'+(isLast?'var(--teal)':'var(--deep)')+';opacity:'+(isLast?1:0.7)+';border-radius:2px 2px 0 0;height:'+Math.max(3,pct*0.8)+'px"></div>';
+    h += '<div style="font-size:8px;color:var(--muted)">'+m.month.slice(5)+'</div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  // Monthly comparison table
+  h += '<div class="card"><div class="card-title">📊 مقارنة شهرية</div><div style="overflow-x:auto">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--deep);color:#fff">';
+  ['الشهر','متوسط Biomass (MT)','متوسط الأسماك','علف (kg)','نفوق','تنبيهات كثافة','snapshots'].forEach(function(c){
+    h += '<th style="padding:8px;text-align:right;white-space:nowrap">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  months.slice().reverse().forEach(function(m,i){
+    var isLast = i===0;
+    h += '<tr style="background:'+(isLast?'var(--light)':i%2===0?'#fff':'var(--paper)')+'">';
+    h += '<td style="padding:7px 8px;font-weight:'+(isLast?700:400)+';color:'+(isLast?'var(--teal)':'var(--ink)')+'">'+m.month+(isLast?' 🔵':'')+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right;font-weight:700">'+(m.avgBio/1000).toFixed(3)+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right">'+m.avgFish.toLocaleString()+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right">'+m.feed.toFixed(0)+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right;color:var(--red)">'+m.mort+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right;color:'+(m.alarms>0?'var(--red)':'var(--green)')+';font-weight:700">'+m.alarms+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right;color:var(--muted)">'+m.snapCount+'</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div></div>';
+  return h;
+}
+
 function renderWhatsAppReport(){
   var report = generateWhatsAppReport();
   var h = '';
@@ -8428,7 +8907,7 @@ function sheetChangeDate(sheet,val){
   else if(sheet==='wq'){_wqSheetDate=val;show('tx-wq');}
 }
 
-var VIEWS={dashboard:renderDashboard,alarms:renderAlarms,units:renderUnits,sections:renderSections,density:renderDensity,biomass:renderBiomass,daily:renderDaily,logbook:renderLogbook,upload:renderUpload,calcs:renderCalcs,smart:renderSmart,settings:renderSettings,trend:renderTrend,pdf:renderPDF,setup:renderSetup,ai:renderAI,profile:renderProfile,'site-overview':renderSiteOverview,'tx-feeding':renderTxFeeding,'tx-mortality':renderTxMortality,'tx-sampling':renderTxSampling,'tx-transfer':renderTxTransfer,'tx-harvesting':renderTxHarvesting,'tx-stocking':renderTxStocking,'unit-tx':renderUnitTx,'tx-wq':renderTxWaterQuality,'tx-reports':renderTxReports,'feeding-regime':renderFeedingRegime,'unit-trend':renderUnitTrend,'daily-overview':renderDailyOverview,'whatsapp-report':renderWhatsAppReport,'survival-tracker':renderSurvivalTracker,'growth-curves':renderGrowthCurves,'harvest-planner':renderHarvestPlanner,'batch-comparison':renderBatchComparison,'mortality-analysis':renderMortalityAnalysis,'wq-trends':renderWQTrends,'feed-cost':renderFeedCostCalc,'login-page':function(){var h=renderLoginPage();setTimeout(setupLoginKeys,50);return h;},'user-management':renderUserManagement,'farm-report':renderPDFReport,'feed-inventory':renderFeedInventory,'photo-entry':renderPhotoEntry};
+var VIEWS={dashboard:renderDashboard,alarms:renderAlarms,units:renderUnits,sections:renderSections,density:renderDensity,biomass:renderBiomass,daily:renderDaily,logbook:renderLogbook,upload:renderUpload,calcs:renderCalcs,smart:renderSmart,settings:renderSettings,trend:renderTrend,pdf:renderPDF,setup:renderSetup,ai:renderAI,profile:renderProfile,'site-overview':renderSiteOverview,'tx-feeding':renderTxFeeding,'tx-mortality':renderTxMortality,'tx-sampling':renderTxSampling,'tx-transfer':renderTxTransfer,'tx-harvesting':renderTxHarvesting,'tx-stocking':renderTxStocking,'unit-tx':renderUnitTx,'tx-wq':renderTxWaterQuality,'tx-reports':renderTxReports,'feeding-regime':renderFeedingRegime,'unit-trend':renderUnitTrend,'daily-overview':renderDailyOverview,'feeding-schedule':renderFeedingSchedule,'alert-settings':renderAlertSettings,'cost-dashboard':renderCostDashboard,'historical-benchmarks':renderHistoricalBenchmarks,'whatsapp-report':renderWhatsAppReport,'survival-tracker':renderSurvivalTracker,'growth-curves':renderGrowthCurves,'harvest-planner':renderHarvestPlanner,'batch-comparison':renderBatchComparison,'mortality-analysis':renderMortalityAnalysis,'wq-trends':renderWQTrends,'feed-cost':renderFeedCostCalc,'login-page':function(){var h=renderLoginPage();setTimeout(setupLoginKeys,50);return h;},'user-management':renderUserManagement,'farm-report':renderPDFReport,'feed-inventory':renderFeedInventory,'photo-entry':renderPhotoEntry};
 
 function goHome(){ show('dashboard'); }
 
@@ -8738,6 +9217,7 @@ async function bootApp(){
             loadUnitsFromSB(),
           ]);
           startRealtimeSync(); // Start polling for updates
+          startAlertMonitor(); // Start alert monitoring
           show(currentView); // Refresh current view with SB data
         }
       }catch(e){ console.warn('Boot SB error:', e.message); showSBStatus(false); }
