@@ -8927,11 +8927,11 @@ async function aiSendQuestion(){
       cfMessages = messages.slice(0,-1).concat([{role:'user', content: systemPrompt + '\n\n' + messages[messages.length-1].content}]);
     }
 
-    var resp = await fetch('https://api.cloudflare.com/client/v4/accounts/'+cfAccount+'/ai/run/@cf/meta/llama-3.1-8b-instruct', {
+    var resp = await fetch('https://dar-aqua-ai.mohammedshehta86.workers.dev/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer '+cfToken
+        'X-CF-Token': cfToken
       },
       body: JSON.stringify({
         messages: cfMessages,
@@ -8941,7 +8941,7 @@ async function aiSendQuestion(){
     });
     if(!resp.ok){
       var err=await resp.json().catch(function(){return{};});
-      throw new Error(err.errors&&err.errors[0] ? err.errors[0].message : 'Cloudflare API error '+resp.status);
+      throw new Error(err.error||'Worker error '+resp.status);
     }
     var data = await resp.json();
     var answer = data.result&&data.result.response ? data.result.response : 'عذراً، لم أتمكن من توليد رد.';
