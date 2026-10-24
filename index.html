@@ -715,15 +715,15 @@ function sparkLine(vals, W, H, color){
 // ── Weight Color Coding ─────────────────────────────────
 function getWeightColor(avgWtG){
   if(!avgWtG) return '';
-  if(avgWtG >= 400) return 'var(--green)';   // Large: green
-  if(avgWtG >= 300) return 'var(--amber)';   // Medium: amber
-  return 'var(--red)';                        // Small: red
+  if(avgWtG >= 400) return 'var(--green)';
+  if(avgWtG >= 300) return 'var(--amber)';
+  return 'var(--ink)';
 }
 function getWeightBg(avgWtG){
   if(!avgWtG) return '';
   if(avgWtG >= 400) return '#dcfce7';
   if(avgWtG >= 300) return '#fef3c7';
-  return '#fee2e2';
+  return '';
 }
 function getWeightLabel(avgWtG){
   if(!avgWtG) return '';
