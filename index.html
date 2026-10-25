@@ -10399,12 +10399,22 @@ function daRasCompute(days){
       f.proj[i] = (f.proj[i] || 0) + p.feed;
     });
   });
+  var d3 = [today, daAddDays(today, -1), daAddDays(today, -2)];
   getTX().forEach(function(t){
-    if(t.type === 'feeding' && t.date === today && t.unit){ var fid = t.unit.split('.')[0]; if(farms[fid]) farms[fid].actual += parseFloat(t.kg) || 0; }
+    if(t.type !== 'feeding' || !t.unit || d3.indexOf(t.date) < 0) return;
+    var fid = t.unit.split('.')[0]; if(!farms[fid]) return;
+    var kg = parseFloat(t.kg) || 0;
+    if(t.date === today) farms[fid].actual += kg;
+    farms[fid].by3 = farms[fid].by3 || {}; farms[fid].by3[t.date] = (farms[fid].by3[t.date] || 0) + kg;
   });
   return Object.keys(farms).sort().map(function(k){
     var f = farms[k];
-    f.feed = Math.max(f.planned, f.actual);
+    var days3 = f.by3 ? Object.keys(f.by3) : [];
+    f.actual3 = days3.length ? days3.reduce(function(s, d){ return s + f.by3[d]; }, 0) / days3.length : 0;
+    f.basis = f.actual3 > 0 ? 'actual' : 'planned';
+    f.feed = f.actual3 > 0 ? f.actual3 : f.planned;
+    var scale = f.planned > 0 ? f.feed / f.planned : 1;
+    f.proj = f.proj.map(function(x){ return x * scale; });
     f.tan = f.feed * cfg.protein / 100 * 0.092;          // kg TAN/day
     f.o2fish = f.feed * cfg.o2; f.o2nit = f.tan * 4.57; f.o2 = f.o2fish + f.o2nit;
     f.co2 = f.o2fish * 1.375;
@@ -10439,7 +10449,7 @@ function renderRASLoad(){
     h += '<div class="card" style="margin-bottom:14px;border-top:4px solid '+col+'">';
     h += '<div class="card-title">🏭 '+daEsc(f.farm)+' — '+f.units+' وحدة · '+(f.bio/1000).toFixed(2)+' طن</div>';
     h += daGrid([
-      daKpi('🌾','علف/يوم (التصميم)', f.feed.toFixed(1)+' كجم', 'var(--deep)', 'مخطط '+f.planned.toFixed(1)+' · فعلي النهارده '+f.actual.toFixed(1)),
+      daKpi('🌾', f.basis === 'actual' ? 'علف/يوم (فعلي — متوسط آخر ' + Object.keys(f.by3).length + ' يوم)' : 'علف/يوم (متوقع من SFR)', f.feed.toFixed(1)+' كجم', 'var(--deep)', f.basis === 'actual' ? 'جدول SFR: '+f.planned.toFixed(1)+' كجم' : 'مفيش تغذية متسجلة آخر 3 أيام'),
       daKpi('☣️','TAN', (f.tan*1000).toFixed(0)+' جم/يوم', col, f.cap > 0 ? f.loadPct.toFixed(0)+'% من سعة الفلتر' : 'حدد سعة الفلتر'),
       daKpi('💨','أكسجين مطلوب', f.o2.toFixed(1)+' كجم/يوم', 'var(--teal)', 'سمك '+f.o2fish.toFixed(1)+' + نترتة '+f.o2nit.toFixed(1)),
       daKpi('🫧','CO₂ ناتج', f.co2.toFixed(1)+' كجم/يوم', 'var(--deep)'),
@@ -10452,7 +10462,8 @@ function renderRASLoad(){
       h += '<div style="position:absolute;left:0;right:0;bottom:'+(f.cap*0.9/mx*86).toFixed(0)+'px;border-top:2px dashed var(--red)"></div>';
       f.projTan.forEach(function(v){ var over = v > f.cap*0.9; h += '<div title="'+v.toFixed(0)+' جم" style="flex:1;height:'+Math.max(3, v/mx*86).toFixed(0)+'px;background:'+(over?'var(--red)':'var(--teal)')+';border-radius:3px 3px 0 0;opacity:.85"></div>'; });
       h += '</div>';
-      h += f.overDay > 0 ? '<div style="margin-top:8px;color:var(--red);font-weight:700;font-size:13px">⚠️ الحمل هيعدّي 90% من سعة الفلتر خلال '+f.overDay+' يوم ('+daAddDays(daToday(), f.overDay)+') — خطط لحصاد أو تفريد أو زيادة تغيير المياه</div>'
+      h += f.loadPct >= 90 ? '<div style="margin-top:8px;color:var(--red);font-weight:700;font-size:13px">⚠️ الحمل دلوقتي '+f.loadPct.toFixed(0)+'% من سعة الفلتر'+(f.basis === 'planned' ? ' — محسوب من جدول SFR، سجّل التغذية الفعلية عشان الرقم يبقى دقيق' : '')+'. لو قراءات الأمونيا والنيتريت مظبوطة، يبقى السعة الحقيقية أعلى من اللي مكتوبة — عدّلها.</div>'
+        : f.overDay > 0 ? '<div style="margin-top:8px;color:var(--red);font-weight:700;font-size:13px">⚠️ الحمل هيعدّي 90% من سعة الفلتر خلال '+f.overDay+' يوم ('+daAddDays(daToday(), f.overDay)+') — خطط لحصاد أو تفريد أو زيادة تغيير المياه</div>'
         : '<div style="margin-top:8px;color:var(--green);font-size:12px">✅ الحمل تحت 90% من السعة طول الـ 14 يوم الجايين</div>';
     }
     h += '</div>';
