@@ -10385,7 +10385,7 @@ function daWater(farm){ var c = getSettings(farm); return {temp:c.waterTemp || 2
 var RAS_KEY = 'daracqua_ras_v1';
 function daRasCfg(){
   var c = {}; try{ c = JSON.parse(localStorage.getItem(RAS_KEY) || '{}'); }catch(e){}
-  return {protein: c.protein || 32, o2: c.o2 || 0.45, capacity: c.capacity || {}};
+  return {protein: c.protein || 32, o2: c.o2 || 0.45, capacity: c.capacity || {}, capFeed: c.capFeed || {}};
 }
 function daRasCompute(days){
   var cfg = daRasCfg(), maps = daGrowthMaps(), today = daToday();
@@ -10409,7 +10409,7 @@ function daRasCompute(days){
     f.o2fish = f.feed * cfg.o2; f.o2nit = f.tan * 4.57; f.o2 = f.o2fish + f.o2nit;
     f.co2 = f.o2fish * 1.375;
     f.alk = f.tan * 7.14; f.bicarb = f.alk * 1.68;
-    f.cap = parseFloat(cfg.capacity[k]) || 0;             // g TAN/day
+    f.cap = parseFloat(cfg.capacity[k]) || ((parseFloat(cfg.capFeed[k]) || 0) * cfg.protein / 100 * 0.092 * 1000);             // g TAN/day
     f.loadPct = f.cap > 0 ? f.tan * 1000 / f.cap * 100 : 0;
     f.projTan = f.proj.map(function(x){ return x * cfg.protein / 100 * 0.092 * 1000; });
     f.overDay = -1;
@@ -10421,7 +10421,7 @@ function rasSaveCfg(){
   var cfg = daRasCfg();
   cfg.protein = parseFloat(daVal('ras-protein')) || 32;
   cfg.o2 = parseFloat(daVal('ras-o2')) || 0.45;
-  daFarms().forEach(function(f){ cfg.capacity[f] = parseFloat(daVal('ras-cap-'+f)) || 0; });
+  daFarms().forEach(function(f){ cfg.capacity[f] = parseFloat(daVal('ras-cap-'+f)) || 0; cfg.capFeed[f] = parseFloat(daVal('ras-capf-'+f)) || 0; });
   try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
   toast('✅ اتحفظت إعدادات الـ RAS'); show('ras-load', true);
 }
@@ -10432,7 +10432,7 @@ function renderRASLoad(){
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">';
   h += '<div class="field"><label>بروتين العلف %</label>'+daInp('ras-protein', cfg.protein, 'type="number" step="0.5"')+'</div>';
   h += '<div class="field"><label>أكسجين السمك (كجم O₂ / كجم علف)</label>'+daInp('ras-o2', cfg.o2, 'type="number" step="0.05"')+'</div>';
-  daFarms().filter(daIsRasSite).forEach(function(f){ h += '<div class="field"><label>سعة فلتر '+daEsc(f)+' (جم TAN/يوم)</label>'+daInp('ras-cap-'+f, cfg.capacity[f] || '', 'type="number" placeholder="مثلاً 1500"')+'</div>'; });
+  daFarms().filter(daIsRasSite).forEach(function(f){ h += '<div class="field"><label>سعة فلتر '+daEsc(f)+' (جم TAN/يوم)</label>'+daInp('ras-cap-'+f, cfg.capacity[f] || '', 'type="number" placeholder="مثلاً 1500"')+'</div>'+ '<div class="field"><label>أو أقصى علف/يوم لـ '+daEsc(f)+' (كجم) — الأسهل</label>'+daInp('ras-capf-'+f, (cfg.capFeed||{})[f] || '', 'type="number" placeholder="مثلاً 120"')+'</div>'; });
   h += '</div><button class="savebtn" style="width:auto;padding:8px 18px;margin-top:10px" onclick="rasSaveCfg()">💾 حفظ</button></div>';
   data.forEach(function(f){
     var col = f.cap <= 0 ? 'var(--muted)' : f.loadPct >= 100 ? 'var(--red)' : f.loadPct >= 85 ? 'var(--amber)' : 'var(--green)';
@@ -10565,6 +10565,7 @@ function daSupplyPlan(c){
   var weeks = []; for(var i = 0; i < W; i++) weeks.push({i:i, start:daAddDays(today, i*7), kg:0, units:[]});
   var later = 0;
   daRows().forEach(function(r){
+    if(daIsBrood(r.unit)) return;
     var days = daDaysToWeight(r.avgWt || 0, c.targetWt, bands);
     var m = daUnitMort(r, maps), fish = (r.fishNo || 0) * Math.pow(1 - m, days), kg = fish * c.targetWt / 1000;
     var wk = Math.floor(days / 7);
@@ -10732,12 +10733,17 @@ function renderTraceability(){
   var mates = RAW.filter(function(x){ return x.batch && x.batch === raw.batch && x.unit !== u; }).map(function(x){ return x.unit; });
   if(mates.length) h += '<div class="card" style="margin-bottom:14px;font-size:12px"><b>وحدات تانية من نفس الـ Batch:</b> '
     + mates.map(function(m){ return '<a href="#" onclick="window._trUnit=&quot;'+daEsc(m)+'&quot;;show(&quot;traceability&quot;,true);return false" style="color:var(--teal)">'+daEsc(m)+'</a>'; }).join(' · ')+'</div>';
+  h += daUnitInfoCard(u);
   if(raw.open) h += '<div class="card" style="margin-bottom:14px;border-inline-start:4px solid var(--amber)"><b>📥 رصيد افتتاحي — منقول من ' + daEsc(raw.open.source||'') + ' بتاريخ ' + daEsc(raw.open.date) + '</b>'
     + '<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.8">' + (raw.open.fish||0).toLocaleString() + ' سمكة · ' + (raw.open.wt||0) + 'g · علف تراكمي ' + Math.round(raw.open.feed||0) + ' كجم · نفوق ' + (raw.open.mort||0)
     + (raw.open.fcr ? ' · FCR ' + (+raw.open.fcr).toFixed(2) : '') + (raw.open.gpd ? ' · نمو ' + (+raw.open.gpd).toFixed(2) + ' جم/يوم' : '') + '<br>التفاصيل اليومية قبل التاريخ ده موجودة في السجل القديم.</div></div>';
   h += '<div class="card"><div class="card-title">📜 الخط الزمني ('+tx.length+' عملية)</div>';
-  h += tx.length ? daTable(['التاريخ','النوع','التفاصيل','بواسطة','الحالة'], tx.slice(-400).map(function(t){
-    return [daEsc(t.date||''), DA_TYPE[t.type]||daEsc(t.type), txSummary(t), daEsc(t.byName||t.by||'—'), t.reviewedBy ? '✅' : t.flagged ? '⚠️' : ''];
+  var canEd = daCanEditUnits();
+  h += tx.length ? daTable(['التاريخ','النوع','التفاصيل','بواسطة','الحالة'].concat(canEd ? [''] : []), tx.slice(-400).map(function(t){
+    var hist = (t.history || []).length ? ' <span title="' + daEsc((t.history || []).map(function(x){ return x.f + ': ' + x.from + ' ← ' + x.to + (x.why ? ' — ' + x.why : ''); }).join(' | ')) + '">✏️' + t.history.length + '</span>' : '';
+    var row = [daEsc(t.date||''), DA_TYPE[t.type]||daEsc(t.type), txSummary(t) + hist, daEsc(t.byName||t.by||'—'), t.reviewedBy ? '✅' : t.flagged ? '⚠️' : ''];
+    if(canEd) row.push('<button class="no-print" data-id="' + daEsc(t.id) + '" onclick="daOpenTxEditor(this.dataset.id)" style="padding:2px 8px;border:0;border-radius:6px;background:var(--light);cursor:pointer">✏️</button>');
+    return row;
   })) : '<div style="color:var(--muted)">مفيش عمليات متسجلة</div>';
   return h + '</div>';
 }
@@ -11364,10 +11370,11 @@ function renderFarmSetup(){
     .forEach(function(f){ h += '<div class="field"><label>' + f[1] + '</label>' + daInp(f[0], f[2], f[3]) + '</div>'; });
   h += '</div><button class="savebtn" style="width:auto;padding:8px 18px;margin-top:10px" onclick="daAddUnitManual()">➕ إضافة</button></div>';
   h += '<div class="card" style="margin-bottom:14px"><div class="card-title">🏊 الوحدات (' + live.length + ')</div>';
-  h += live.length ? daTable(['الوحدة','الموقع','الدفعة','التخزين','السمك دلوقتي','الوزن','الكثافة',''], live.slice(0, 500).map(function(r){
-    return ['<b>' + daEsc(r.unit) + '</b>', daEsc(r.farm || ''), daEsc(r.batch || ''), daEsc(r.startDate || ''), (r.fishNo || 0).toLocaleString(),
+  h += live.length ? daTable(['الوحدة','الموقع','الغرض','الدفعة','التخزين','السمك دلوقتي','الوزن','الكثافة',''], live.slice(0, 500).map(function(r){
+    var ru = daRawUnit(r.unit) || {};
+    return ['<b>' + daEsc(r.unit) + '</b>' + (ru.notes && ru.notes.length ? ' <span title="' + daEsc(ru.notes[ru.notes.length - 1].text) + '">📝</span>' : ''), daEsc(r.farm || ''), daPurposeBadge(ru.purpose), daEsc(ru.batch || r.batch || ''), daEsc(r.startDate || ''), (r.fishNo || 0).toLocaleString(),
       (r.avgWt || 0).toFixed(0) + 'g', (r.density || 0).toFixed(1),
-      '<button data-u="' + daEsc(r.unit) + '" onclick="daDeleteUnit(this.dataset.u)" style="padding:3px 8px;border:0;border-radius:6px;background:#fee2e2;color:var(--red);cursor:pointer">🗑️</button>'];
+      '<button data-u="' + daEsc(r.unit) + '" onclick="daOpenUnitEditor(this.dataset.u)" title="تعديل / ملاحظة" style="padding:3px 8px;border:0;border-radius:6px;background:var(--light);cursor:pointer">✏️</button> <button data-u="' + daEsc(r.unit) + '" onclick="daDeleteUnit(this.dataset.u)" style="padding:3px 8px;border:0;border-radius:6px;background:#fee2e2;color:var(--red);cursor:pointer">🗑️</button>'];
   })) : '<div style="color:var(--muted)">مفيش وحدات لسه</div>';
   h += '</div>';
   h += '<div class="card" style="border:2px solid var(--red)"><div class="card-title" style="color:var(--red)">⚠️ منطقة الخطر</div>';
@@ -11987,6 +11994,146 @@ function daFpOnePage(s, d, st, rows, two, ci, nPages){
     h += '<tr><td style="border:1px solid #333;padding:9px 5px;background:#f1f5f9;font-weight:700">إجمالي النافق</td><td colspan="' + (d.times.length + 1) + '" style="border:1px solid #333"></td></tr></table>';
     h += '<div style="display:flex;justify-content:space-between;margin-top:18px;font-size:12px"><span>راجعه: ____________________</span><span>اعتمده: ____________________</span></div>';
   }
+  return h + '</div>';
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  EDIT UNITS + NOTES + PURPOSE, EDIT ANY TRANSACTION (with history)
+// ══════════════════════════════════════════════════════════
+var DA_PURPOSE = {growout:'تسمين', brood:'أمهات', nursery:'حضانة', harvest:'جاهز للحصاد', quarantine:'عزل', other:'أخرى'};
+var DA_PURPOSE_COLOR = {growout:'#0f766e', brood:'#7c3aed', nursery:'#0369a1', harvest:'#16a34a', quarantine:'#b45309', other:'#64748b'};
+function daCanEditUnits(){ return ['admin','manager','engineer'].indexOf(currentUserRole) >= 0; }
+function daRawUnit(u){ for(var i = 0; i < RAW.length; i++) if(RAW[i].unit === u) return RAW[i]; return null; }
+function daPurposeBadge(p){
+  if(!p || !DA_PURPOSE[p]) return '<span style="font-size:11px;color:var(--muted)">—</span>';
+  return '<span style="font-size:11px;color:#fff;background:' + DA_PURPOSE_COLOR[p] + ';padding:2px 8px;border-radius:99px;white-space:nowrap">' + DA_PURPOSE[p] + '</span>';
+}
+function daIsBrood(unit){ var u = daRawUnit(unit); return !!(u && (u.purpose === 'brood' || u.purpose === 'quarantine')); }
+function daModal(id, inner){
+  var old = document.getElementById(id); if(old) old.remove();
+  var d = document.createElement('div'); d.id = id;
+  d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px';
+  d.innerHTML = '<div style="background:#fff;color:#111;max-width:680px;width:100%;max-height:90vh;overflow:auto;border-radius:14px;padding:20px;direction:rtl">' + inner + '</div>';
+  d.addEventListener('click', function(e){ if(e.target === d) d.remove(); });
+  document.body.appendChild(d);
+}
+function daCloseModal(id){ var m = document.getElementById(id); if(m) m.remove(); }
+
+function daOpenUnitEditor(unit){
+  if(!daCanEditUnits()){ toast('⛔ التعديل للأدمن والمدير والمهندس'); return; }
+  var u = daRawUnit(unit); if(!u){ toast('❌ الوحدة مش موجودة'); return; }
+  var inp = 'width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font:inherit;font-size:13px';
+  var f = function(id, lbl, val, extra){ return '<div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">' + lbl + '</label><input id="' + id + '" value="' + daEsc(val == null ? '' : val) + '" ' + (extra || '') + ' style="' + inp + '"/></div>'; };
+  var nTx = getTX().filter(function(t){ return t.unit === unit; }).length;
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:18px;font-weight:900">✏️ ' + daEsc(unit) + '</div>'
+    + '<button onclick="daCloseModal(&quot;unit-edit&quot;)" style="border:0;background:#f1f5f9;border-radius:8px;padding:6px 12px;cursor:pointer">✕</button></div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
+  h += '<div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">الغرض</label><select id="ue-purpose" style="' + inp + '"><option value="">—</option>'
+    + Object.keys(DA_PURPOSE).map(function(k){ return '<option value="' + k + '"' + (u.purpose === k ? ' selected' : '') + '>' + DA_PURPOSE[k] + '</option>'; }).join('') + '</select></div>';
+  h += f('ue-batch', 'الدفعة', u.batch) + f('ue-species', 'النوع', u.species) + f('ue-hatchery', 'المفرخ', u.hatchery);
+  h += '</div><div style="font-weight:700;font-size:13px;margin:14px 0 6px">🐟 التخزين</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
+  h += f('ue-start', 'تاريخ التخزين', u.startDate, 'type="date"') + f('ue-stock', 'عدد التخزين', u.stockFish || u.fishNo, 'type="number"') + f('ue-startwt', 'وزن البداية (جم)', u.startWt, 'type="number" step="any"');
+  h += '</div><div style="font-weight:700;font-size:13px;margin:14px 0 6px">📍 ' + (u.open ? 'الوضع وقت النقل من ' + daEsc(u.open.source || '') + ' (' + daEsc(u.open.date) + ')' : 'الوضع عند بداية المتابعة') + '</div>';
+  if(nTx) h += '<div style="font-size:11px;color:#b45309;margin-bottom:6px">فيه ' + nTx + ' معاملة مسجلة بعد كده — الوضع الحالي = الأرقام دي + المعاملات.</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
+  h += f('ue-fish', 'عدد السمك', u.fishNo, 'type="number"') + f('ue-wt', 'متوسط الوزن (جم)', u.avgWt, 'type="number" step="any"');
+  h += f('ue-vol', 'حجم الحوض م³', u.volume, 'type="number" step="any"');
+  h += '<div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">نوع الحوض</label><select id="ue-type" style="' + inp + '"><option value="">—</option>'
+    + DA_TANK_TYPES.map(function(t){ return '<option' + (u.tankType === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div></div>';
+  h += '<div style="font-weight:700;font-size:13px;margin:14px 0 6px">📝 ملاحظات</div>';
+  var notes = (u.notes || []).slice().reverse();
+  h += notes.length ? notes.map(function(n){ return '<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:13px">' + daEsc(n.text)
+    + '<div style="font-size:10px;color:#64748b;margin-top:3px">' + daEsc(n.byName || n.by || '') + ' · ' + daEsc(String(n.at).slice(0, 16).replace('T', ' ')) + '</div></div>'; }).join('')
+    : '<div style="font-size:12px;color:#64748b;margin-bottom:6px">مفيش ملاحظات</div>';
+  h += '<textarea id="ue-note" rows="2" placeholder="اكتب ملاحظة جديدة… مثلاً: التانك ده أمهات" style="' + inp + ';resize:vertical"></textarea>';
+  if(u.history && u.history.length){
+    h += '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:#64748b">🧾 سجل التعديلات (' + u.history.length + ')</summary><div style="font-size:11px;line-height:1.8;margin-top:6px">'
+      + u.history.slice().reverse().slice(0, 50).map(function(x){ return daEsc(String(x.at).slice(0, 16).replace('T', ' ')) + ' — ' + daEsc(x.f) + ': ' + daEsc(x.from) + ' ← ' + daEsc(x.to) + ' (' + daEsc(String(x.by).split('@')[0]) + ')'; }).join('<br>') + '</div></details>';
+  }
+  h += '<div style="display:flex;gap:8px;margin-top:14px"><button id="ue-save" class="savebtn" style="width:auto;padding:10px 24px" data-u="' + daEsc(unit) + '" onclick="daSaveUnitEdit(this.dataset.u)">💾 حفظ</button>'
+    + '<button onclick="daCloseModal(&quot;unit-edit&quot;)" style="padding:10px 18px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;font:inherit;cursor:pointer">إلغاء</button></div>';
+  daModal('unit-edit', h);
+}
+async function daSaveUnitEdit(unit){
+  var u = daRawUnit(unit); if(!u) return;
+  var who = currentUser ? currentUser.email : '', now = new Date().toISOString();
+  var numOr = function(id, old){ var v = daVal(id).trim(); if(v === '') return old; var x = parseFloat(v); return isNaN(x) ? old : x; };
+  var next = {
+    purpose: daVal('ue-purpose') || '', batch: daVal('ue-batch').trim(), species: daVal('ue-species').trim(), hatchery: daVal('ue-hatchery').trim(),
+    startDate: daParseDate(daVal('ue-start')) || u.startDate || '', stockFish: Math.round(numOr('ue-stock', u.stockFish || u.fishNo || 0)),
+    startWt: numOr('ue-startwt', u.startWt || 0), fishNo: Math.round(numOr('ue-fish', u.fishNo || 0)), avgWt: numOr('ue-wt', u.avgWt || 0),
+    volume: numOr('ue-vol', u.volume || 10), tankType: daVal('ue-type') || ''
+  };
+  if(next.fishNo < 0 || next.avgWt < 0 || !(next.volume > 0)){ toast('⚠️ الأرقام لازم تكون موجبة والحجم أكبر من صفر'); return; }
+  if(next.stockFish && next.fishNo > next.stockFish && !u.open){ toast('⚠️ العدد الحالي أكبر من عدد التخزين'); }
+  u.history = u.history || [];
+  var changed = 0;
+  Object.keys(next).forEach(function(k){
+    var a = u[k] == null ? '' : u[k], b = next[k] == null ? '' : next[k];
+    if(String(a) === String(b)) return;
+    u.history.push({at:now, by:who, f:k, from:a, to:b}); u[k] = next[k]; changed++;
+  });
+  u.biomass = (u.fishNo || 0) * (u.avgWt || 0) / 1000;
+  u.density = u.volume > 0 ? u.biomass / u.volume : 0;
+  if(u.open){ u.open.fish = u.fishNo; u.open.wt = u.avgWt; u.open.bio = u.biomass; }
+  var note = daVal('ue-note').trim();
+  if(note){ u.notes = u.notes || []; u.notes.push({at:now, by:who, byName:(getSession() || {}).name || '', text:note.slice(0, 1000)}); changed++; }
+  if(!changed){ daCloseModal('unit-edit'); return; }
+  _valCache = {t:0, map:{}};
+  await daPersistUnitsLocal();
+  try{ await saveUnitsToCloud([u]); }catch(e){ toast('⚠️ اتحفظ على الجهاز — هيترفع لما الاتصال يرجع'); }
+  daCloseModal('unit-edit');
+  toast('✅ اتحفظ ' + unit);
+  show(currentView, true);
+}
+
+// ── edit any transaction (from traceability) ──
+var DA_TX_EXTRA = {feeding:['feed','نوع العلف'], mortality:['cause','السبب'], treatment:['product','العلاج']};
+function daOpenTxEditor(id){
+  if(!daCanEditUnits()){ toast('⛔ التعديل للأدمن والمدير والمهندس'); return; }
+  var t = getTX().filter(function(x){ return x.id === id; })[0]; if(!t) return;
+  var fld = DA_MAIN_FIELD[t.type], ex = DA_TX_EXTRA[t.type];
+  var inp = 'width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font:inherit;font-size:14px';
+  var h = '<div style="font-size:17px;font-weight:900;margin-bottom:4px">✏️ ' + (DA_TYPE[t.type] || daEsc(t.type)) + ' · ' + daEsc(t.unit || '') + '</div>';
+  h += '<div style="font-size:12px;color:#64748b;margin-bottom:12px">' + txSummary(t) + ' — أدخلها ' + daEsc(t.byName || t.by || '—') + '</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
+  h += '<div><label style="font-size:11px;color:#64748b">التاريخ</label><input id="te-date" type="date" value="' + daEsc(t.date || '') + '" style="' + inp + '"/></div>';
+  if(fld) h += '<div><label style="font-size:11px;color:#64748b">' + fld + '</label><input id="te-val" type="number" step="any" value="' + daEsc(t[fld]) + '" style="' + inp + '"/></div>';
+  if(ex) h += '<div><label style="font-size:11px;color:#64748b">' + ex[1] + '</label><input id="te-extra" value="' + daEsc(t[ex[0]] || '') + '" style="' + inp + '"/></div>';
+  h += '</div><div style="margin-top:10px"><label style="font-size:11px;color:#64748b">سبب التعديل *</label><input id="te-why" placeholder="مثلاً: غلط في الكتابة، الرقم الصح من الشيت" style="' + inp + '"/></div>';
+  h += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button id="te-save" class="savebtn" style="width:auto;padding:10px 22px" data-id="' + daEsc(id) + '" onclick="daSaveTxEdit(this.dataset.id)">💾 حفظ</button>'
+    + '<button data-id="' + daEsc(id) + '" onclick="if(confirm(&quot;حذف المعاملة دي؟&quot;)){deleteTX(this.dataset.id);daCloseModal(&quot;tx-edit&quot;);show(currentView,true);}" style="padding:10px 16px;border:0;background:#fee2e2;color:#dc2626;border-radius:8px;font:inherit;cursor:pointer">🗑️ حذف</button>'
+    + '<button onclick="daCloseModal(&quot;tx-edit&quot;)" style="padding:10px 16px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;font:inherit;cursor:pointer">إلغاء</button></div>';
+  daModal('tx-edit', h);
+}
+function daSaveTxEdit(id){
+  var t = getTX().filter(function(x){ return x.id === id; })[0]; if(!t) return;
+  var why = daVal('te-why').trim();
+  if(!why){ toast('⚠️ اكتب سبب التعديل'); return; }
+  var ch = {}, fld = DA_MAIN_FIELD[t.type], ex = DA_TX_EXTRA[t.type];
+  var d = daParseDate(daVal('te-date'));
+  if(d && d !== t.date){ if(d > daAddDays(daToday(), 1)){ toast('⚠️ التاريخ في المستقبل'); return; } ch.date = d; }
+  if(fld){ var v = parseFloat(daVal('te-val')); if(isNaN(v) || v < 0){ toast('⚠️ الرقم مش صحيح'); return; } if(v !== parseFloat(t[fld])) ch[fld] = v; }
+  if(ex){ var e = daVal('te-extra').trim(); if(e !== String(t[ex[0]] || '')) ch[ex[0]] = e; }
+  if(!Object.keys(ch).length){ daCloseModal('tx-edit'); return; }
+  var n0 = (t.history || []).length;
+  var u = updateTX(id, ch);
+  if(u && u.history){ for(var i = n0; i < u.history.length; i++) u.history[i].why = why; saveTX(getTX()); if(sbReady && SB_FARM_ID) _txUpsertOne(u); }
+  daCloseModal('tx-edit'); toast('✅ اتعدلت — والتعديل متسجل'); show(currentView, true);
+}
+
+// ── unit info card (traceability) ──
+function daUnitInfoCard(unit){
+  var u = daRawUnit(unit) || {};
+  var h = '<div class="card" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">';
+  h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + daPurposeBadge(u.purpose)
+    + (u.tankType ? '<span style="font-size:12px;color:var(--muted)">' + daEsc(u.tankType) + ' · ' + (u.volume || '') + ' م³</span>' : '') + '</div>';
+  if(daCanEditUnits()) h += '<button class="no-print" data-u="' + daEsc(unit) + '" onclick="daOpenUnitEditor(this.dataset.u)" style="padding:6px 14px;border:1.5px solid var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer">✏️ تعديل بيانات الوحدة / ملاحظة</button>';
+  h += '</div>';
+  var notes = (u.notes || []).slice().reverse();
+  if(notes.length) h += '<div style="margin-top:10px">' + notes.slice(0, 10).map(function(n){ return '<div style="border-inline-start:3px solid var(--amber);padding:4px 10px;margin-bottom:6px;font-size:13px">📝 ' + daEsc(n.text)
+    + ' <span style="font-size:10px;color:var(--muted)">— ' + daEsc(n.byName || String(n.by).split('@')[0]) + ' · ' + daEsc(String(n.at).slice(0, 10)) + '</span></div>'; }).join('') + '</div>';
   return h + '</div>';
 }
 
