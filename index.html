@@ -339,6 +339,7 @@ tr:hover td{background:#f5faf8}
     <!-- ── الإنتاج ── -->
     <div class="sg">🌱 الإنتاج</div>
     <button class="nb" data-v="feeding-regime" onclick="show('feeding-regime')">📐 Feeding Regime</button>
+    <button class="nb" data-v="feeding-print" onclick="show('feeding-print')">🖨️ شيت التغذية</button>
     <button class="nb" data-v="feeding-schedule" onclick="show('feeding-schedule')" style="border-inline-start:3px solid var(--teal)">📅 جدول التغذية</button>
     <button class="nb" data-v="feed-inventory" onclick="show('feed-inventory')">🏪 Feed Inventory</button>
     <button class="nb" data-v="feed-forecast" onclick="show('feed-forecast')">📦 توقع العلف والشراء</button>
@@ -11583,6 +11584,185 @@ renderPlatform = function(){
   return h + '<div class="card" id="pf-errors" style="margin-top:16px"><div class="card-title">🐞 الأخطاء</div><div style="color:var(--muted)">⏳ جاري التحميل...</div></div>';
 };
 VIEWS['platform'] = renderPlatform;
+
+
+// ══════════════════════════════════════════════════════════
+//  PRINTED FEEDING SHEET — amounts per tank, meals & times by temperature
+// ══════════════════════════════════════════════════════════
+var FP_KEY = 'daracqua_feedprint_v1';
+DA_SYNC_PREFIXES.push(FP_KEY);   // shared by all devices of the farm
+var FP_DEFAULT = {
+  bands: [
+    {max:20, times:'12:00'},
+    {max:24, times:'09:00, 15:00'},
+    {max:30, times:'08:00, 12:00, 16:00'},
+    {max:33, times:'07:00, 11:00, 17:00'},
+    {max:99, times:'07:00, 18:00'}
+  ],
+  step: 0.05, docCode: '', shortNames: true
+};
+function daFpCfg(){
+  var c = {}; try{ c = JSON.parse(localStorage.getItem(FP_KEY) || '{}'); }catch(e){}
+  return {bands: Array.isArray(c.bands) && c.bands.length ? c.bands : FP_DEFAULT.bands.slice(),
+    step: c.step || FP_DEFAULT.step, docCode: c.docCode || '', shortNames: c.shortNames !== false};
+}
+function daFpTimes(temp, cfg){
+  var t = parseFloat(temp); if(isNaN(t)) t = 28;
+  var b = cfg.bands.filter(function(x){ return t < parseFloat(x.max); })[0] || cfg.bands[cfg.bands.length - 1];
+  return String(b.times || '').split(/[,،\s]+/).map(function(s){ return s.trim(); }).filter(function(s){ return /^\d{1,2}:\d{2}$/.test(s); });
+}
+function daFpRound(v, step){ var r = Math.round(v / step) * step; return +r.toFixed(3); }
+function daFpFmt(v){ return v ? String(+v.toFixed(2)) : '—'; }
+function daShortUnit(u){ var m = String(u).match(/S0*(\d+)T0*(\d+)$/i); return m ? m[1] + '.' + m[2] : u; }
+function daSizeLabel(w){
+  var bands = daPlanCfg().bands;
+  for(var i = 0; i < bands.length; i++) if(w < bands[i].max || i === bands.length - 1) return bands[i].label;
+  return '';
+}
+function daFpCompute(st){
+  var cfg = daFpCfg(), times = daFpTimes(st.temp, cfg);
+  var blk = isFeedingBlocked(st.temp, st.doVal);
+  var rows = _txLiveRows().filter(function(r){ return (r.fishNo||0) > 0 && (!st.site || r.farm === st.site); })
+    .sort(function(a, b){ return String(a.unit).localeCompare(String(b.unit), undefined, {numeric:true}); });
+  var sites = {};
+  rows.forEach(function(r){
+    var sfr = 0; try{ sfr = getSFRAdjusted(r.avgWt || 0, r.farm, st.temp, st.doVal); }catch(e){}
+    var daily = blk.blocked ? 0 : (r.biomass || 0) * sfr / 100;
+    var per = times.length ? daFpRound(daily / times.length, cfg.step) : 0;
+    var s = sites[r.farm] = sites[r.farm] || {site:r.farm, rows:[], totals:times.map(function(){ return 0; })};
+    s.rows.push({unit:r.unit, name: cfg.shortNames ? daShortUnit(r.unit) : r.unit, fish:r.fishNo || 0, wt:r.avgWt || 0,
+      size: daSizeLabel(r.avgWt || 0), daily:daily, meals: times.map(function(){ return per; })});
+    s.totals = s.totals.map(function(x){ return x + per; });
+  });
+  return {cfg:cfg, times:times, blocked:blk, sites:Object.keys(sites).sort().map(function(k){ return sites[k]; }),
+    tf:getTempFactor(st.temp), df:getDOFactor(st.doVal)};
+}
+function daFpTable(rows, times){
+  var th = 'border:1px solid #333;padding:3px 4px;background:#0D3B38;color:#fff;font-size:11px';
+  var td = 'border:1px solid #333;padding:3px 4px;font-size:11.5px;text-align:center';
+  var h = '<table class="fp-t" style="width:100%;border-collapse:collapse"><thead><tr>';
+  h += '<th style="' + th + '">Tank</th><th style="' + th + '">g</th><th style="' + th + '">Size</th>';
+  times.forEach(function(t){ h += '<th style="' + th + '">' + t + '</th>'; });
+  h += '<th style="' + th + '">نافق</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    h += '<tr><td style="' + td + ';font-weight:700">' + daEsc(r.name) + '</td><td style="' + td + ';color:#555">' + Math.round(r.wt) + '</td>'
+      + '<td style="' + td + '">' + daEsc(r.size) + '</td>';
+    r.meals.forEach(function(m){ h += '<td style="' + td + ';font-weight:700;font-size:13px">' + daFpFmt(m) + '</td>'; });
+    h += '<td style="' + td + ';min-width:34px"></td></tr>';
+  });
+  return h + '</tbody></table>';
+}
+function daFpPage(s, d, st){
+  var name = daFarmName();
+  var h = '<div class="fp-page" style="background:#fff;color:#111;padding:14px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0D3B38;padding-bottom:6px;margin-bottom:8px;gap:10px">';
+  h += '<div><div style="font-size:12px;color:#555">' + daEsc(name) + '</div><div style="font-size:18px;font-weight:900">شيت التغذية — ' + daEsc(s.site) + '</div></div>';
+  h += '<div style="font-size:11.5px;line-height:1.6;text-align:left;direction:ltr">'
+    + (d.cfg.docCode ? '<b>' + daEsc(d.cfg.docCode) + '</b><br>' : '')
+    + 'Date: <b>' + daEsc(st.date) + '</b><br>Temp: <b>' + st.temp + '°C</b> · DO: <b>' + (st.doVal || '—') + '</b><br>Technician: ____________</div></div>';
+  h += '<div style="font-size:11px;margin-bottom:8px;color:#333">الوجبات: <b>' + d.times.length + '</b> (' + d.times.join(' · ') + ') — الكمية بالكيلو لكل وجبة · SFR معدّل بالحرارة ×' + d.tf.toFixed(2) + (st.doVal ? ' والأكسجين ×' + d.df.toFixed(2) : '') + '</div>';
+  if(d.blocked.blocked){
+    h += '<div style="border:3px solid #dc2626;color:#dc2626;font-size:20px;font-weight:900;text-align:center;padding:16px;margin:10px 0">⛔ لا تغذية — ' + daEsc(d.blocked.reason) + '</div>';
+  }
+  var two = s.rows.length > 24 && d.times.length <= 3;
+  if(two){
+    var half = Math.ceil(s.rows.length / 2);
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + daFpTable(s.rows.slice(0, half), d.times) + daFpTable(s.rows.slice(half), d.times) + '</div>';
+  }else h += daFpTable(s.rows, d.times);
+  var grand = s.totals.reduce(function(a, b){ return a + b; }, 0);
+  h += '<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px"><tr>';
+  h += '<td style="border:1px solid #333;padding:5px;background:#f1f5f9;font-weight:700">إجمالي العلف</td>';
+  d.times.forEach(function(t, i){ h += '<td style="border:1px solid #333;padding:5px;text-align:center">' + t + ': <b>' + s.totals[i].toFixed(1) + '</b> كجم</td>'; });
+  h += '<td style="border:1px solid #333;padding:5px;text-align:center;background:#f1f5f9">اليوم: <b>' + grand.toFixed(1) + '</b> كجم</td></tr>';
+  h += '<tr><td style="border:1px solid #333;padding:9px 5px;background:#f1f5f9;font-weight:700">إجمالي النافق</td><td colspan="' + (d.times.length + 1) + '" style="border:1px solid #333"></td></tr></table>';
+  h += '<div style="display:flex;justify-content:space-between;margin-top:18px;font-size:12px"><span>راجعه: ____________________</span><span>اعتمده: ____________________</span></div>';
+  return h + '</div>';
+}
+function renderFeedingPrint(){
+  var cfg0 = getSettings(farmFilter);
+  var st = window._fpState = window._fpState || {};
+  if(!st.date) st.date = daToday();
+  if(st.temp === undefined) st.temp = parseFloat(cfg0.waterTemp) || 28;
+  if(st.doVal === undefined) st.doVal = parseFloat(cfg0.waterDO) || 0;
+  if(st.site === undefined) st.site = farmFilter === 'all' ? '' : farmFilter;
+  var d = daFpCompute(st), sites = daFarms();
+  var inp = 'padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:14px';
+  var h = '<style>@media print{@page{size:A4 portrait;margin:7mm}body{background:#fff!important}.top,.sidebar,.mob-nav,.drawer,.no-print,#back-btn,#offline-status{display:none!important}.shell{display:block!important}.content{padding:0!important;margin:0!important}'
+    + '.fp-page{border:0!important;border-radius:0!important;padding:0!important;margin:0!important;page-break-after:always}.fp-page:last-of-type{page-break-after:auto}'
+    + '#toast,#tx-review-modal{display:none!important}}.fp-t tbody tr,.fp-t tbody tr:hover,.fp-t tbody td{background:#fff!important}</style>';
+  h += '<div class="no-print"><div class="ph"><div><h2>🖨️ شيت التغذية للطباعة</h2><p style="font-size:11px;color:var(--muted)">اكتب الحرارة — الكمية وعدد الوجبات ومواعيدها بيتحسبوا تلقائياً</p></div>';
+  h += '<button class="savebtn" style="width:auto;padding:10px 22px" onclick="window.print()"' + (d.sites.length ? '' : ' disabled') + '>🖨️ طباعة</button></div>';
+  h += '<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">';
+  h += '<div class="field" style="margin:0"><label>🌡️ الحرارة °C</label><input id="fp-temp" type="number" step="0.5" value="' + st.temp + '" style="' + inp + ';width:100px;font-size:20px;font-weight:800" oninput="daFpUpdate()"/></div>';
+  h += '<div class="field" style="margin:0"><label>💨 DO mg/L</label><input id="fp-do" type="number" step="0.1" value="' + (st.doVal || '') + '" placeholder="اختياري" style="' + inp + ';width:100px" oninput="daFpUpdate()"/></div>';
+  h += '<div class="field" style="margin:0"><label>📅 التاريخ</label><input id="fp-date" type="date" value="' + st.date + '" style="' + inp + '" onchange="daFpUpdate()"/></div>';
+  h += '<div class="field" style="margin:0"><label>🏭 البيت</label><select id="fp-site" style="' + inp + '" onchange="daFpUpdate()"><option value="">الكل (صفحة لكل بيت)</option>'
+    + sites.map(function(s){ return '<option' + (s === st.site ? ' selected' : '') + '>' + daEsc(s) + '</option>'; }).join('') + '</select></div>';
+  h += '</div>';
+  h += '<div id="fp-summary" style="margin-top:12px;font-size:13px">' + daFpSummary(d) + '</div></div>';
+  h += '<details class="card" style="margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">⚙️ مواعيد الوجبات حسب الحرارة</summary>';
+  h += '<div style="font-size:12px;color:var(--muted);margin:8px 0">كل سطر: لو الحرارة أقل من الرقم ده ← المواعيد دي. افصل المواعيد بفاصلة. ده افتراضي — عدّله على حسب شغل مزرعتك.</div>';
+  var lo = '';
+  d.cfg.bands.forEach(function(b, i){
+    h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;min-width:70px">' + (lo === '' ? 'أقل من' : 'من ' + lo + ' لأقل من') + '</span>'
+      + '<input id="fp-bmax-' + i + '" type="number" value="' + b.max + '" style="' + inp + ';width:80px"/><span style="font-size:12px">°C ←</span>'
+      + '<input id="fp-btimes-' + i + '" value="' + daEsc(b.times) + '" style="' + inp + ';flex:1;min-width:200px;direction:ltr"/></div>';
+    lo = b.max;
+  });
+  h += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:10px">';
+  h += '<label style="font-size:12px">التقريب لأقرب <select id="fp-step" style="' + inp + '">' + [0.1, 0.05, 0.01].map(function(s){ return '<option' + (s === d.cfg.step ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select> كجم</label>';
+  h += '<label style="font-size:12px"><input id="fp-short" type="checkbox"' + (d.cfg.shortNames ? ' checked' : '') + '/> أسماء مختصرة (1.1)</label>';
+  h += '<label style="font-size:12px">رقم النموذج <input id="fp-doc" value="' + daEsc(d.cfg.docCode) + '" placeholder="مثلاً Rev.AQU-FR-25-01" style="' + inp + ';width:190px;direction:ltr"/></label>';
+  h += '<button class="savebtn" style="width:auto;padding:8px 18px" onclick="daFpSaveCfg()">💾 حفظ</button>';
+  h += '<button onclick="daFpResetCfg()" style="padding:8px 14px;border:1px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">↩️ الافتراضي</button></div></details></div>';
+  h += '<div id="fp-pages">' + daFpPages(d, st) + '</div>';
+  return h;
+}
+function daFpSummary(d){
+  if(!d.sites.length) return '<span style="color:var(--muted)">مفيش وحدات فيها سمك</span>';
+  var tot = d.sites.reduce(function(a, s){ return a + s.totals.reduce(function(x, y){ return x + y; }, 0); }, 0);
+  var n = d.sites.reduce(function(a, s){ return a + s.rows.length; }, 0);
+  if(d.blocked.blocked) return '<b style="color:var(--red)">⛔ ' + daEsc(d.blocked.reason) + '</b>';
+  return '🍽️ <b>' + d.times.length + ' وجبات</b> (' + d.times.join(' · ') + ') · ' + n + ' تانك · إجمالي <b>' + tot.toFixed(1) + ' كجم</b> · تعديل الحرارة ×' + d.tf.toFixed(2);
+}
+function daFpPages(d, st){
+  if(!d.sites.length) return '<div class="card" style="text-align:center;padding:30px;color:var(--muted)">مفيش وحدات فيها سمك</div>';
+  return d.sites.map(function(s){ return daFpPage(s, d, st); }).join('');
+}
+function daFpUpdate(){
+  var st = window._fpState;
+  st.temp = parseFloat(daVal('fp-temp')); if(isNaN(st.temp)) st.temp = 28;
+  st.doVal = parseFloat(daVal('fp-do')) || 0;
+  st.date = daVal('fp-date') || daToday();
+  st.site = daVal('fp-site');
+  var d = daFpCompute(st);
+  var a = document.getElementById('fp-summary'); if(a) a.innerHTML = daFpSummary(d);
+  var b = document.getElementById('fp-pages'); if(b) b.innerHTML = daFpPages(d, st);
+}
+function daFpSaveCfg(){
+  var c = daFpCfg();
+  var bands = c.bands.map(function(b, i){ return {max: parseFloat(daVal('fp-bmax-' + i)) || b.max, times: daVal('fp-btimes-' + i) || b.times}; })
+    .sort(function(x, y){ return x.max - y.max; });
+  var bad = bands.filter(function(b){ return !daFpTimes(b.max - 0.01, {bands:[b]}).length; });
+  if(bad.length){ toast('⚠️ المواعيد لازم تكون بالشكل 08:00'); return; }
+  try{ localStorage.setItem(FP_KEY, JSON.stringify({bands:bands, step:parseFloat(daVal('fp-step')) || 0.05,
+    shortNames: !!(document.getElementById('fp-short') || {}).checked, docCode: daVal('fp-doc').trim()})); }catch(e){}
+  toast('✅ اتحفظ'); show('feeding-print', true);
+}
+function daFpResetCfg(){ try{ localStorage.removeItem(FP_KEY); }catch(e){} toast('↩️ رجعت للافتراضي'); show('feeding-print', true); }
+function daOpenFeedPrint(){
+  var t = parseFloat(daVal('fr-temp')), o = parseFloat(daVal('fr-do'));
+  window._fpState = {date: daToday(), temp: isNaN(t) ? undefined : t, doVal: isNaN(o) ? undefined : o};
+  show('feeding-print');
+}
+var _frCore = renderFeedingRegime;
+renderFeedingRegime = function(){
+  return '<div class="no-print" style="display:flex;justify-content:flex-end;margin-bottom:8px">'
+    + '<button class="savebtn" style="width:auto;padding:9px 18px" onclick="daOpenFeedPrint()">🖨️ شيت التغذية للطباعة</button></div>' + _frCore();
+};
+VIEWS['feeding-regime'] = renderFeedingRegime;
+VIEWS['feeding-print'] = renderFeedingPrint;
+VIEW_PERMS['feeding-print'] = 'input_feeding';
 
 // ── Init ──────────────────────────────────────
 (function(){
