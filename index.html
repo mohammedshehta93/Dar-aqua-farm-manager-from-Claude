@@ -10385,93 +10385,7 @@ function daWater(farm){ var c = getSettings(farm); return {temp:c.waterTemp || 2
 var RAS_KEY = 'daracqua_ras_v1';
 function daRasCfg(){
   var c = {}; try{ c = JSON.parse(localStorage.getItem(RAS_KEY) || '{}'); }catch(e){}
-  return {protein: c.protein || 32, o2: c.o2 || 0.45, capacity: c.capacity || {}, capFeed: c.capFeed || {}};
-}
-function daRasCompute(days){
-  var cfg = daRasCfg(), maps = daGrowthMaps(), today = daToday();
-  var farms = {};
-  _txLiveRows().filter(function(r){ return (r.fishNo||0) > 0 && daIsRasSite(r.farm); }).forEach(function(r){
-    var f = farms[r.farm] = farms[r.farm] || {farm:r.farm, units:0, bio:0, planned:0, actual:0, proj:[]};
-    f.units++; f.bio += r.biomass || 0;
-    f.planned += daExpectedDailyFeed(r);
-    var wtr = daWater(r.farm);
-    daProject(r, days || 14, {sgr:daUnitSGR(r, maps), mort:daUnitMort(r, maps), temp:wtr.temp, doVal:wtr.doVal}).forEach(function(p, i){
-      f.proj[i] = (f.proj[i] || 0) + p.feed;
-    });
-  });
-  var d3 = [today, daAddDays(today, -1), daAddDays(today, -2)];
-  getTX().forEach(function(t){
-    if(t.type !== 'feeding' || !t.unit || d3.indexOf(t.date) < 0) return;
-    var fid = t.unit.split('.')[0]; if(!farms[fid]) return;
-    var kg = parseFloat(t.kg) || 0;
-    if(t.date === today) farms[fid].actual += kg;
-    farms[fid].by3 = farms[fid].by3 || {}; farms[fid].by3[t.date] = (farms[fid].by3[t.date] || 0) + kg;
-  });
-  return Object.keys(farms).sort().map(function(k){
-    var f = farms[k];
-    var days3 = f.by3 ? Object.keys(f.by3) : [];
-    f.actual3 = days3.length ? days3.reduce(function(s, d){ return s + f.by3[d]; }, 0) / days3.length : 0;
-    f.basis = f.actual3 > 0 ? 'actual' : 'planned';
-    f.feed = f.actual3 > 0 ? f.actual3 : f.planned;
-    var scale = f.planned > 0 ? f.feed / f.planned : 1;
-    f.proj = f.proj.map(function(x){ return x * scale; });
-    f.tan = f.feed * cfg.protein / 100 * 0.092;          // kg TAN/day
-    f.o2fish = f.feed * cfg.o2; f.o2nit = f.tan * 4.57; f.o2 = f.o2fish + f.o2nit;
-    f.co2 = f.o2fish * 1.375;
-    f.alk = f.tan * 7.14; f.bicarb = f.alk * 1.68;
-    f.cap = parseFloat(cfg.capacity[k]) || ((parseFloat(cfg.capFeed[k]) || 0) * cfg.protein / 100 * 0.092 * 1000);             // g TAN/day
-    f.loadPct = f.cap > 0 ? f.tan * 1000 / f.cap * 100 : 0;
-    f.projTan = f.proj.map(function(x){ return x * cfg.protein / 100 * 0.092 * 1000; });
-    f.overDay = -1;
-    if(f.cap > 0) for(var i = 0; i < f.projTan.length; i++) if(f.projTan[i] > f.cap * 0.9){ f.overDay = i + 1; break; }
-    return f;
-  });
-}
-function rasSaveCfg(){
-  var cfg = daRasCfg();
-  cfg.protein = parseFloat(daVal('ras-protein')) || 32;
-  cfg.o2 = parseFloat(daVal('ras-o2')) || 0.45;
-  daFarms().forEach(function(f){ cfg.capacity[f] = parseFloat(daVal('ras-cap-'+f)) || 0; cfg.capFeed[f] = parseFloat(daVal('ras-capf-'+f)) || 0; });
-  try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
-  toast('✅ اتحفظت إعدادات الـ RAS'); show('ras-load', true);
-}
-function renderRASLoad(){
-  var cfg = daRasCfg(), data = daRasCompute(14);
-  var h = '<div class="ph"><div><h2>🧪 حمل الفلتر الحيوي (RAS)</h2><p style="font-size:11px;color:var(--muted)">الأمونيا والأكسجين وثاني أكسيد الكربون والقلوية — محسوبة من العلف</p></div></div>';
-  h += '<div class="card" style="margin-bottom:14px"><div class="card-title">⚙️ إعدادات النظام</div>';
-  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">';
-  h += '<div class="field"><label>بروتين العلف %</label>'+daInp('ras-protein', cfg.protein, 'type="number" step="0.5"')+'</div>';
-  h += '<div class="field"><label>أكسجين السمك (كجم O₂ / كجم علف)</label>'+daInp('ras-o2', cfg.o2, 'type="number" step="0.05"')+'</div>';
-  daFarms().filter(daIsRasSite).forEach(function(f){ h += '<div class="field"><label>سعة فلتر '+daEsc(f)+' (جم TAN/يوم)</label>'+daInp('ras-cap-'+f, cfg.capacity[f] || '', 'type="number" placeholder="مثلاً 1500"')+'</div>'+ '<div class="field"><label>أو أقصى علف/يوم لـ '+daEsc(f)+' (كجم) — الأسهل</label>'+daInp('ras-capf-'+f, (cfg.capFeed||{})[f] || '', 'type="number" placeholder="مثلاً 120"')+'</div>'; });
-  h += '</div><button class="savebtn" style="width:auto;padding:8px 18px;margin-top:10px" onclick="rasSaveCfg()">💾 حفظ</button></div>';
-  data.forEach(function(f){
-    var col = f.cap <= 0 ? 'var(--muted)' : f.loadPct >= 100 ? 'var(--red)' : f.loadPct >= 85 ? 'var(--amber)' : 'var(--green)';
-    h += '<div class="card" style="margin-bottom:14px;border-top:4px solid '+col+'">';
-    h += '<div class="card-title">🏭 '+daEsc(f.farm)+' — '+f.units+' وحدة · '+(f.bio/1000).toFixed(2)+' طن</div>';
-    h += daGrid([
-      daKpi('🌾', f.basis === 'actual' ? 'علف/يوم (فعلي — متوسط آخر ' + Object.keys(f.by3).length + ' يوم)' : 'علف/يوم (متوقع من SFR)', f.feed.toFixed(1)+' كجم', 'var(--deep)', f.basis === 'actual' ? 'جدول SFR: '+f.planned.toFixed(1)+' كجم' : 'مفيش تغذية متسجلة آخر 3 أيام'),
-      daKpi('☣️','TAN', (f.tan*1000).toFixed(0)+' جم/يوم', col, f.cap > 0 ? f.loadPct.toFixed(0)+'% من سعة الفلتر' : 'حدد سعة الفلتر'),
-      daKpi('💨','أكسجين مطلوب', f.o2.toFixed(1)+' كجم/يوم', 'var(--teal)', 'سمك '+f.o2fish.toFixed(1)+' + نترتة '+f.o2nit.toFixed(1)),
-      daKpi('🫧','CO₂ ناتج', f.co2.toFixed(1)+' كجم/يوم', 'var(--deep)'),
-      daKpi('🧂','بيكربونات صوديوم', f.bicarb.toFixed(1)+' كجم/يوم', 'var(--amber)', 'لتعويض '+f.alk.toFixed(1)+' كجم قلوية')
-    ], 140);
-    if(f.cap > 0){
-      var mx = Math.max.apply(null, f.projTan.concat([f.cap])) || 1;
-      h += '<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">📈 TAN المتوقع — 14 يوم (الخط = 90% من السعة)</div>';
-      h += '<div style="position:relative;display:flex;align-items:flex-end;gap:3px;height:90px">';
-      h += '<div style="position:absolute;left:0;right:0;bottom:'+(f.cap*0.9/mx*86).toFixed(0)+'px;border-top:2px dashed var(--red)"></div>';
-      f.projTan.forEach(function(v){ var over = v > f.cap*0.9; h += '<div title="'+v.toFixed(0)+' جم" style="flex:1;height:'+Math.max(3, v/mx*86).toFixed(0)+'px;background:'+(over?'var(--red)':'var(--teal)')+';border-radius:3px 3px 0 0;opacity:.85"></div>'; });
-      h += '</div>';
-      h += f.loadPct >= 90 ? '<div style="margin-top:8px;color:var(--red);font-weight:700;font-size:13px">⚠️ الحمل دلوقتي '+f.loadPct.toFixed(0)+'% من سعة الفلتر'+(f.basis === 'planned' ? ' — محسوب من جدول SFR، سجّل التغذية الفعلية عشان الرقم يبقى دقيق' : '')+'. لو قراءات الأمونيا والنيتريت مظبوطة، يبقى السعة الحقيقية أعلى من اللي مكتوبة — عدّلها.</div>'
-        : f.overDay > 0 ? '<div style="margin-top:8px;color:var(--red);font-weight:700;font-size:13px">⚠️ الحمل هيعدّي 90% من سعة الفلتر خلال '+f.overDay+' يوم ('+daAddDays(daToday(), f.overDay)+') — خطط لحصاد أو تفريد أو زيادة تغيير المياه</div>'
-        : '<div style="margin-top:8px;color:var(--green);font-size:12px">✅ الحمل تحت 90% من السعة طول الـ 14 يوم الجايين</div>';
-    }
-    h += '</div>';
-  });
-  h += '<div class="card" style="font-size:12px;color:var(--muted);line-height:1.9"><div class="card-title">📐 المعادلات</div>'
-    + 'TAN = علف × بروتين% × 0.092 · أكسجين النترتة = 4.57 × TAN · CO₂ = 1.375 × أكسجين السمك · القلوية = 7.14 × TAN (كـ CaCO₃) · بيكربونات = 1.68 × القلوية.<br>'
-    + 'ده تقدير تصميمي. قارنه بقراءات الأمونيا والنيتريت الفعلية من Water Quality، وعدّل سعة الفلتر لو الأرقام الفعلية مختلفة.</div>';
-  return h;
+  return {protein: c.protein || 32, o2: c.o2 || 0.45, capacity: c.capacity || {}, capFeed: c.capFeed || {}, loops: c.loops || []};
 }
 
 // ══════════════════════════════════════════════════════════
@@ -10769,8 +10683,11 @@ function daExtraAlerts(){
     if(w) out.push({level:'warn', icon:'💊', title:'فترة سحب علاج', unit:r.unit, section:r.section||'', msg:r.unit+': '+w.product+' — ممنوع الحصاد لحد '+w.until});
   });
   daRasCompute(14).forEach(function(f){
-    if(f.cap > 0 && f.loadPct >= 90) out.push({level:f.loadPct >= 100 ? 'critical' : 'warn', icon:'🧪', title:'حمل الفلتر الحيوي', unit:'', section:f.farm, msg:f.farm+': الأمونيا '+f.loadPct.toFixed(0)+'% من سعة الفلتر'});
-    else if(f.overDay > 0) out.push({level:'warn', icon:'🧪', title:'الفلتر هيتشبع قريب', unit:'', section:f.farm, msg:f.farm+': هيعدّي 90% من السعة خلال '+f.overDay+' يوم'});
+    var lbl = (f.label || f.farm), src = f.basis === 'planned' ? ' (متوقع من SFR)' : '', lim = f.warnAt || 90;
+    if(f.over) out.push({level:f.loadPct >= lim + 10 ? 'critical' : 'warn', icon:'🧪', title:'حمل الفلتر الحيوي', unit:'', section:f.farm,
+      msg:lbl + ': الحمل ' + f.loadPct.toFixed(0) + '% ' + (f.capSrc === 'observed' ? 'من أقصى علف جربتوه' : 'من سعة الفلتر') + src});
+    else if(f.overDay > 0) out.push({level:'warn', icon:'🧪', title:'الفلتر هيتشبع قريب', unit:'', section:f.farm,
+      msg:lbl + ': هيوصل ' + lim + '% خلال ' + f.overDay + ' يوم' + src});
   });
   var c = daPlanCfg();
   if(c.bands.some(function(b){ return b.inv; })){
@@ -12146,6 +12063,159 @@ function daUnitInfoCard(unit){
   if(notes.length) h += '<div style="margin-top:10px">' + notes.slice(0, 10).map(function(n){ return '<div style="border-inline-start:3px solid var(--amber);padding:4px 10px;margin-bottom:6px;font-size:13px">📝 ' + daEsc(n.text)
     + ' <span style="font-size:10px;color:var(--muted)">— ' + daEsc(n.byName || String(n.by).split('@')[0]) + ' · ' + daEsc(String(n.at).slice(0, 10)) + '</span></div>'; }).join('') + '</div>';
   return h + '</div>';
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  RAS — per filter (loop): each filter carries only the tanks it serves
+// ══════════════════════════════════════════════════════════
+function daRasLoops(cfg){
+  var out = [];
+  (cfg.loops || []).forEach(function(L, i){
+    var from = parseInt(L.from, 10) || 0, to = parseInt(L.to, 10) || from;
+    if(!L.site || !(from > 0) || to < from) return;
+    if(L.each){ for(var s = from; s <= to; s++) out.push(Object.assign({}, L, {from:s, to:s, idx:i, label:(L.name ? L.name + ' ' : '') + L.site + ' S' + daPad2(s)})); }
+    else out.push(Object.assign({}, L, {from:from, to:to, idx:i, label:L.name || (L.site + ' S' + daPad2(from) + (to > from ? '–S' + daPad2(to) : ''))}));
+  });
+  return out;
+}
+function daLoopCap(L, protein){
+  var f = parseFloat(L.capFeed) || 0;
+  if(f > 0) return {g: f * protein / 100 * 0.092 * 1000, src:'observed', feed:f};
+  var v = parseFloat(L.mediaVol) || 0, ssa = parseFloat(L.ssa) || 500, rate = parseFloat(L.rate) || 0.5;
+  if(v > 0) return {g: v * ssa * rate, src:'media'};
+  return {g:0, src:'none'};
+}
+function daRasCompute(days){
+  var cfg = daRasCfg(), maps = daGrowthMaps(), today = daToday(), loops = daRasLoops(cfg);
+  var d3 = [today, daAddDays(today, -1), daAddDays(today, -2)];
+  var groups = {}, unitKey = {};
+  function keyOf(r){
+    var m = String(r.unit).match(/\.S(\d+)T/), sec = m ? parseInt(m[1], 10) : 0;
+    for(var i = 0; i < loops.length; i++){ var L = loops[i]; if(L.site === r.farm && sec >= L.from && sec <= L.to) return 'L' + i; }
+    return loops.some(function(L){ return L.site === r.farm; }) ? 'U:' + r.farm : 'S:' + r.farm;
+  }
+  _txLiveRows().filter(function(r){ return (r.fishNo||0) > 0 && daIsRasSite(r.farm); }).forEach(function(r){
+    var k = keyOf(r); unitKey[r.unit] = k;
+    var L = k.charAt(0) === 'L' ? loops[+k.slice(1)] : null;
+    var g = groups[k] = groups[k] || {key:k, farm:r.farm, loop:L, units:0, bio:0, planned:0, actual:0, proj:[], by3:null,
+      label: L ? L.label : (k.charAt(0) === 'U' ? r.farm + ' — سكاشن مش متعرفة على فلتر' : r.farm)};
+    g.units++; g.bio += r.biomass || 0; g.planned += daExpectedDailyFeed(r);
+    var w = daWater(r.farm);
+    daProject(r, days || 14, {sgr:daUnitSGR(r, maps), mort:daUnitMort(r, maps), temp:w.temp, doVal:w.doVal}).forEach(function(p, i){ g.proj[i] = (g.proj[i] || 0) + p.feed; });
+  });
+  getTX().forEach(function(t){
+    if(t.type !== 'feeding' || d3.indexOf(t.date) < 0) return;
+    var g = groups[unitKey[t.unit]]; if(!g) return;
+    var kg = parseFloat(t.kg) || 0;
+    if(t.date === today) g.actual += kg;
+    g.by3 = g.by3 || {}; g.by3[t.date] = (g.by3[t.date] || 0) + kg;
+  });
+  return Object.keys(groups).sort(function(a, b){ return groups[a].label.localeCompare(groups[b].label, undefined, {numeric:true}); }).map(function(k){
+    var f = groups[k];
+    var days3 = f.by3 ? Object.keys(f.by3) : [];
+    f.actual3 = days3.length ? days3.reduce(function(s, d){ return s + f.by3[d]; }, 0) / days3.length : 0;
+    f.basis = f.actual3 > 0 ? 'actual' : 'planned';
+    f.feed = f.actual3 > 0 ? f.actual3 : f.planned;
+    var scale = f.planned > 0 ? f.feed / f.planned : 1;
+    f.proj = f.proj.map(function(x){ return x * scale; });
+    f.tan = f.feed * cfg.protein / 100 * 0.092;
+    f.o2fish = f.feed * cfg.o2; f.o2nit = f.tan * 4.57; f.o2 = f.o2fish + f.o2nit;
+    f.co2 = f.o2fish * 1.375; f.alk = f.tan * 7.14; f.bicarb = f.alk * 1.68;
+    var cap = f.loop ? daLoopCap(f.loop, cfg.protein)
+      : (k.charAt(0) === 'S' ? {g: parseFloat(cfg.capacity[f.farm]) || ((parseFloat(cfg.capFeed[f.farm]) || 0) * cfg.protein / 100 * 0.092 * 1000), src:'site'} : {g:0, src:'none'});
+    f.cap = cap.g; f.capSrc = cap.src; f.capFeedMax = cap.feed || 0;
+    f.warnAt = cap.src === 'observed' ? 100 : 90;
+    f.loadPct = f.cap > 0 ? f.tan * 1000 / f.cap * 100 : 0;
+    var obs = cap.src === 'observed';
+    f.over = f.cap > 0 && (obs ? f.loadPct > 100.5 : f.loadPct >= 90);
+    f.projTan = f.proj.map(function(x){ return x * cfg.protein / 100 * 0.092 * 1000; });
+    f.overDay = -1;
+    if(f.cap > 0) for(var i = 0; i < f.projTan.length; i++) if(f.projTan[i] > f.cap * (obs ? 1.005 : 0.9)){ f.overDay = i + 1; break; }
+    return f;
+  });
+}
+function rasReadLoops(){
+  var cfg = daRasCfg();
+  return (cfg.loops || []).map(function(L, i){
+    return {name: daVal('rl-name-' + i).trim(), site: daVal('rl-site-' + i), from: parseInt(daVal('rl-from-' + i), 10) || 0, to: parseInt(daVal('rl-to-' + i), 10) || 0,
+      each: !!(document.getElementById('rl-each-' + i) || {}).checked, capFeed: parseFloat(daVal('rl-capf-' + i)) || 0,
+      mediaVol: parseFloat(daVal('rl-media-' + i)) || 0, ssa: parseFloat(daVal('rl-ssa-' + i)) || 500, rate: parseFloat(daVal('rl-rate-' + i)) || 0.5};
+  });
+}
+function rasSaveCfg(){
+  var cfg = daRasCfg();
+  cfg.protein = parseFloat(daVal('ras-protein')) || 32;
+  cfg.o2 = parseFloat(daVal('ras-o2')) || 0.45;
+  cfg.loops = rasReadLoops();
+  daFarms().forEach(function(f){
+    if(document.getElementById('ras-cap-' + f)) cfg.capacity[f] = parseFloat(daVal('ras-cap-' + f)) || 0;
+    if(document.getElementById('ras-capf-' + f)) cfg.capFeed[f] = parseFloat(daVal('ras-capf-' + f)) || 0;
+  });
+  try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
+  toast('✅ اتحفظت إعدادات الـ RAS'); show('ras-load', true);
+}
+function rasAddLoop(){
+  var cfg = daRasCfg(); cfg.protein = parseFloat(daVal('ras-protein')) || cfg.protein; cfg.o2 = parseFloat(daVal('ras-o2')) || cfg.o2;
+  cfg.loops = rasReadLoops();
+  var site = daFarms().filter(daIsRasSite)[0] || 'F1';
+  cfg.loops.push({name:'', site:site, from:1, to:1, each:false, capFeed:0, mediaVol:0, ssa:500, rate:0.5});
+  try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
+  show('ras-load', true);
+}
+function rasDelLoop(i){
+  var cfg = daRasCfg(); cfg.loops = rasReadLoops(); cfg.loops.splice(i, 1);
+  try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
+  show('ras-load', true);
+}
+function renderRASLoad(){
+  var cfg = daRasCfg(), data = daRasCompute(14), sites = daFarms().filter(daIsRasSite), loops = cfg.loops || [];
+  var inp = 'padding:6px 8px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px;width:100%';
+  var h = '<div class="ph"><div><h2>🧪 حمل الفلتر الحيوي (RAS)</h2><p style="font-size:11px;color:var(--muted)">كل فلتر محسوب على الأحواض اللي بيخدمها بس — الأمونيا والأكسجين وثاني أكسيد الكربون والقلوية</p></div></div>';
+  h += '<div class="card" style="margin-bottom:14px"><div class="card-title">🧪 وحدات الفلترة</div>';
+  h += '<div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">حدد كل فلتر بيخدم أنهي سكاشن. السعة: اكتب <b>أقصى علف/يوم جربتوه والأمونيا مظبوطة</b> (الأدق) — أو حجم الميديا. "كل سكشن لوحده" = صف واحد لسكاشن ليها نفس الفلتر.</div>';
+  h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--light)">';
+  ['الاسم','البيت','سكشن من','لحد','كل سكشن لوحده','أقصى علف/يوم كجم','أو ميديا م³','م²/م³','جم/م²/يوم','السعة',''].forEach(function(c){ h += '<th style="padding:6px;text-align:right;white-space:nowrap">' + c + '</th>'; });
+  h += '</tr></thead><tbody>';
+  loops.forEach(function(L, i){
+    var cap = daLoopCap(L, cfg.protein);
+    h += '<tr><td style="padding:3px"><input id="rl-name-' + i + '" value="' + daEsc(L.name || '') + '" placeholder="اختياري" style="' + inp + ';width:90px"/></td>'
+      + '<td style="padding:3px"><select id="rl-site-' + i + '" style="' + inp + ';width:70px">' + sites.map(function(s){ return '<option' + (s === L.site ? ' selected' : '') + '>' + daEsc(s) + '</option>'; }).join('') + '</select></td>'
+      + '<td style="padding:3px"><input id="rl-from-' + i + '" type="number" value="' + (L.from || '') + '" style="' + inp + ';width:55px"/></td>'
+      + '<td style="padding:3px"><input id="rl-to-' + i + '" type="number" value="' + (L.to || '') + '" style="' + inp + ';width:55px"/></td>'
+      + '<td style="padding:3px;text-align:center"><input id="rl-each-' + i + '" type="checkbox"' + (L.each ? ' checked' : '') + '/></td>'
+      + '<td style="padding:3px"><input id="rl-capf-' + i + '" type="number" step="any" value="' + (L.capFeed || '') + '" style="' + inp + ';width:75px"/></td>'
+      + '<td style="padding:3px"><input id="rl-media-' + i + '" type="number" step="any" value="' + (L.mediaVol || '') + '" style="' + inp + ';width:65px"/></td>'
+      + '<td style="padding:3px"><input id="rl-ssa-' + i + '" type="number" value="' + (L.ssa || 500) + '" style="' + inp + ';width:65px"/></td>'
+      + '<td style="padding:3px"><input id="rl-rate-' + i + '" type="number" step="0.05" value="' + (L.rate || 0.5) + '" style="' + inp + ';width:60px"/></td>'
+      + '<td style="padding:3px;white-space:nowrap;font-size:11px">' + (cap.g ? Math.round(cap.g).toLocaleString() + ' جم TAN' + (cap.src === 'observed' ? '<br><span style="color:var(--muted)">من التجربة</span>' : '<br><span style="color:var(--muted)">من الميديا</span>') : '—') + '</td>'
+      + '<td style="padding:3px"><button data-i="' + i + '" onclick="rasDelLoop(+this.dataset.i)" style="border:0;background:#fee2e2;color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer">✕</button></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">';
+  h += '<button onclick="rasAddLoop()" style="padding:8px 14px;border:1.5px dashed var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer">➕ فلتر</button>';
+  h += '<div class="field" style="margin:0;width:110px"><label style="font-size:11px">بروتين العلف %</label>' + daInp('ras-protein', cfg.protein, 'type="number" step="0.5"') + '</div>';
+  h += '<div class="field" style="margin:0;width:150px"><label style="font-size:11px">أكسجين السمك كجم/كجم علف</label>' + daInp('ras-o2', cfg.o2, 'type="number" step="0.05"') + '</div>';
+  h += '<button class="savebtn" style="width:auto;padding:8px 18px" onclick="rasSaveCfg()">💾 حفظ</button></div></div>';
+  if(!data.length) return h + '<div class="card" style="text-align:center;padding:30px;color:var(--muted)">مفيش أحواض فيها سمك في بيوت RAS</div>';
+  var rows = data.map(function(f){
+    var col = f.cap <= 0 ? 'var(--muted)' : f.over ? 'var(--red)' : f.loadPct >= f.warnAt - 15 ? 'var(--amber)' : 'var(--green)';
+    var status = f.cap <= 0 ? '<span style="color:var(--muted)">حدد السعة</span>'
+      : f.over ? '<b style="color:var(--red)">' + (f.capSrc === 'observed' ? 'فوق أقصى علف جربتوه' : 'فوق 90% من السعة') + '</b>'
+      : f.overDay > 0 ? '<span style="color:#b45309">هيوصل خلال ' + f.overDay + ' يوم</span>' : '<span style="color:var(--green)">✅ أمان 14 يوم</span>';
+    return ['<b>' + daEsc(f.label) + '</b><div style="font-size:10px;color:var(--muted)">' + f.units + ' حوض · ' + (f.bio / 1000).toFixed(2) + ' طن</div>',
+      f.feed.toFixed(1) + ' <span style="font-size:10px;color:var(--muted)">' + (f.basis === 'actual' ? 'فعلي' : 'SFR') + '</span>',
+      Math.round(f.tan * 1000).toLocaleString(), f.cap ? Math.round(f.cap).toLocaleString() : '—',
+      f.cap ? '<b style="color:' + col + '">' + f.loadPct.toFixed(0) + '%</b>' : '—', status,
+      f.o2.toFixed(1), f.bicarb.toFixed(1)];
+  });
+  h += '<div class="card" style="margin-bottom:14px">' + daTable(['الفلتر','علف/يوم كجم','TAN جم/يوم','السعة جم','الحمل','الحالة','أكسجين كجم/يوم','بيكربونات كجم/يوم'], rows);
+  if(data.some(function(f){ return f.basis === 'planned'; })) h += '<div style="font-size:11px;color:var(--muted);margin-top:8px">"SFR" = مفيش تغذية متسجلة آخر 3 أيام، فالعلف متوقع من جدول الـ SFR وممكن يكون أعلى من الفعلي. أول ما تسجلوا تغذية، الحساب بيتحول للفعلي.</div>';
+  h += '</div>';
+  h += '<div class="card" style="font-size:12px;color:var(--muted);line-height:1.9"><div class="card-title">📐 المعادلات</div>'
+    + 'TAN = علف × بروتين% × 0.092 · سعة الميديا = حجم الميديا × المساحة السطحية × معدل التحويل · أكسجين السمك = علف × ' + cfg.o2 + ' · أكسجين البكتيريا = 4.57 × TAN · CO₂ = 1.375 × أكسجين السمك · بيكربونات = 7.14 × 1.68 × TAN.<br>'
+    + 'لما السعة من "أقصى علف جربتوه"، 100% = الحد اللي اتأكدتوا إنه شغال، والتحذير بيطلع لما الحمل يعدّيه.</div>';
+  return h;
 }
 
 // ── Init ──────────────────────────────────────
