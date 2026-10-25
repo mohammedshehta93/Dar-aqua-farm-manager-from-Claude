@@ -9741,6 +9741,7 @@ async function adminLoadUsers(){
     h += '<button data-id="' + p.id + '" onclick="_umEditId=this.dataset.id;adminLoadUsers()" title="تعديل" style="' + btn + 'background:var(--teal)">✏️</button> ';
     h += '<button data-email="' + daEsc(p.email || '') + '" onclick="adminSendReset(this.dataset.email)" title="إرسال رابط إعادة تعيين كلمة السر" style="' + btn + 'background:#64748b">📧</button> ';
     if(!me) h += '<button data-id="' + p.id + '" onclick="adminToggleActive(this.dataset.id)" title="' + (p.active === false ? 'تفعيل' : 'إيقاف') + '" style="' + btn + 'background:' + (p.active === false ? 'var(--green)' : 'var(--red)') + '">' + (p.active === false ? '✅' : '⛔') + '</button>';
+    if(!me) h += ' <button data-id="' + p.id + '" onclick="adminDeleteUserForever(this.dataset.id)" title="حذف نهائي" style="' + btn + 'background:#7f1d1d">🗑️</button>';
     h += '</td></tr>';
   });
   h += '</tbody></table></div>';
@@ -11420,6 +11421,27 @@ VIEWS['farm-setup'] = renderFarmSetup;
 
 
 function daFarmName(){ var s = {}; try{ s = getSession() || {}; }catch(e){} var c = {}; try{ c = getSettings() || {}; }catch(e){} return s.farm_name || c.farmName || 'Farm Manager'; }
+
+async function adminDeleteUserForever(id){
+  var p = _umProfiles.filter(function(x){ return x.id === id; })[0]; if(!p) return;
+  if(currentUser && id === currentUser.id){ toast('⚠️ مينفعش تحذف حسابك'); return; }
+  var typed = prompt('⚠️ حذف نهائي لحساب ' + (p.name || p.email) + '\n\nالحساب هيتشال ومش هيقدر يدخل تاني. الإيميل يقدر يتسجل من جديد بعدين.\nالعمليات اللي أدخلها هتفضل في السجل باسمه.\n\nللتأكيد اكتب الإيميل: ' + p.email);
+  if(typed === null) return;
+  if(String(typed).trim().toLowerCase() !== String(p.email).toLowerCase()){ toast('❌ الإيميل مش مطابق — ملغي'); return; }
+  try{
+    await sbFetch('rpc/delete_farm_user', {method:'POST', body: JSON.stringify({p_user_id: id})});
+    if(_umEditId === id) _umEditId = null;
+    toast('🗑️ اتحذف الحساب نهائياً');
+    adminLoadUsers();
+  }catch(e){
+    var m = e.message || '';
+    if(/delete_farm_user|schema cache|could not find/i.test(m)) m = 'محتاج تشغّل كود SQL الحذف في Supabase الأول';
+    else if(/yourself/.test(m)) m = 'مينفعش تحذف حسابك';
+    else if(/platform owner/.test(m)) m = 'مينفعش تحذف حساب صاحب المنصة';
+    else if(/not in your farm|not allowed/.test(m)) m = 'المستخدم ده مش في مزرعتك';
+    toast('❌ ' + m);
+  }
+}
 // ── Init ──────────────────────────────────────
 (function(){
   var _bc = getSettings();
