@@ -6366,45 +6366,6 @@ function copyWhatsApp(){
 // ════════════════════════════════════════════════════════════
 // 8. Survival Rate Tracker
 // ════════════════════════════════════════════════════════════
-function getSurvivalData(){
-  var allTX = getTX();
-  var result = [];
-  
-  _txLiveRows().forEach(function(r){
-    var raw = RAW.find(function(x){return x.unit===r.unit;});
-    if(!raw) return;
-    
-    var startFish = raw.fishNo||0;
-    var startDate = raw.startDate||'';
-    var batch     = raw.batch||'';
-    
-    // Mortality since stocking
-    var mort = allTX.filter(function(t){return t.type==='mortality'&&t.unit===r.unit;})
-                    .reduce(function(s,t){return s+(t.count||0);},0);
-    
-    // Days since stocking
-    var days = startDate ? Math.floor((Date.now()-new Date(startDate).getTime())/864e5) : 0;
-    
-    // Survival rate
-    var survRate = startFish > 0 ? ((startFish - mort) / startFish * 100) : 100;
-    
-    result.push({
-      unit:      r.unit,
-      farm:      r.farm||'',
-      batch:     batch,
-      startDate: startDate,
-      startFish: startFish,
-      currentFish: r.fishNo||0,
-      mortality: mort,
-      survRate:  +survRate.toFixed(1),
-      days:      days,
-      avgWt:     r.avgWt||0,
-      biomass:   r.biomass||0,
-    });
-  });
-  
-  return result.sort(function(a,b){return a.survRate-b.survRate;});
-}
 
 function renderSurvivalTracker(){
   var data = getSurvivalData();
@@ -8587,7 +8548,7 @@ function renderSiteOverview(){
   h+='</tr></thead><tbody>';
   liveRs.forEach(function(r,idx){
     var base=RAW.find(function(x){return x.unit===r.unit;})||r;
-    var utdFeed=txAll.filter(function(t){return t.unit===r.unit&&t.type==='feeding';}).reduce(function(s,t){return s+(t.kg||0);},0)||(base.feedKg||0);
+    var utdFeed=txAll.filter(function(t){return t.unit===r.unit&&t.type==='feeding';}).reduce(function(s,t){return s+(t.kg||0);},0)+(base.feedKg||0);
     var ls=latestSamp[r.unit];
     var sgr=ls?( ls.sgr||0):(base.growthDay&&r.avgWt?base.growthDay/r.avgWt*100:0);
     var fcr=ls&&ls.fcr?ls.fcr:(base.fcrUTD||0);
@@ -10429,7 +10390,7 @@ function daRasCfg(){
 function daRasCompute(days){
   var cfg = daRasCfg(), maps = daGrowthMaps(), today = daToday();
   var farms = {};
-  _txLiveRows().filter(function(r){ return (r.fishNo||0) > 0; }).forEach(function(r){
+  _txLiveRows().filter(function(r){ return (r.fishNo||0) > 0 && daIsRasSite(r.farm); }).forEach(function(r){
     var f = farms[r.farm] = farms[r.farm] || {farm:r.farm, units:0, bio:0, planned:0, actual:0, proj:[]};
     f.units++; f.bio += r.biomass || 0;
     f.planned += daExpectedDailyFeed(r);
@@ -10471,7 +10432,7 @@ function renderRASLoad(){
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">';
   h += '<div class="field"><label>بروتين العلف %</label>'+daInp('ras-protein', cfg.protein, 'type="number" step="0.5"')+'</div>';
   h += '<div class="field"><label>أكسجين السمك (كجم O₂ / كجم علف)</label>'+daInp('ras-o2', cfg.o2, 'type="number" step="0.05"')+'</div>';
-  daFarms().forEach(function(f){ h += '<div class="field"><label>سعة فلتر '+daEsc(f)+' (جم TAN/يوم)</label>'+daInp('ras-cap-'+f, cfg.capacity[f] || '', 'type="number" placeholder="مثلاً 1500"')+'</div>'; });
+  daFarms().filter(daIsRasSite).forEach(function(f){ h += '<div class="field"><label>سعة فلتر '+daEsc(f)+' (جم TAN/يوم)</label>'+daInp('ras-cap-'+f, cfg.capacity[f] || '', 'type="number" placeholder="مثلاً 1500"')+'</div>'; });
   h += '</div><button class="savebtn" style="width:auto;padding:8px 18px;margin-top:10px" onclick="rasSaveCfg()">💾 حفظ</button></div>';
   data.forEach(function(f){
     var col = f.cap <= 0 ? 'var(--muted)' : f.loadPct >= 100 ? 'var(--red)' : f.loadPct >= 85 ? 'var(--amber)' : 'var(--green)';
@@ -10739,16 +10700,21 @@ function renderTraceability(){
     if(t.type === 'harvesting'){ harvKg += parseFloat(t.kg)||0; harvN += parseInt(t.fishNo)||0; }
     if(t.type === 'treatment') treats.push(t);
   });
-  var startBio = (raw.fishNo||0) * (raw.startWt||0) / 1000, gain = (r.biomass||0) + harvKg - startBio;
-  var fcr = gain > 0 && feedTot > 0 ? feedTot / gain : 0;
-  var surv = raw.fishNo ? (((r.fishNo||0) + harvN) / raw.fishNo * 100) : 0;
+  var op = raw.open || null, stockN = raw.stockFish || raw.fishNo || 0;
+  if(op){ feedTot += op.feed || 0; mortTot += op.mort || 0;
+    if(op.feed) feedBy['قبل النقل (' + (op.source || 'رصيد') + ')'] = op.feed;
+    if(op.mort) mortBy['قبل النقل (' + (op.source || 'رصيد') + ')'] = op.mort; }
+  var fcr = 0;
+  if(op && op.gain > 0){ var g2 = op.gain + ((r.biomass||0) - (op.bio||0)) + harvKg; fcr = g2 > 0 && feedTot > 0 ? feedTot / g2 : 0; }
+  else { var startBio = stockN * (raw.startWt||0) / 1000, gain = (r.biomass||0) + harvKg - startBio; fcr = gain > 0 && feedTot > 0 ? feedTot / gain : 0; }
+  var surv = stockN ? Math.max(0, (stockN - mortTot) / stockN * 100) : 0;
   var wd = getActiveWithdrawal(u, daToday());
   var h = '<div class="ph"><div><h2>🔎 تتبع الوحدة / الـ Batch</h2><p style="font-size:11px;color:var(--muted)">السجل الكامل من التخزين للحصاد — للجودة والتصدير</p></div>';
   h += '<div style="display:flex;gap:8px"><select style="padding:8px;border:1.5px solid var(--line);border-radius:8px;font:inherit" onchange="window._trUnit=this.value;show(&quot;traceability&quot;,true)">'
     + keys.map(function(k){ return '<option'+(k===u?' selected':'')+'>'+daEsc(k)+'</option>'; }).join('') + '</select>';
   h += '<button class="savebtn no-print" style="width:auto;padding:8px 16px" onclick="window.print()">🖨️ طباعة</button></div></div>';
   h += '<div class="card" style="margin-bottom:14px"><div style="font-size:18px;font-weight:800;color:var(--teal)">'+daEsc(u)+'</div>';
-  h += '<div style="font-size:12px;color:var(--muted);margin-top:4px">Batch: <b>'+daEsc(raw.batch || r.batch || '—')+'</b> · '+daEsc(raw.species || 'Silver Tilapia')+' · تخزين '+daEsc(raw.startDate || '—')+' · '+(raw.fishNo||0).toLocaleString()+' سمكة × '+(raw.startWt||0)+'g</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-top:4px">Batch: <b>'+daEsc(raw.batch || r.batch || '—')+'</b> · '+daEsc(raw.species || 'Silver Tilapia')+' · تخزين '+daEsc(raw.startDate || '—')+' · '+(raw.stockFish||raw.fishNo||0).toLocaleString()+' سمكة × '+(raw.startWt||0)+'g</div>';
   if(wd) h += '<div style="margin-top:8px;color:var(--red);font-weight:700">⛔ في فترة سحب ('+daEsc(wd.product)+') لحد '+wd.until+'</div>';
   h += '</div>';
   h += daGrid([
@@ -10766,6 +10732,9 @@ function renderTraceability(){
   var mates = RAW.filter(function(x){ return x.batch && x.batch === raw.batch && x.unit !== u; }).map(function(x){ return x.unit; });
   if(mates.length) h += '<div class="card" style="margin-bottom:14px;font-size:12px"><b>وحدات تانية من نفس الـ Batch:</b> '
     + mates.map(function(m){ return '<a href="#" onclick="window._trUnit=&quot;'+daEsc(m)+'&quot;;show(&quot;traceability&quot;,true);return false" style="color:var(--teal)">'+daEsc(m)+'</a>'; }).join(' · ')+'</div>';
+  if(raw.open) h += '<div class="card" style="margin-bottom:14px;border-inline-start:4px solid var(--amber)"><b>📥 رصيد افتتاحي — منقول من ' + daEsc(raw.open.source||'') + ' بتاريخ ' + daEsc(raw.open.date) + '</b>'
+    + '<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.8">' + (raw.open.fish||0).toLocaleString() + ' سمكة · ' + (raw.open.wt||0) + 'g · علف تراكمي ' + Math.round(raw.open.feed||0) + ' كجم · نفوق ' + (raw.open.mort||0)
+    + (raw.open.fcr ? ' · FCR ' + (+raw.open.fcr).toFixed(2) : '') + (raw.open.gpd ? ' · نمو ' + (+raw.open.gpd).toFixed(2) + ' جم/يوم' : '') + '<br>التفاصيل اليومية قبل التاريخ ده موجودة في السجل القديم.</div></div>';
   h += '<div class="card"><div class="card-title">📜 الخط الزمني ('+tx.length+' عملية)</div>';
   h += tx.length ? daTable(['التاريخ','النوع','التفاصيل','بواسطة','الحالة'], tx.slice(-400).map(function(t){
     return [daEsc(t.date||''), DA_TYPE[t.type]||daEsc(t.type), txSummary(t), daEsc(t.byName||t.by||'—'), t.reviewedBy ? '✅' : t.flagged ? '⚠️' : ''];
@@ -11270,16 +11239,6 @@ function daParseImport(wb){
   if(!us && !RAW.length) out.errors.unshift('مفيش شيت وحدات (Units) — وده مطلوب لأول استيراد');
   return out;
 }
-function daImportFile(input){
-  var f = input.files && input.files[0]; if(!f) return;
-  if(typeof XLSX === 'undefined'){ toast('❌ مكتبة Excel مش محملة'); return; }
-  var rd = new FileReader();
-  rd.onload = function(e){
-    try{ daShowImportPreview(daParseImport(XLSX.read(new Uint8Array(e.target.result), {type:'array'}))); }
-    catch(ex){ toast('❌ الملف مش مقروء: ' + ex.message); }
-  };
-  rd.readAsArrayBuffer(f);
-}
 function daShowImportPreview(p){
   window._impParsed = p;
   var el = document.getElementById('imp-preview'); if(!el) return;
@@ -11302,7 +11261,7 @@ async function daRunImport(){
   try{
     if(p.units.length){
       var idx = {}; RAW.forEach(function(u, i){ idx[u.unit] = i; });
-      p.units.forEach(function(u){ if(idx[u.unit] !== undefined) RAW[idx[u.unit]] = u; else RAW.push(u); });
+      p.units.forEach(function(u){ if(idx[u.unit] !== undefined){ var old = RAW[idx[u.unit]]; if(!u.tankType && old.tankType) u.tankType = old.tankType; RAW[idx[u.unit]] = u; } else RAW.push(u); });
       _valCache = {t:0, map:{}};
       await daPersistUnitsLocal();
       await saveUnitsToCloud(p.units);
@@ -11652,32 +11611,6 @@ function daFpTable(rows, times){
   });
   return h + '</tbody></table>';
 }
-function daFpPage(s, d, st){
-  var name = daFarmName();
-  var h = '<div class="fp-page" style="background:#fff;color:#111;padding:14px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0D3B38;padding-bottom:6px;margin-bottom:8px;gap:10px">';
-  h += '<div><div style="font-size:12px;color:#555">' + daEsc(name) + '</div><div style="font-size:18px;font-weight:900">شيت التغذية — ' + daEsc(s.site) + '</div></div>';
-  h += '<div style="font-size:11.5px;line-height:1.6;text-align:left;direction:ltr">'
-    + (d.cfg.docCode ? '<b>' + daEsc(d.cfg.docCode) + '</b><br>' : '')
-    + 'Date: <b>' + daEsc(st.date) + '</b><br>Temp: <b>' + st.temp + '°C</b> · DO: <b>' + (st.doVal || '—') + '</b><br>Technician: ____________</div></div>';
-  h += '<div style="font-size:11px;margin-bottom:8px;color:#333">الوجبات: <b>' + d.times.length + '</b> (' + d.times.join(' · ') + ') — الكمية بالكيلو لكل وجبة · SFR معدّل بالحرارة ×' + d.tf.toFixed(2) + (st.doVal ? ' والأكسجين ×' + d.df.toFixed(2) : '') + '</div>';
-  if(d.blocked.blocked){
-    h += '<div style="border:3px solid #dc2626;color:#dc2626;font-size:20px;font-weight:900;text-align:center;padding:16px;margin:10px 0">⛔ لا تغذية — ' + daEsc(d.blocked.reason) + '</div>';
-  }
-  var two = s.rows.length > 24 && d.times.length <= 3;
-  if(two){
-    var half = Math.ceil(s.rows.length / 2);
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + daFpTable(s.rows.slice(0, half), d.times) + daFpTable(s.rows.slice(half), d.times) + '</div>';
-  }else h += daFpTable(s.rows, d.times);
-  var grand = s.totals.reduce(function(a, b){ return a + b; }, 0);
-  h += '<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px"><tr>';
-  h += '<td style="border:1px solid #333;padding:5px;background:#f1f5f9;font-weight:700">إجمالي العلف</td>';
-  d.times.forEach(function(t, i){ h += '<td style="border:1px solid #333;padding:5px;text-align:center">' + t + ': <b>' + s.totals[i].toFixed(1) + '</b> كجم</td>'; });
-  h += '<td style="border:1px solid #333;padding:5px;text-align:center;background:#f1f5f9">اليوم: <b>' + grand.toFixed(1) + '</b> كجم</td></tr>';
-  h += '<tr><td style="border:1px solid #333;padding:9px 5px;background:#f1f5f9;font-weight:700">إجمالي النافق</td><td colspan="' + (d.times.length + 1) + '" style="border:1px solid #333"></td></tr></table>';
-  h += '<div style="display:flex;justify-content:space-between;margin-top:18px;font-size:12px"><span>راجعه: ____________________</span><span>اعتمده: ____________________</span></div>';
-  return h + '</div>';
-}
 function renderFeedingPrint(){
   var cfg0 = getSettings(farmFilter);
   var st = window._fpState = window._fpState || {};
@@ -11763,6 +11696,299 @@ renderFeedingRegime = function(){
 VIEWS['feeding-regime'] = renderFeedingRegime;
 VIEWS['feeding-print'] = renderFeedingPrint;
 VIEW_PERMS['feeding-print'] = 'input_feeding';
+
+
+// ══════════════════════════════════════════════════════════
+//  FARM LAYOUT (all tanks incl. empty) + SITE SYSTEMS
+// ══════════════════════════════════════════════════════════
+var SITES_KEY = 'daracqua_sites_v1';
+DA_SYNC_PREFIXES.push(SITES_KEY);
+var DA_SYSTEMS = {aquaponics:'أكوابونيك', ras:'RAS', ponds:'أحواض ترابية', cages:'أقفاص', other:'أخرى'};
+var DA_TANK_TYPES = ['فايبر', 'خرسانة', 'ترابي', 'أخرى'];
+function daSites(){ try{ return JSON.parse(localStorage.getItem(SITES_KEY) || '{}'); }catch(e){ return {}; } }
+function daSaveSites(o){
+  try{ localStorage.setItem(SITES_KEY, JSON.stringify(o)); }catch(e){}
+  var reg = getFarmsRegistry();
+  Object.keys(o).forEach(function(k){ reg[k] = k + (o[k].name ? ' — ' + o[k].name : ''); });
+  saveFarmsRegistry(reg);
+}
+function daIsRasSite(site){ var s = daSites(); if(!Object.keys(s).length || !s[site]) return true; return s[site].system === 'ras'; }
+function daPad2(n){ n = parseInt(n, 10) || 0; return (n < 10 ? '0' : '') + n; }
+function daNormUnit(s){
+  var m = String(s || '').trim().match(/^([A-Za-z]+\d+)\.?S(\d+)\.?T(\d+)$/i);
+  return m ? m[1].toUpperCase() + '.S' + daPad2(m[2]) + 'T' + daPad2(m[3]) : String(s || '').trim();
+}
+function daAllSites(){ var s = {}; RAW.forEach(function(u){ if(u.farm) s[u.farm] = 1; }); Object.keys(daSites()).forEach(function(k){ s[k] = 1; }); return Object.keys(s).sort(); }
+
+function daLayoutRows(){
+  if(!window._layRows) window._layRows = [{site:'F1', from:1, to:1, tanks:4, start:1, vol:10, type:'فايبر'}];
+  return window._layRows;
+}
+function daLayoutReadInputs(){
+  window._layRows = daLayoutRows().map(function(r, i){
+    return {site: daVal('ly-site-' + i).trim().toUpperCase() || r.site, from: parseInt(daVal('ly-from-' + i), 10) || 0, to: parseInt(daVal('ly-to-' + i), 10) || 0,
+      tanks: parseInt(daVal('ly-tanks-' + i), 10) || 0, start: parseInt(daVal('ly-start-' + i), 10) || 1, vol: parseFloat(daVal('ly-vol-' + i)) || 0, type: daVal('ly-type-' + i) || r.type};
+  });
+  return window._layRows;
+}
+function daLayoutPlan(rows){
+  var plan = [], errs = [], seen = {};
+  rows.forEach(function(r, i){
+    var n = i + 1;
+    if(!/^[A-Z]+\d+$/.test(r.site)) return errs.push('صف ' + n + ': اسم البيت لازم يكون زي F1');
+    if(!(r.from > 0) || r.to < r.from) return errs.push('صف ' + n + ': السكاشن من/لحد مش صح');
+    if(!(r.tanks > 0 && r.tanks <= 99)) return errs.push('صف ' + n + ': عدد التانكات من 1 لـ 99');
+    if(!(r.vol > 0)) return errs.push('صف ' + n + ': الحجم لازم يكون أكبر من صفر');
+    for(var s = r.from; s <= r.to; s++) for(var t = r.start; t < r.start + r.tanks; t++){
+      var u = r.site + '.S' + daPad2(s) + 'T' + daPad2(t);
+      seen[u] = {unit:u, farm:r.site, section:r.site + '.S' + daPad2(s), volume:r.vol, tankType:r.type};
+    }
+  });
+  Object.keys(seen).sort(function(a, b){ return a.localeCompare(b, undefined, {numeric:true}); }).forEach(function(k){ plan.push(seen[k]); });
+  return {plan:plan, errs:errs};
+}
+function daLayoutCardHTML(){
+  var rows = daLayoutRows(), sites = daSites(), allSites = daAllSites();
+  var inp = 'padding:6px 8px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px;width:100%';
+  var h = '<div class="card" style="margin-bottom:14px"><div class="card-title">🧱 تخطيط المزرعة — كل الأحواض حتى الفاضية</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7">عرّف الأحواض صف بصف: البيت، السكاشن من/لحد، عدد التانكات في كل سكشن، والحجم والنوع. الأحواض الموجودة بيتحدث حجمها ونوعها بس — السمك اللي فيها مبيتأثرش.</div>';
+  h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--light)">';
+  ['البيت','سكشن من','لحد','تانكات/سكشن','أول رقم تانك','الحجم م³','النوع',''].forEach(function(c){ h += '<th style="padding:6px;text-align:right">' + c + '</th>'; });
+  h += '</tr></thead><tbody>';
+  rows.forEach(function(r, i){
+    h += '<tr><td style="padding:3px"><input id="ly-site-' + i + '" value="' + daEsc(r.site) + '" style="' + inp + ';width:60px;direction:ltr"/></td>'
+      + '<td style="padding:3px"><input id="ly-from-' + i + '" type="number" min="1" value="' + r.from + '" style="' + inp + ';width:60px"/></td>'
+      + '<td style="padding:3px"><input id="ly-to-' + i + '" type="number" min="1" value="' + r.to + '" style="' + inp + ';width:60px"/></td>'
+      + '<td style="padding:3px"><input id="ly-tanks-' + i + '" type="number" min="1" value="' + r.tanks + '" style="' + inp + ';width:70px"/></td>'
+      + '<td style="padding:3px"><input id="ly-start-' + i + '" type="number" min="1" value="' + r.start + '" style="' + inp + ';width:70px"/></td>'
+      + '<td style="padding:3px"><input id="ly-vol-' + i + '" type="number" step="any" value="' + r.vol + '" style="' + inp + ';width:75px"/></td>'
+      + '<td style="padding:3px"><select id="ly-type-' + i + '" style="' + inp + '">' + DA_TANK_TYPES.map(function(t){ return '<option' + (t === r.type ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></td>'
+      + '<td style="padding:3px"><button data-i="' + i + '" onclick="daLayoutReadInputs();window._layRows.splice(+this.dataset.i,1);show(&quot;farm-setup&quot;,true)" style="border:0;background:#fee2e2;color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer">✕</button></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">';
+  h += '<button onclick="daLayoutReadInputs();window._layRows.push(Object.assign({},window._layRows[window._layRows.length-1]||{site:&quot;F1&quot;,from:1,to:1,tanks:4,start:1,vol:10,type:&quot;فايبر&quot;}));show(&quot;farm-setup&quot;,true)" style="padding:8px 14px;border:1.5px dashed var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer">➕ صف</button>';
+  h += '<button class="savebtn" style="width:auto;padding:8px 18px" onclick="daLayoutPreview()">👁️ معاينة</button>';
+  h += '<button id="ly-build" class="savebtn" style="width:auto;padding:8px 18px;background:var(--deep)" onclick="daLayoutBuild()">🧱 إنشاء الأحواض</button></div>';
+  h += '<div id="ly-preview" style="margin-top:10px;font-size:12px"></div>';
+  // systems per site
+  h += '<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div style="font-weight:700;font-size:13px;margin-bottom:8px">🏭 نظام كل بيت</div>';
+  if(!allSites.length) h += '<div style="font-size:12px;color:var(--muted)">هيظهر هنا بعد إنشاء الأحواض</div>';
+  allSites.forEach(function(s){
+    var c = sites[s] || {};
+    h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap"><b style="min-width:40px">' + daEsc(s) + '</b>'
+      + '<input id="st-name-' + s + '" value="' + daEsc(c.name || '') + '" placeholder="اسم (اختياري)" style="' + inp + ';width:180px"/>'
+      + '<select id="st-sys-' + s + '" style="' + inp + ';width:170px">' + Object.keys(DA_SYSTEMS).map(function(k){ return '<option value="' + k + '"' + (c.system === k ? ' selected' : '') + '>' + DA_SYSTEMS[k] + '</option>'; }).join('') + '</select></div>';
+  });
+  if(allSites.length) h += '<button class="savebtn" style="width:auto;padding:7px 16px;margin-top:4px" onclick="daSaveSitesUI()">💾 حفظ الأنظمة</button>';
+  return h + '<div style="font-size:11px;color:var(--muted);margin-top:6px">حمل الفلتر الحيوي بيتحسب للبيوت اللي نظامها RAS بس.</div></div></div>';
+}
+function daSaveSitesUI(){
+  var o = daSites();
+  daAllSites().forEach(function(s){ o[s] = {name: daVal('st-name-' + s).trim(), system: daVal('st-sys-' + s) || 'other'}; });
+  daSaveSites(o); toast('✅ اتحفظت الأنظمة'); show('farm-setup', true);
+}
+function daLayoutPreview(){
+  var p = daLayoutPlan(daLayoutReadInputs()), el = document.getElementById('ly-preview'); if(!el) return p;
+  if(p.errs.length){ el.innerHTML = '<div style="color:var(--red)">' + p.errs.map(daEsc).join('<br>') + '</div>'; return p; }
+  var have = {}; RAW.forEach(function(u){ have[u.unit] = u; });
+  var bySite = {}; p.plan.forEach(function(u){ var b = bySite[u.farm] = bySite[u.farm] || {n:0, vol:0, nw:0}; b.n++; b.vol += u.volume; if(!have[u.unit]) b.nw++; });
+  el.innerHTML = '<b>' + p.plan.length + ' حوض</b> — ' + Object.keys(bySite).map(function(s){ var b = bySite[s];
+    return daEsc(s) + ': ' + b.n + ' حوض · ' + Math.round(b.vol).toLocaleString() + ' م³' + (b.nw < b.n ? ' (' + b.nw + ' جديد)' : ''); }).join(' | ');
+  return p;
+}
+async function daLayoutBuild(){
+  var p = daLayoutPreview(); if(p.errs.length || !p.plan.length) return;
+  var idx = {}; RAW.forEach(function(u, i){ idx[u.unit] = i; });
+  var changed = [], created = 0, updated = 0;
+  p.plan.forEach(function(L){
+    if(idx[L.unit] !== undefined){
+      var u = RAW[idx[L.unit]]; u.volume = L.volume; u.tankType = L.tankType; u.section = u.section || L.section;
+      u.density = L.volume > 0 ? (u.biomass || 0) / L.volume : 0; changed.push(u); updated++;
+    }else{
+      var e = {unit:L.unit, farm:L.farm, section:L.section, volume:L.volume, tankType:L.tankType, fishNo:0, avgWt:0, startWt:0, biomass:0, density:0, startDate:'', batch:'', species:''};
+      RAW.push(e); changed.push(e); created++;
+    }
+  });
+  RAW.sort(function(a, b){ return String(a.unit).localeCompare(String(b.unit), undefined, {numeric:true}); });
+  _valCache = {t:0, map:{}};
+  await daPersistUnitsLocal();
+  try{ await saveUnitsToCloud(changed); }catch(e){ toast('⚠️ اتحفظ على الجهاز — هيترفع لما الاتصال يرجع'); }
+  var s = daSites(), add = false;
+  p.plan.forEach(function(u){ if(!s[u.farm]){ s[u.farm] = {name:'', system:'other'}; add = true; } });
+  if(add) daSaveSites(s);
+  toast('✅ ' + created + ' حوض جديد · ' + updated + ' اتحدث');
+  show('farm-setup', true);
+}
+
+// ══════════════════════════════════════════════════════════
+//  AQUAMANAGER "Site Overview" IMPORT — current state + opening balances
+// ══════════════════════════════════════════════════════════
+var AQM_KEYS = [['start', /unit start date/i], ['startWt', /start\s*av\.?\s*wt/i], ['gpd', /growth/i], ['stockBio', /stocking biomass/i],
+  ['days', /production time/i], ['fcr', /fcr/i], ['feed', /feed\s*kg/i], ['mort', /mortality/i], ['dens', /density/i],
+  ['bio', /biomass/i], ['fish', /^fish\s*no/i], ['wt', /^av\.?\s*wt/i], ['unit', /^unit$/i]];
+function daAqmHeader(wb){
+  var ws = wb.Sheets[wb.SheetNames[0]]; if(!ws) return null;
+  var aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+  for(var r = 0; r < Math.min(5, aoa.length); r++){
+    var hd = aoa[r].map(function(x){ return String(x).trim(); });
+    if(hd.some(function(x){ return /unit start date/i.test(x); }) && hd.some(function(x){ return /mortality/i.test(x); })){
+      var map = {};
+      hd.forEach(function(x, j){ for(var k = 0; k < AQM_KEYS.length; k++){ if(AQM_KEYS[k][1].test(x) && map[AQM_KEYS[k][0]] === undefined){ map[AQM_KEYS[k][0]] = j; break; } } });
+      return {row:r, map:map, aoa:aoa};
+    }
+  }
+  return null;
+}
+function daParseAquaManager(wb, hdr){
+  var out = {units:[], tx:[], errors:[], warnings:[], counts:{}, aqm:true, stats:{}};
+  var M = hdr.map, today = daToday(), lay = {};
+  RAW.forEach(function(u){ lay[u.unit] = u; });
+  var hasLayout = RAW.some(function(u){ return u.tankType; });
+  var num = function(row, k){ var v = M[k] === undefined ? '' : row[M[k]]; var x = parseFloat(v); return isNaN(x) ? 0 : x; };
+  var seen = {}, mism = 0, empty = 0, notInLayout = [];
+  for(var i = hdr.row + 1; i < hdr.aoa.length; i++){
+    var row = hdr.aoa[i], rawName = String(row[M.unit] || '').trim(), n = i + 1;
+    if(!rawName || !/\d/.test(rawName)) continue;
+    var unit = daNormUnit(rawName);
+    if(seen[unit]){ out.errors.push('صف ' + n + ': ' + unit + ' متكرر'); continue; }
+    seen[unit] = 1;
+    var start = daParseDate(row[M.start]), fish = Math.round(num(row, 'fish')), wt = num(row, 'wt');
+    if(!start){ out.errors.push('صف ' + n + ' (' + unit + '): تاريخ البداية مش مقروء'); continue; }
+    if(fish <= 0){ empty++; continue; }
+    if(!(wt > 0)){ out.errors.push('صف ' + n + ' (' + unit + '): متوسط الوزن فاضي'); continue; }
+    var mort = Math.round(num(row, 'mort')), feed = num(row, 'feed'), fcr = num(row, 'fcr'), gpd = num(row, 'gpd');
+    var bio = num(row, 'bio') || fish * wt / 1000, dens = num(row, 'dens'), stockBio = num(row, 'stockBio'), startWt = num(row, 'startWt') || wt;
+    var days = Math.round(num(row, 'days'));
+    var openDate = days > 0 ? daAddDays(start, days) : today; if(openDate > today) openDate = today;
+    var stockFish = fish + mort;
+    if(stockBio > 0 && startWt > 0 && Math.abs(stockBio * 1000 / startWt - stockFish) > Math.max(2, stockFish * 0.02)) mism++;
+    var L = lay[unit];
+    if(hasLayout && !L) notInLayout.push(unit);
+    var vol = L && L.volume ? L.volume : (dens > 0 ? Math.round(bio / dens * 10) / 10 : 10);
+    var m = unit.match(/^([A-Z]+\d+)\.S(\d+)T/);
+    out.units.push({unit:unit, aqmName: rawName !== unit ? rawName : undefined, farm: m ? m[1] : unit.split('.')[0], section: m ? m[1] + '.S' + m[2] : '',
+      volume:vol, tankType: L ? L.tankType : undefined, batch: L ? (L.batch || '') : '', species: (L && L.species) || 'Silver Tilapia',
+      startDate:start, startWt:startWt, stockFish:stockFish, stockBio:stockBio, fishNo:fish, avgWt:wt, biomass:bio, density: vol > 0 ? bio / vol : 0,
+      feedKg:feed, fcrUTD:fcr, growthDay:gpd, mortality:mort, survival: stockFish ? +(fish / stockFish * 100).toFixed(1) : 100,
+      open:{date:openDate, fish:fish, wt:wt, bio:bio, feed:feed, mort:mort, fcr:fcr, gpd:gpd, days:days, stockBio:stockBio, gain: fcr > 0 ? feed / fcr : null, source:'AquaManager'}});
+  }
+  var u = out.units;
+  out.stats = {tanks:u.length, fish:u.reduce(function(s, x){ return s + x.fishNo; }, 0), bio:u.reduce(function(s, x){ return s + x.biomass; }, 0),
+    feed:u.reduce(function(s, x){ return s + x.feedKg; }, 0), mort:u.reduce(function(s, x){ return s + x.mortality; }, 0),
+    openDate: u.reduce(function(s, x){ return x.open.date > s ? x.open.date : s; }, ''), mism:mism, empty:empty};
+  if(mism) out.warnings.push(mism + ' تانك: (الحالي + النافق) أقل من (كتلة التخزين ÷ وزن البداية) — غالباً جزء من السمك اتنقل أو اتفرّد. عدد التخزين اتحسب = الحالي + النافق، والنجاة محسوبة من النفوق.');
+  if(notInLayout.length) out.warnings.push(notInLayout.length + ' تانك مش موجود في التخطيط (هيتضاف بحجم AquaManager): ' + notInLayout.slice(0, 8).join('، ') + (notInLayout.length > 8 ? '…' : ''));
+  var withTx = {}; getTX().forEach(function(t){ if(seen[t.unit]) withTx[t.unit] = 1; });
+  if(Object.keys(withTx).length) out.warnings.push('⚠️ فيه ' + Object.keys(withTx).length + ' تانك عليهم معاملات مسجلة — الملف هيبدّل وضعهم الحالي والمعاملات دي هتتحسب فوقه. الأفضل تستورد من AquaManager مرة واحدة في البداية.');
+  if(!hasLayout) out.warnings.push('مفيش تخطيط للمزرعة — الأحواض الفاضية مش هتظهر، والحجم هيتاخد من AquaManager. تقدر تعمل التخطيط قبل أو بعد الاستيراد.');
+  return out;
+}
+function daShowAqmPreview(p){
+  window._impParsed = p;
+  var el = document.getElementById('imp-preview'); if(!el) return;
+  var s = p.stats;
+  var h = '<div style="margin-top:12px;padding:14px;border-radius:10px;background:var(--light)">';
+  h += '<div style="font-weight:800;margin-bottom:8px">📋 ملف AquaManager — الوضع بتاريخ ' + daEsc(s.openDate || '') + '</div>';
+  h += daGrid([daKpi('🏊','تانكات فيها سمك', s.tanks), daKpi('🐟','سمك', s.fish.toLocaleString()), daKpi('⚖️','كتلة', (s.bio / 1000).toFixed(2) + ' طن'),
+    daKpi('🌾','علف تراكمي', Math.round(s.feed).toLocaleString() + ' كجم'), daKpi('💀','نفوق تراكمي', s.mort.toLocaleString()),
+    daKpi('⛔','أخطاء', p.errors.length, p.errors.length ? 'var(--red)' : 'var(--green)')], 110);
+  if(p.errors.length) h += '<div style="color:var(--red);font-size:12px;line-height:1.8;margin-bottom:8px">' + p.errors.slice(0, 30).map(daEsc).join('<br>') + '</div>';
+  if(p.warnings.length) h += '<div style="color:#92400e;font-size:12px;line-height:1.8;margin-bottom:8px">' + p.warnings.map(function(w){ return '• ' + daEsc(w); }).join('<br>') + '</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">هيتحفظ لكل تانك: الوضع الحالي + رصيد افتتاحي (العلف والنفوق ومعامل التحويل والنمو من يوم التخزين). أي معاملة جديدة بعد كده بتتحسب فوقه.</div>';
+  if(s.tanks) h += '<button id="imp-go" class="savebtn" style="width:auto;padding:10px 22px" onclick="daRunImport()">✅ استورد ' + s.tanks + ' تانك</button>';
+  el.innerHTML = h + '</div>';
+}
+function daImportFile(input){
+  var f = input.files && input.files[0]; if(!f) return;
+  if(typeof XLSX === 'undefined'){ toast('❌ مكتبة Excel مش محملة'); return; }
+  var rd = new FileReader();
+  rd.onload = function(e){
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      var aqm = daAqmHeader(wb);
+      if(aqm) daShowAqmPreview(daParseAquaManager(wb, aqm)); else daShowImportPreview(daParseImport(wb));
+    }catch(ex){ toast('❌ الملف مش مقروء: ' + ex.message); }
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+// ── survival: stocked = current + mortality (opening + new) ──
+function getSurvivalData(){
+  var mortTX = {}, now = Date.now();
+  getTX().forEach(function(t){ if(t.type === 'mortality') mortTX[t.unit] = (mortTX[t.unit] || 0) + (parseInt(t.count) || 0); });
+  var byUnit = {}; RAW.forEach(function(u){ byUnit[u.unit] = u; });
+  var out = [];
+  _txLiveRows().forEach(function(r){
+    if(!((r.fishNo || 0) > 0)) return;
+    var raw = byUnit[r.unit] || {};
+    var startFish = raw.stockFish || raw.fishNo || 0;
+    var mort = (raw.open ? (raw.open.mort || 0) : 0) + (mortTX[r.unit] || 0);
+    var surv = startFish > 0 ? Math.max(0, (startFish - mort) / startFish * 100) : 100;
+    out.push({unit:r.unit, farm:r.farm || '', batch:raw.batch || '', startDate:raw.startDate || '', startFish:startFish, currentFish:r.fishNo || 0,
+      mortality:mort, survRate:+surv.toFixed(1), days: raw.startDate ? Math.floor((now - new Date(raw.startDate).getTime()) / 864e5) : 0,
+      avgWt:r.avgWt || 0, biomass:r.biomass || 0});
+  });
+  return out.sort(function(a, b){ return a.survRate - b.survRate; });
+}
+
+// ── farm setup: add layout card ──
+var _fsCore = renderFarmSetup;
+renderFarmSetup = function(){
+  var h = _fsCore();
+  var anchor = '<div class="card" style="margin-bottom:14px"><div class="card-title">🏊 الوحدات';
+  return h.indexOf(anchor) >= 0 ? h.replace(anchor, daLayoutCardHTML() + anchor) : h;
+};
+VIEWS['farm-setup'] = renderFarmSetup;
+
+// ── RAS view: only RAS sites ──
+var _rasCore = renderRASLoad;
+renderRASLoad = function(){
+  var h = _rasCore(), s = daSites();
+  var ex = daFarms().filter(function(f){ return !daIsRasSite(f); });
+  if(!ex.length) return h;
+  var note = '<div class="card" style="margin-bottom:14px;font-size:12px;color:var(--muted)">ℹ️ ' + ex.map(function(f){ return daEsc(f) + ' (' + (DA_SYSTEMS[(s[f] || {}).system] || '') + ')'; }).join('، ')
+    + ' مش محسوب هنا — النظام مش RAS. غيّر النظام من 🏗️ إعداد المزرعة لو محتاج.</div>';
+  var a = '<div class="card" style="font-size:12px;color:var(--muted);line-height:1.9"><div class="card-title">📐 المعادلات';
+  return h.indexOf(a) >= 0 ? h.replace(a, note + a) : h + note;
+};
+VIEWS['ras-load'] = renderRASLoad;
+
+
+// ── printed sheet: paginate so each page reads in order (right column, then left) ──
+function daFpPage(s, d, st){
+  var two = s.rows.length > 24 && d.times.length <= 3;
+  var per = two ? 60 : 32, chunks = [];
+  for(var i = 0; i < s.rows.length; i += per) chunks.push(s.rows.slice(i, i + per));
+  if(!chunks.length) chunks = [[]];
+  return chunks.map(function(rows, ci){ return daFpOnePage(s, d, st, rows, two, ci, chunks.length); }).join('');
+}
+function daFpOnePage(s, d, st, rows, two, ci, nPages){
+  var last = ci === nPages - 1;
+  var h = '<div class="fp-page" style="background:#fff;color:#111;padding:14px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0D3B38;padding-bottom:6px;margin-bottom:8px;gap:10px">';
+  h += '<div><div style="font-size:12px;color:#555">' + daEsc(daFarmName()) + '</div><div style="font-size:18px;font-weight:900">شيت التغذية — ' + daEsc(s.site)
+    + (nPages > 1 ? ' <span style="font-size:12px;font-weight:600;color:#555">(صفحة ' + (ci + 1) + '/' + nPages + ')</span>' : '') + '</div></div>';
+  h += '<div style="font-size:11.5px;line-height:1.6;text-align:left;direction:ltr">'
+    + (d.cfg.docCode ? '<b>' + daEsc(d.cfg.docCode) + '</b><br>' : '')
+    + 'Date: <b>' + daEsc(st.date) + '</b><br>Temp: <b>' + st.temp + '°C</b> · DO: <b>' + (st.doVal || '—') + '</b><br>Technician: ____________</div></div>';
+  h += '<div style="font-size:11px;margin-bottom:8px;color:#333">الوجبات: <b>' + d.times.length + '</b> (' + d.times.join(' · ') + ') — الكمية بالكيلو لكل وجبة · SFR معدّل بالحرارة ×' + d.tf.toFixed(2) + (st.doVal ? ' والأكسجين ×' + d.df.toFixed(2) : '') + '</div>';
+  if(d.blocked.blocked) h += '<div style="border:3px solid #dc2626;color:#dc2626;font-size:20px;font-weight:900;text-align:center;padding:16px;margin:10px 0">⛔ لا تغذية — ' + daEsc(d.blocked.reason) + '</div>';
+  if(two){
+    var half = Math.ceil(rows.length / 2);
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start">' + daFpTable(rows.slice(0, half), d.times) + daFpTable(rows.slice(half), d.times) + '</div>';
+  }else h += daFpTable(rows, d.times);
+  if(last){
+    var grand = s.totals.reduce(function(a, b){ return a + b; }, 0);
+    h += '<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px"><tr>';
+    h += '<td style="border:1px solid #333;padding:5px;background:#f1f5f9;font-weight:700">إجمالي العلف' + (nPages > 1 ? ' (كل الصفحات)' : '') + '</td>';
+    d.times.forEach(function(t, i){ h += '<td style="border:1px solid #333;padding:5px;text-align:center">' + t + ': <b>' + s.totals[i].toFixed(1) + '</b> كجم</td>'; });
+    h += '<td style="border:1px solid #333;padding:5px;text-align:center;background:#f1f5f9">اليوم: <b>' + grand.toFixed(1) + '</b> كجم</td></tr>';
+    h += '<tr><td style="border:1px solid #333;padding:9px 5px;background:#f1f5f9;font-weight:700">إجمالي النافق</td><td colspan="' + (d.times.length + 1) + '" style="border:1px solid #333"></td></tr></table>';
+    h += '<div style="display:flex;justify-content:space-between;margin-top:18px;font-size:12px"><span>راجعه: ____________________</span><span>اعتمده: ____________________</span></div>';
+  }
+  return h + '</div>';
+}
 
 // ── Init ──────────────────────────────────────
 (function(){
