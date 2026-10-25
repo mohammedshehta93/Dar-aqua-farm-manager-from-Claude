@@ -10429,7 +10429,7 @@ function ffSave(){
   var c = daPlanCfg();
   c.horizon = Math.min(90, Math.max(7, parseInt(daVal('ff-h')) || 30));
   c.bagKg = parseFloat(daVal('ff-bag')) || 25; c.safety = parseFloat(daVal('ff-safe')) || 7; c.lead = parseFloat(daVal('ff-lead')) || 7;
-  c.bands = c.bands.map(function(b, i){ return {max: parseFloat(daVal('ff-max-'+i)) || b.max, label: daVal('ff-lbl-'+i) || b.label, inv: daVal('ff-inv-'+i)}; });
+  c.bands = c.bands.map(function(b, i){ return {max: parseFloat(daVal('ff-max-'+i)) || b.max, label: daVal('ff-lbl-'+i) || b.label, inv: daVal('ff-inv-'+i), protein: b.protein}; });
   daSavePlan(c); toast('✅ اتحفظ'); show('feed-forecast', true);
 }
 function ffOrderText(){
@@ -12079,17 +12079,38 @@ function daRasLoops(cfg){
   });
   return out;
 }
-function daLoopCap(L, protein){
-  var f = parseFloat(L.capFeed) || 0;
-  if(f > 0) return {g: f * protein / 100 * 0.092 * 1000, src:'observed', feed:f};
+function rasDelLoop(i){
+  var cfg = daRasCfg(); cfg.loops = rasReadLoops(); cfg.loops.splice(i, 1);
+  try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
+  show('ras-load', true);
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  RAS v3 — everything tied to biomass: SFR by size, protein by size,
+//  filter capacity fixed in TAN → max feed & max biomass per section
+// ══════════════════════════════════════════════════════════
+var DA_DEF_PROTEIN = [40, 35, 32];
+function daBandProteins(){
+  return daPlanCfg().bands.map(function(b, i){
+    return {max:b.max, label:b.label, protein: parseFloat(b.protein) || DA_DEF_PROTEIN[Math.min(i, DA_DEF_PROTEIN.length - 1)]};
+  });
+}
+function daProteinForWt(w, bands){
+  for(var i = 0; i < bands.length; i++) if(w < bands[i].max || i === bands.length - 1) return bands[i].protein;
+  return 32;
+}
+function daLoopCap(L){
+  var f = parseFloat(L.capFeed) || 0, pr = parseFloat(L.capProtein) || 32;
+  if(f > 0) return {g: f * pr / 100 * 0.092 * 1000, src:'observed', feed:f, protein:pr};
   var v = parseFloat(L.mediaVol) || 0, ssa = parseFloat(L.ssa) || 500, rate = parseFloat(L.rate) || 0.5;
   if(v > 0) return {g: v * ssa * rate, src:'media'};
   return {g:0, src:'none'};
 }
 function daRasCompute(days){
-  var cfg = daRasCfg(), maps = daGrowthMaps(), today = daToday(), loops = daRasLoops(cfg);
-  var d3 = [today, daAddDays(today, -1), daAddDays(today, -2)];
-  var groups = {}, unitKey = {};
+  var cfg = daRasCfg(), maps = daGrowthMaps(), today = daToday(), loops = daRasLoops(cfg), bands = daBandProteins();
+  var d3 = [today, daAddDays(today, -1), daAddDays(today, -2)], N = days || 14;
+  var groups = {}, unitKey = {}, unitProt = {};
   function keyOf(r){
     var m = String(r.unit).match(/\.S(\d+)T/), sec = m ? parseInt(m[1], 10) : 0;
     for(var i = 0; i < loops.length; i++){ var L = loops[i]; if(L.site === r.farm && sec >= L.from && sec <= L.to) return 'L' + i; }
@@ -12098,38 +12119,49 @@ function daRasCompute(days){
   _txLiveRows().filter(function(r){ return (r.fishNo||0) > 0 && daIsRasSite(r.farm); }).forEach(function(r){
     var k = keyOf(r); unitKey[r.unit] = k;
     var L = k.charAt(0) === 'L' ? loops[+k.slice(1)] : null;
-    var g = groups[k] = groups[k] || {key:k, farm:r.farm, loop:L, units:0, bio:0, planned:0, actual:0, proj:[], by3:null,
+    var g = groups[k] = groups[k] || {key:k, farm:r.farm, loop:L, units:0, bio:0, planned:0, plannedTan:0, actual:0, proj:[], projTan:[], by3:null, by3tan:null,
       label: L ? L.label : (k.charAt(0) === 'U' ? r.farm + ' — سكاشن مش متعرفة على فلتر' : r.farm)};
-    g.units++; g.bio += r.biomass || 0; g.planned += daExpectedDailyFeed(r);
+    var prot = daProteinForWt(r.avgWt || 0, bands); unitProt[r.unit] = prot;
+    var fd = daExpectedDailyFeed(r);
+    g.units++; g.bio += r.biomass || 0; g.planned += fd; g.plannedTan += fd * prot / 100 * 0.092;
     var w = daWater(r.farm);
-    daProject(r, days || 14, {sgr:daUnitSGR(r, maps), mort:daUnitMort(r, maps), temp:w.temp, doVal:w.doVal}).forEach(function(p, i){ g.proj[i] = (g.proj[i] || 0) + p.feed; });
+    daProject(r, N, {sgr:daUnitSGR(r, maps), mort:daUnitMort(r, maps), temp:w.temp, doVal:w.doVal}).forEach(function(p, i){
+      g.proj[i] = (g.proj[i] || 0) + p.feed;
+      g.projTan[i] = (g.projTan[i] || 0) + p.feed * daProteinForWt(p.wt, bands) / 100 * 0.092 * 1000;
+    });
   });
   getTX().forEach(function(t){
     if(t.type !== 'feeding' || d3.indexOf(t.date) < 0) return;
     var g = groups[unitKey[t.unit]]; if(!g) return;
-    var kg = parseFloat(t.kg) || 0;
+    var kg = parseFloat(t.kg) || 0, prot = unitProt[t.unit] || 32;
     if(t.date === today) g.actual += kg;
-    g.by3 = g.by3 || {}; g.by3[t.date] = (g.by3[t.date] || 0) + kg;
+    g.by3 = g.by3 || {}; g.by3tan = g.by3tan || {};
+    g.by3[t.date] = (g.by3[t.date] || 0) + kg; g.by3tan[t.date] = (g.by3tan[t.date] || 0) + kg * prot / 100 * 0.092;
   });
   return Object.keys(groups).sort(function(a, b){ return groups[a].label.localeCompare(groups[b].label, undefined, {numeric:true}); }).map(function(k){
     var f = groups[k];
-    var days3 = f.by3 ? Object.keys(f.by3) : [];
-    f.actual3 = days3.length ? days3.reduce(function(s, d){ return s + f.by3[d]; }, 0) / days3.length : 0;
+    var dd = f.by3 ? Object.keys(f.by3) : [];
+    f.actual3 = dd.length ? dd.reduce(function(s, d){ return s + f.by3[d]; }, 0) / dd.length : 0;
+    var tan3 = dd.length ? dd.reduce(function(s, d){ return s + f.by3tan[d]; }, 0) / dd.length : 0;
     f.basis = f.actual3 > 0 ? 'actual' : 'planned';
     f.feed = f.actual3 > 0 ? f.actual3 : f.planned;
-    var scale = f.planned > 0 ? f.feed / f.planned : 1;
-    f.proj = f.proj.map(function(x){ return x * scale; });
-    f.tan = f.feed * cfg.protein / 100 * 0.092;
+    f.tan = f.actual3 > 0 ? tan3 : f.plannedTan;                     // kg TAN/day
+    var scale = f.plannedTan > 0 ? f.tan / f.plannedTan : 1;
+    f.projTan = f.projTan.map(function(x){ return x * scale; });
+    f.proj = f.proj.map(function(x){ return x * (f.planned > 0 ? f.feed / f.planned : 1); });
+    f.effProtein = f.feed > 0 ? f.tan / (f.feed * 0.092) * 100 : 0;  // weighted protein of what this section eats
+    f.effSFR = f.bio > 0 ? f.feed / f.bio * 100 : 0;                  // feed as % of this section's biomass
     f.o2fish = f.feed * cfg.o2; f.o2nit = f.tan * 4.57; f.o2 = f.o2fish + f.o2nit;
     f.co2 = f.o2fish * 1.375; f.alk = f.tan * 7.14; f.bicarb = f.alk * 1.68;
-    var cap = f.loop ? daLoopCap(f.loop, cfg.protein)
-      : (k.charAt(0) === 'S' ? {g: parseFloat(cfg.capacity[f.farm]) || ((parseFloat(cfg.capFeed[f.farm]) || 0) * cfg.protein / 100 * 0.092 * 1000), src:'site'} : {g:0, src:'none'});
+    var cap = f.loop ? daLoopCap(f.loop)
+      : (k.charAt(0) === 'S' ? {g: parseFloat(cfg.capacity[f.farm]) || ((parseFloat(cfg.capFeed[f.farm]) || 0) * 32 / 100 * 0.092 * 1000), src:'site'} : {g:0, src:'none'});
     f.cap = cap.g; f.capSrc = cap.src; f.capFeedMax = cap.feed || 0;
     f.warnAt = cap.src === 'observed' ? 100 : 90;
     f.loadPct = f.cap > 0 ? f.tan * 1000 / f.cap * 100 : 0;
     var obs = cap.src === 'observed';
     f.over = f.cap > 0 && (obs ? f.loadPct > 100.5 : f.loadPct >= 90);
-    f.projTan = f.proj.map(function(x){ return x * cfg.protein / 100 * 0.092 * 1000; });
+    f.maxFeed = f.cap > 0 && f.effProtein > 0 ? (f.cap / 1000) / (f.effProtein / 100 * 0.092) : 0;   // kg feed/day at this size mix
+    f.maxBio = f.effSFR > 0 ? f.maxFeed / (f.effSFR / 100) : 0;                                      // kg biomass at this size mix
     f.overDay = -1;
     if(f.cap > 0) for(var i = 0; i < f.projTan.length; i++) if(f.projTan[i] > f.cap * (obs ? 1.005 : 0.9)){ f.overDay = i + 1; break; }
     return f;
@@ -12140,81 +12172,83 @@ function rasReadLoops(){
   return (cfg.loops || []).map(function(L, i){
     return {name: daVal('rl-name-' + i).trim(), site: daVal('rl-site-' + i), from: parseInt(daVal('rl-from-' + i), 10) || 0, to: parseInt(daVal('rl-to-' + i), 10) || 0,
       each: !!(document.getElementById('rl-each-' + i) || {}).checked, capFeed: parseFloat(daVal('rl-capf-' + i)) || 0,
+      capProtein: parseFloat(daVal('rl-capp-' + i)) || 32,
       mediaVol: parseFloat(daVal('rl-media-' + i)) || 0, ssa: parseFloat(daVal('rl-ssa-' + i)) || 500, rate: parseFloat(daVal('rl-rate-' + i)) || 0.5};
   });
 }
 function rasSaveCfg(){
   var cfg = daRasCfg();
-  cfg.protein = parseFloat(daVal('ras-protein')) || 32;
   cfg.o2 = parseFloat(daVal('ras-o2')) || 0.45;
   cfg.loops = rasReadLoops();
-  daFarms().forEach(function(f){
-    if(document.getElementById('ras-cap-' + f)) cfg.capacity[f] = parseFloat(daVal('ras-cap-' + f)) || 0;
-    if(document.getElementById('ras-capf-' + f)) cfg.capFeed[f] = parseFloat(daVal('ras-capf-' + f)) || 0;
-  });
   try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
+  var pc = daPlanCfg();
+  pc.bands = pc.bands.map(function(b, i){ var v = parseFloat(daVal('ras-prot-' + i)); return Object.assign({}, b, v > 0 ? {protein:v} : {}); });
+  daSavePlan(pc);
   toast('✅ اتحفظت إعدادات الـ RAS'); show('ras-load', true);
 }
 function rasAddLoop(){
-  var cfg = daRasCfg(); cfg.protein = parseFloat(daVal('ras-protein')) || cfg.protein; cfg.o2 = parseFloat(daVal('ras-o2')) || cfg.o2;
-  cfg.loops = rasReadLoops();
-  var site = daFarms().filter(daIsRasSite)[0] || 'F1';
-  cfg.loops.push({name:'', site:site, from:1, to:1, each:false, capFeed:0, mediaVol:0, ssa:500, rate:0.5});
-  try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
-  show('ras-load', true);
-}
-function rasDelLoop(i){
-  var cfg = daRasCfg(); cfg.loops = rasReadLoops(); cfg.loops.splice(i, 1);
+  var cfg = daRasCfg(); cfg.o2 = parseFloat(daVal('ras-o2')) || cfg.o2; cfg.loops = rasReadLoops();
+  cfg.loops.push({name:'', site: daFarms().filter(daIsRasSite)[0] || 'F1', from:1, to:1, each:false, capFeed:0, capProtein:32, mediaVol:0, ssa:500, rate:0.5});
   try{ localStorage.setItem(RAS_KEY, JSON.stringify(cfg)); }catch(e){}
   show('ras-load', true);
 }
 function renderRASLoad(){
-  var cfg = daRasCfg(), data = daRasCompute(14), sites = daFarms().filter(daIsRasSite), loops = cfg.loops || [];
+  var cfg = daRasCfg(), data = daRasCompute(14), sites = daFarms().filter(daIsRasSite), loops = cfg.loops || [], bands = daBandProteins();
   var inp = 'padding:6px 8px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px;width:100%';
-  var h = '<div class="ph"><div><h2>🧪 حمل الفلتر الحيوي (RAS)</h2><p style="font-size:11px;color:var(--muted)">كل فلتر محسوب على الأحواض اللي بيخدمها بس — الأمونيا والأكسجين وثاني أكسيد الكربون والقلوية</p></div></div>';
+  var h = '<div class="ph"><div><h2>🧪 حمل الفلتر الحيوي (RAS)</h2><p style="font-size:11px;color:var(--muted)">سعة الفلتر ثابتة بالأمونيا — وكل سكشن محسوب من كتلته وأوزانه ونسبة تغذيته وبروتين علفه</p></div></div>';
   h += '<div class="card" style="margin-bottom:14px"><div class="card-title">🧪 وحدات الفلترة</div>';
-  h += '<div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">حدد كل فلتر بيخدم أنهي سكاشن. السعة: اكتب <b>أقصى علف/يوم جربتوه والأمونيا مظبوطة</b> (الأدق) — أو حجم الميديا. "كل سكشن لوحده" = صف واحد لسكاشن ليها نفس الفلتر.</div>';
+  h += '<div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">اكتب <b>أقصى علف/يوم جربتوه والأمونيا مظبوطة</b> و<b>بروتين العلف وقتها</b> — الأداة بتحولهم لسعة أمونيا ثابتة للفلتر. أو اكتب حجم الميديا.</div>';
   h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--light)">';
-  ['الاسم','البيت','سكشن من','لحد','كل سكشن لوحده','أقصى علف/يوم كجم','أو ميديا م³','م²/م³','جم/م²/يوم','السعة',''].forEach(function(c){ h += '<th style="padding:6px;text-align:right;white-space:nowrap">' + c + '</th>'; });
+  ['الاسم','البيت','سكشن من','لحد','كل سكشن لوحده','أقصى علف/يوم كجم','بروتينه %','أو ميديا م³','م²/م³','جم/م²/يوم','السعة',''].forEach(function(c){ h += '<th style="padding:6px;text-align:right;white-space:nowrap">' + c + '</th>'; });
   h += '</tr></thead><tbody>';
   loops.forEach(function(L, i){
-    var cap = daLoopCap(L, cfg.protein);
-    h += '<tr><td style="padding:3px"><input id="rl-name-' + i + '" value="' + daEsc(L.name || '') + '" placeholder="اختياري" style="' + inp + ';width:90px"/></td>'
-      + '<td style="padding:3px"><select id="rl-site-' + i + '" style="' + inp + ';width:70px">' + sites.map(function(s){ return '<option' + (s === L.site ? ' selected' : '') + '>' + daEsc(s) + '</option>'; }).join('') + '</select></td>'
-      + '<td style="padding:3px"><input id="rl-from-' + i + '" type="number" value="' + (L.from || '') + '" style="' + inp + ';width:55px"/></td>'
-      + '<td style="padding:3px"><input id="rl-to-' + i + '" type="number" value="' + (L.to || '') + '" style="' + inp + ';width:55px"/></td>'
+    var cap = daLoopCap(L);
+    h += '<tr><td style="padding:3px"><input id="rl-name-' + i + '" value="' + daEsc(L.name || '') + '" placeholder="اختياري" style="' + inp + ';width:85px"/></td>'
+      + '<td style="padding:3px"><select id="rl-site-' + i + '" style="' + inp + ';width:65px">' + sites.map(function(s){ return '<option' + (s === L.site ? ' selected' : '') + '>' + daEsc(s) + '</option>'; }).join('') + '</select></td>'
+      + '<td style="padding:3px"><input id="rl-from-' + i + '" type="number" value="' + (L.from || '') + '" style="' + inp + ';width:52px"/></td>'
+      + '<td style="padding:3px"><input id="rl-to-' + i + '" type="number" value="' + (L.to || '') + '" style="' + inp + ';width:52px"/></td>'
       + '<td style="padding:3px;text-align:center"><input id="rl-each-' + i + '" type="checkbox"' + (L.each ? ' checked' : '') + '/></td>'
-      + '<td style="padding:3px"><input id="rl-capf-' + i + '" type="number" step="any" value="' + (L.capFeed || '') + '" style="' + inp + ';width:75px"/></td>'
-      + '<td style="padding:3px"><input id="rl-media-' + i + '" type="number" step="any" value="' + (L.mediaVol || '') + '" style="' + inp + ';width:65px"/></td>'
-      + '<td style="padding:3px"><input id="rl-ssa-' + i + '" type="number" value="' + (L.ssa || 500) + '" style="' + inp + ';width:65px"/></td>'
-      + '<td style="padding:3px"><input id="rl-rate-' + i + '" type="number" step="0.05" value="' + (L.rate || 0.5) + '" style="' + inp + ';width:60px"/></td>'
-      + '<td style="padding:3px;white-space:nowrap;font-size:11px">' + (cap.g ? Math.round(cap.g).toLocaleString() + ' جم TAN' + (cap.src === 'observed' ? '<br><span style="color:var(--muted)">من التجربة</span>' : '<br><span style="color:var(--muted)">من الميديا</span>') : '—') + '</td>'
+      + '<td style="padding:3px"><input id="rl-capf-' + i + '" type="number" step="any" value="' + (L.capFeed || '') + '" style="' + inp + ';width:70px"/></td>'
+      + '<td style="padding:3px"><input id="rl-capp-' + i + '" type="number" step="0.5" value="' + (L.capProtein || 32) + '" style="' + inp + ';width:58px"/></td>'
+      + '<td style="padding:3px"><input id="rl-media-' + i + '" type="number" step="any" value="' + (L.mediaVol || '') + '" style="' + inp + ';width:60px"/></td>'
+      + '<td style="padding:3px"><input id="rl-ssa-' + i + '" type="number" value="' + (L.ssa || 500) + '" style="' + inp + ';width:60px"/></td>'
+      + '<td style="padding:3px"><input id="rl-rate-' + i + '" type="number" step="0.05" value="' + (L.rate || 0.5) + '" style="' + inp + ';width:56px"/></td>'
+      + '<td style="padding:3px;white-space:nowrap;font-size:11px">' + (cap.g ? Math.round(cap.g).toLocaleString() + ' جم TAN<br><span style="color:var(--muted)">' + (cap.src === 'observed' ? 'من التجربة' : 'من الميديا') + '</span>' : '—') + '</td>'
       + '<td style="padding:3px"><button data-i="' + i + '" onclick="rasDelLoop(+this.dataset.i)" style="border:0;background:#fee2e2;color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer">✕</button></td></tr>';
   });
   h += '</tbody></table></div>';
-  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">';
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:flex-end">';
   h += '<button onclick="rasAddLoop()" style="padding:8px 14px;border:1.5px dashed var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer">➕ فلتر</button>';
-  h += '<div class="field" style="margin:0;width:110px"><label style="font-size:11px">بروتين العلف %</label>' + daInp('ras-protein', cfg.protein, 'type="number" step="0.5"') + '</div>';
-  h += '<div class="field" style="margin:0;width:150px"><label style="font-size:11px">أكسجين السمك كجم/كجم علف</label>' + daInp('ras-o2', cfg.o2, 'type="number" step="0.05"') + '</div>';
-  h += '<button class="savebtn" style="width:auto;padding:8px 18px" onclick="rasSaveCfg()">💾 حفظ</button></div></div>';
+  bands.forEach(function(b, i){
+    var rng = (i === 0 ? '<' + b.max : i === bands.length - 1 ? '≥' + bands[i - 1].max : bands[i - 1].max + '–' + b.max) + 'g';
+    h += '<div class="field" style="margin:0;width:118px"><label style="font-size:11px">بروتين ' + daEsc(b.label) + ' (' + rng + ') %</label>' + daInp('ras-prot-' + i, b.protein, 'type="number" step="0.5"') + '</div>';
+  });
+  h += '<div class="field" style="margin:0;width:140px"><label style="font-size:11px">أكسجين السمك كجم/كجم علف</label>' + daInp('ras-o2', cfg.o2, 'type="number" step="0.05"') + '</div>';
+  h += '<button class="savebtn" style="width:auto;padding:8px 18px" onclick="rasSaveCfg()">💾 حفظ</button></div>';
+  h += '<div style="font-size:11px;color:var(--muted);margin-top:6px">أحجام الحبة وحدودها من صفحة 📦 توقع العلف. اكتب البروتين الحقيقي من شكاير العلف.</div></div>';
   if(!data.length) return h + '<div class="card" style="text-align:center;padding:30px;color:var(--muted)">مفيش أحواض فيها سمك في بيوت RAS</div>';
   var rows = data.map(function(f){
     var col = f.cap <= 0 ? 'var(--muted)' : f.over ? 'var(--red)' : f.loadPct >= f.warnAt - 15 ? 'var(--amber)' : 'var(--green)';
-    var status = f.cap <= 0 ? '<span style="color:var(--muted)">حدد السعة</span>'
-      : f.over ? '<b style="color:var(--red)">' + (f.capSrc === 'observed' ? 'فوق أقصى علف جربتوه' : 'فوق 90% من السعة') + '</b>'
+    var status = f.cap <= 0 ? '<span style="color:var(--muted)">حدد الفلتر</span>'
+      : f.over ? '<b style="color:var(--red)">' + (f.capSrc === 'observed' ? 'فوق أقصى حمل جربتوه' : 'فوق 90% من السعة') + '</b>'
       : f.overDay > 0 ? '<span style="color:#b45309">هيوصل خلال ' + f.overDay + ' يوم</span>' : '<span style="color:var(--green)">✅ أمان 14 يوم</span>';
-    return ['<b>' + daEsc(f.label) + '</b><div style="font-size:10px;color:var(--muted)">' + f.units + ' حوض · ' + (f.bio / 1000).toFixed(2) + ' طن</div>',
-      f.feed.toFixed(1) + ' <span style="font-size:10px;color:var(--muted)">' + (f.basis === 'actual' ? 'فعلي' : 'SFR') + '</span>',
-      Math.round(f.tan * 1000).toLocaleString(), f.cap ? Math.round(f.cap).toLocaleString() : '—',
-      f.cap ? '<b style="color:' + col + '">' + f.loadPct.toFixed(0) + '%</b>' : '—', status,
-      f.o2.toFixed(1), f.bicarb.toFixed(1)];
+    var room = f.maxBio > 0 ? f.maxBio - f.bio : 0;
+    return ['<b>' + daEsc(f.label) + '</b><div style="font-size:10px;color:var(--muted)">' + f.units + ' حوض</div>',
+      '<b>' + (f.bio / 1000).toFixed(2) + '</b> طن',
+      f.feed.toFixed(1) + ' كجم<div style="font-size:10px;color:var(--muted)">' + f.effSFR.toFixed(1) + '% من الكتلة · ' + (f.basis === 'actual' ? 'فعلي' : 'SFR') + '</div>',
+      f.effProtein ? f.effProtein.toFixed(0) + '%' : '—',
+      Math.round(f.tan * 1000).toLocaleString() + (f.cap ? '<div style="font-size:10px;color:var(--muted)">من ' + Math.round(f.cap).toLocaleString() + '</div>' : ''),
+      f.cap ? '<b style="color:' + col + '">' + f.loadPct.toFixed(0) + '%</b>' : '—',
+      f.maxFeed ? f.maxFeed.toFixed(0) + ' كجم' : '—',
+      f.maxBio ? (f.maxBio / 1000).toFixed(2) + ' طن<div style="font-size:10px;color:' + (room >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (room >= 0 ? 'متاح +' : 'زيادة ') + (Math.abs(room) / 1000).toFixed(2) + '</div>' : '—',
+      status, f.o2.toFixed(1), f.bicarb.toFixed(1)];
   });
-  h += '<div class="card" style="margin-bottom:14px">' + daTable(['الفلتر','علف/يوم كجم','TAN جم/يوم','السعة جم','الحمل','الحالة','أكسجين كجم/يوم','بيكربونات كجم/يوم'], rows);
-  if(data.some(function(f){ return f.basis === 'planned'; })) h += '<div style="font-size:11px;color:var(--muted);margin-top:8px">"SFR" = مفيش تغذية متسجلة آخر 3 أيام، فالعلف متوقع من جدول الـ SFR وممكن يكون أعلى من الفعلي. أول ما تسجلوا تغذية، الحساب بيتحول للفعلي.</div>';
-  h += '</div>';
+  h += '<div class="card" style="margin-bottom:14px">' + daTable(['الفلتر','الكتلة','العلف/يوم','بروتين','TAN جم/يوم','الحمل','أقصى علف','أقصى كتلة','الحالة','O₂ كجم','بيكربونات كجم'], rows);
+  h += '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.7">"أقصى علف" و"أقصى كتلة" محسوبين لكل سكشن من أحجام السمك اللي فيه دلوقتي: سكشن التحضين (نسبة تغذية وبروتين أعلى) بيتحمل كتلة أقل بنفس الفلتر.'
+    + (data.some(function(f){ return f.basis === 'planned'; }) ? ' "SFR" = مفيش تغذية متسجلة آخر 3 أيام، فالعلف محسوب من جدول الـ SFR.' : '') + '</div></div>';
   h += '<div class="card" style="font-size:12px;color:var(--muted);line-height:1.9"><div class="card-title">📐 المعادلات</div>'
-    + 'TAN = علف × بروتين% × 0.092 · سعة الميديا = حجم الميديا × المساحة السطحية × معدل التحويل · أكسجين السمك = علف × ' + cfg.o2 + ' · أكسجين البكتيريا = 4.57 × TAN · CO₂ = 1.375 × أكسجين السمك · بيكربونات = 7.14 × 1.68 × TAN.<br>'
-    + 'لما السعة من "أقصى علف جربتوه"، 100% = الحد اللي اتأكدتوا إنه شغال، والتحذير بيطلع لما الحمل يعدّيه.</div>';
+    + 'علف التانك = الكتلة × SFR لوزنه · TAN = علف × بروتين حجم الحبة × 0.092 · سعة الفلتر = أقصى علف جربتوه × بروتينه × 0.092 (أو الميديا × المساحة × المعدل) · '
+    + 'أقصى علف للسكشن = السعة ÷ (بروتينه × 0.092) · أقصى كتلة = أقصى علف ÷ نسبة تغذيته · أكسجين = علف × ' + cfg.o2 + ' + 4.57 × TAN · بيكربونات = 7.14 × 1.68 × TAN.</div>';
   return h;
 }
 
