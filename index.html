@@ -326,6 +326,7 @@ tr:hover td{background:#f5faf8}
     <div class="sg">✏️ الإدخال اليومي</div>
     <button class="nb" data-v="quick-feed" onclick="show('quick-feed')" style="border-inline-start:3px solid var(--lime);font-weight:700">⚡ Quick Feed</button>
     <button class="nb" data-v="tx-feeding" onclick="show('tx-feeding')">🌾 Feeding</button>
+    <button class="nb" data-v="feed-week" onclick="show('feed-week')">📅 تغذية الأسبوع</button>
     <button class="nb" data-v="tx-mortality" onclick="show('tx-mortality')">💀 Mortality</button>
     <button class="nb" data-v="tx-sampling" onclick="show('tx-sampling')">🔬 Sampling</button>
     <button class="nb" data-v="tx-transfer" onclick="show('tx-transfer')">🔄 Transfer</button>
@@ -2490,8 +2491,9 @@ function generateAlerts(){
 
     // 2. FEEDING RATE ALERT — from settings
     var recPct = r.avgWt<50?(cfg.fr1||5):r.avgWt<150?(cfg.fr2||4):r.avgWt<300?(cfg.fr3||3):(cfg.fr4||2);
-    var recFeedTotal = r.biomass * recPct / 100 * daysSince;
-    var actualFeed = feedByUnit[r.unit] || 0;
+    var _fwin = daTxFeedWindow(r.unit, daysSince);
+    var recFeedTotal = _fwin.kg > 0 ? r.biomass * recPct / 100 * _fwin.days : 0;
+    var actualFeed = _fwin.kg;
     if(recFeedTotal>0){
       var frRatio = actualFeed / recFeedTotal * 100;
       if(actualFeed===0){
@@ -4775,7 +4777,7 @@ generateAlerts = function(){
   });
   liveRs.forEach(function(r){
     if((r.fishNo||0)<10) return; // skip near-empty units
-    var lastFeed = feedByUnit[r.unit];
+    var lastFeed = feedByUnit[r.unit] || daUnitOpenDate(r.unit);
     if(!lastFeed){
       alerts.push({level:'warn',icon:'🌾',unit:r.unit,
         title:'لا يوجد سجل علف لهذه الوحدة',
@@ -4783,8 +4785,8 @@ generateAlerts = function(){
         action:'tx-feeding'});
     } else {
       var days = Math.floor((new Date(today)-new Date(lastFeed))/86400000);
-      if(days>=3){
-        alerts.push({level: days>=5?'critical':'warn', icon:'🌾', unit:r.unit,
+      if(days>=daFeedGapDays()){
+        alerts.push({level: days>=daFeedGapDays()+2?'critical':'warn', icon:'🌾', unit:r.unit,
           title:'لم تُعلَّف منذ '+days+' أيام',
           detail:'آخر تغذية: '+lastFeed,
           action:'tx-feeding'});
@@ -5682,33 +5684,6 @@ function addToOfflineQueue(op, data){
   updateOfflineStatus();
 }
 
-async function syncOfflineQueue(){
-  if(!sbReady||!SB_FARM_ID) return;
-  var q = getOfflineQueue();
-  if(!q.length) return;
-
-  var failed = [];
-  for(var i=0;i<q.length;i++){
-    var item = q[i];
-    try{
-      if(item.op==='upsert_tx'){
-        await _txUpsertOne(item.data);
-      } else if(item.op==='delete_tx'){
-        await _txDeleteOne(item.data.id);
-      } else if(item.op==='upsert_feedinv'){
-        await _feedInvUpsertOne(item.data);
-      }
-    }catch(e){
-      failed.push(item);
-    }
-  }
-  saveOfflineQueue(failed);
-  updateOfflineStatus();
-  if(q.length-failed.length>0){
-    console.log('Synced '+(q.length-failed.length)+' offline operations');
-    if(q.length-failed.length>0) toast('✅ تمت مزامنة '+(q.length-failed.length)+' عملية محفوظة');
-  }
-}
 
 function updateOfflineStatus(){
   var isOnline  = navigator.onLine;
@@ -12250,6 +12225,259 @@ function renderRASLoad(){
     + 'علف التانك = الكتلة × SFR لوزنه · TAN = علف × بروتين حجم الحبة × 0.092 · سعة الفلتر = أقصى علف جربتوه × بروتينه × 0.092 (أو الميديا × المساحة × المعدل) · '
     + 'أقصى علف للسكشن = السعة ÷ (بروتينه × 0.092) · أقصى كتلة = أقصى علف ÷ نسبة تغذيته · أكسجين = علف × ' + cfg.o2 + ' + 4.57 × TAN · بيكربونات = 7.14 × 1.68 × TAN.</div>';
   return h;
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  WEEKLY FEEDING ENTRY — record a whole week at once, each kg on its real date
+// ══════════════════════════════════════════════════════════
+var FEEDCFG_KEY = 'daracqua_feedcfg_v1';
+DA_SYNC_PREFIXES.push(FEEDCFG_KEY);
+var DA_WEEKDAYS = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+function daFeedCfg(){ try{ return JSON.parse(localStorage.getItem(FEEDCFG_KEY) || '{}'); }catch(e){ return {}; } }
+function daFeedGapDays(){ var n = parseInt(daFeedCfg().gapDays, 10); return n > 0 ? n : 3; }
+function daUnitOpenDate(unit){ var u = daRawUnit(unit); return u && u.open ? u.open.date : null; }
+
+function daFwDays(end){ var out = []; for(var i = 6; i >= 0; i--) out.push(daAddDays(end, -i)); return out; }
+function daFwRows(st){
+  return _txLiveRows().filter(function(r){
+    return (r.fishNo||0) > 0 && r.farm === st.site && (!st.section || (r.section || '') === st.section);
+  }).sort(function(a, b){ return String(a.unit).localeCompare(String(b.unit), undefined, {numeric:true}); });
+}
+function daFwExisting(units, days){
+  var set = {}, map = {};
+  units.forEach(function(u){ set[u] = 1; });
+  getTX().forEach(function(t){
+    if(t.type !== 'feeding' || !set[t.unit] || days.indexOf(t.date) < 0) return;
+    var k = t.unit + '|' + t.date, c = map[k] = map[k] || {sum:0, ids:[], weekly:[]};
+    c.sum += parseFloat(t.kg) || 0; c.ids.push(t.id); if(t.source === 'weekly') c.weekly.push(t.id);
+  });
+  Object.keys(map).forEach(function(k){ var c = map[k]; c.editable = c.ids.length === 1 && c.weekly.length === 1; });
+  return map;
+}
+function daFwDefaultFeed(r){
+  var last = null;
+  getTX().forEach(function(t){ if(t.type === 'feeding' && t.unit === r.unit && t.feed && (!last || t.date > last.date)) last = t; });
+  if(last) return last.feed;
+  var bands = daPlanCfg().bands;
+  for(var i = 0; i < bands.length; i++) if((r.avgWt||0) < bands[i].max || i === bands.length - 1) return bands[i].inv || bands[i].label;
+  return '';
+}
+function renderFeedWeek(){
+  var st = window._fw = window._fw || {};
+  var sites = daFarms();
+  if(!st.end) st.end = daToday();
+  if(!st.site || sites.indexOf(st.site) < 0) st.site = sites[0] || '';
+  var days = daFwDays(st.end), rows = daFwRows(st);
+  var units = rows.map(function(r){ return r.unit; }), ex = daFwExisting(units, days);
+  var secs = {}; _txLiveRows().forEach(function(r){ if(r.farm === st.site && (r.fishNo||0) > 0 && r.section) secs[r.section] = 1; });
+  var feedTypes = getFeedBalanceSummary().map(function(s){ return s.feedType; });
+  daPlanCfg().bands.forEach(function(b){ if(feedTypes.indexOf(b.label) < 0) feedTypes.push(b.label); });
+  st.rows = rows.map(function(r){ return r.unit; }); st.days = days;
+  var sel = 'padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:13px';
+  var h = '<div class="ph"><div><h2>📅 تغذية الأسبوع</h2><p style="font-size:11px;color:var(--muted)">سجّل علف أسبوع كامل مرة واحدة — كل رقم بيتحفظ بتاريخ يومه الحقيقي</p></div>';
+  h += '<button id="fw-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daFwSave()">💾 حفظ الأسبوع</button></div>';
+  h += '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
+  h += '<div class="field" style="margin:0"><label>آخر يوم في الأسبوع</label><input type="date" value="' + st.end + '" max="' + daToday() + '" style="' + sel + '" onchange="window._fw.end=this.value;show(&quot;feed-week&quot;,true)"/></div>';
+  h += '<div class="field" style="margin:0"><label>البيت</label><select style="' + sel + '" onchange="window._fw.site=this.value;window._fw.section=&quot;&quot;;show(&quot;feed-week&quot;,true)">'
+    + sites.map(function(s){ return '<option' + (s === st.site ? ' selected' : '') + '>' + daEsc(s) + '</option>'; }).join('') + '</select></div>';
+  h += '<div class="field" style="margin:0"><label>السكشن</label><select style="' + sel + '" onchange="window._fw.section=this.value;show(&quot;feed-week&quot;,true)"><option value="">الكل</option>'
+    + Object.keys(secs).sort(function(a, b){ return a.localeCompare(b, undefined, {numeric:true}); }).map(function(s){ return '<option value="' + daEsc(s) + '"' + (s === st.section ? ' selected' : '') + '>' + daEsc(s) + '</option>'; }).join('') + '</select></div>';
+  h += '<button onclick="daFwFillSFR()" style="' + sel + ';cursor:pointer;background:#fff;color:var(--teal);border-color:var(--teal)">📊 املا الفاضي من SFR</button>';
+  h += '<button onclick="daFwClearNew()" style="' + sel + ';cursor:pointer;background:#fff">🧹 فضّي اللي مش متحفظ</button>';
+  h += '</div><div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.7">💡 تقدر تنسخ جدول من Excel (تانكات × أيام) وتلصقه في أول خانة. الخانات الرمادي متسجلة من شاشة تانية — بتتعدل من 🔎 التتبع. الكمية بالكيلو لليوم كله.</div></div>';
+  if(!rows.length) return h + '<div class="card" style="text-align:center;padding:30px;color:var(--muted)">مفيش تانكات فيها سمك هنا</div>';
+  var th = 'padding:6px 4px;text-align:center;white-space:nowrap;position:sticky;top:0;background:var(--deep);color:#fff;font-size:11px';
+  h += '<div class="card" style="padding:0;overflow:auto;max-height:68vh"><table id="fw-table" style="border-collapse:collapse;font-size:12px;min-width:100%"><thead><tr>';
+  h += '<th style="' + th + '">التانك</th><th style="' + th + '">نوع العلف</th>';
+  days.forEach(function(d){ var wd = DA_WEEKDAYS[new Date(d + 'T00:00:00Z').getUTCDay()];
+    h += '<th style="' + th + '">' + wd + '<br><span style="font-weight:400;opacity:.8">' + d.slice(5) + '</span></th>'; });
+  h += '<th style="' + th + '">الإجمالي</th><th style="' + th + '">SFR/يوم</th><th style="' + th + '"></th></tr></thead><tbody>';
+  rows.forEach(function(r, ri){
+    var dflt = daFwDefaultFeed(r), sfr = daExpectedDailyFeed(r);
+    h += '<tr style="background:' + (ri % 2 ? '#fff' : 'var(--light)') + '"><td style="padding:3px 6px;font-weight:700;color:var(--teal);white-space:nowrap">' + daEsc(r.unit)
+      + '<div style="font-size:10px;color:var(--muted);font-weight:400">' + Math.round(r.avgWt || 0) + 'g · ' + Math.round(r.biomass || 0) + 'kg</div></td>';
+    h += '<td style="padding:3px"><select id="fw-feed-' + ri + '" style="padding:4px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:11px;max-width:110px">'
+      + feedTypes.map(function(f){ return '<option' + (f === dflt ? ' selected' : '') + '>' + daEsc(f) + '</option>'; }).join('')
+      + (dflt && feedTypes.indexOf(dflt) < 0 ? '<option selected>' + daEsc(dflt) + '</option>' : '') + '</select></td>';
+    days.forEach(function(d, di){
+      var c = ex[r.unit + '|' + d];
+      var locked = c && !c.editable, val = c ? +c.sum.toFixed(2) : '';
+      h += '<td style="padding:2px"><input id="fw-' + ri + '-' + di + '" type="number" step="0.1" min="0" inputmode="decimal" value="' + val + '"'
+        + ' data-r="' + ri + '" data-d="' + di + '" data-orig="' + val + '"' + (c && c.editable ? ' data-tx="' + daEsc(c.ids[0]) + '"' : '')
+        + (locked ? ' disabled title="متسجل من شاشة تانية (' + c.ids.length + ' إدخال) — عدّله من التتبع"' : '')
+        + ' oninput="daFwTotals()" onpaste="daFwPaste(event,this)"'
+        + ' style="width:58px;padding:5px 3px;border:1px solid var(--line);border-radius:6px;text-align:center;font:inherit;font-size:13px;' + (locked ? 'background:#e2e8f0;color:#475569' : c ? 'background:#ecfdf5' : '') + '"/></td>';
+    });
+    h += '<td id="fw-rt-' + ri + '" style="padding:3px 6px;text-align:center;font-weight:700">—</td>';
+    h += '<td style="padding:3px 6px;text-align:center;color:var(--muted)" data-sfr="' + sfr.toFixed(2) + '" id="fw-sfr-' + ri + '">' + sfr.toFixed(1) + '</td>';
+    h += '<td style="padding:3px"><button data-r="' + ri + '" onclick="daFwRepeat(+this.dataset.r)" title="كرر أول رقم في الأيام الفاضية" style="border:0;background:var(--light);border-radius:6px;padding:4px 7px;cursor:pointer">↔️</button></td></tr>';
+  });
+  h += '</tbody><tfoot><tr style="background:var(--deep);color:#fff;font-weight:700"><td style="padding:6px" colspan="2">إجمالي اليوم</td>';
+  days.forEach(function(d, di){ h += '<td id="fw-dt-' + di + '" style="padding:6px;text-align:center">—</td>'; });
+  h += '<td id="fw-gt" style="padding:6px;text-align:center">—</td><td colspan="2"></td></tr></tfoot></table></div>';
+  var gap = daFeedGapDays();
+  h += '<div class="card" style="margin-top:12px;font-size:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">🔔 تنبيه "متعلفتش" يظهر بعد'
+    + '<input id="fw-gap" type="number" min="1" max="30" value="' + gap + '" style="width:60px;' + sel + '"/> يوم من غير تسجيل تغذية'
+    + '<button class="savebtn" style="width:auto;padding:6px 14px" onclick="daFwSaveGap()">💾</button>'
+    + '<span style="color:var(--muted)">لو بتسجلوا أسبوعياً، خليها 8 عشان التنبيه ميطلعش كل أسبوع.</span></div>';
+  setTimeout(daFwTotals, 0);
+  return h;
+}
+function daFwCell(ri, di){ return document.getElementById('fw-' + ri + '-' + di); }
+function daFwTotals(){
+  var st = window._fw || {}, R = (st.rows || []).length, D = (st.days || []).length, dt = [], gt = 0;
+  for(var d = 0; d < D; d++) dt[d] = 0;
+  for(var r = 0; r < R; r++){
+    var rt = 0;
+    for(var d2 = 0; d2 < D; d2++){ var el = daFwCell(r, d2); var v = el ? parseFloat(el.value) : NaN; if(v > 0){ rt += v; dt[d2] += v; } }
+    var c = document.getElementById('fw-rt-' + r); if(c) c.textContent = rt ? rt.toFixed(1) : '—';
+    gt += rt;
+  }
+  dt.forEach(function(v, d){ var c = document.getElementById('fw-dt-' + d); if(c) c.textContent = v ? v.toFixed(1) : '—'; });
+  var g = document.getElementById('fw-gt'); if(g) g.textContent = gt ? gt.toFixed(1) + ' كجم' : '—';
+}
+function daFwPaste(ev, el){
+  var txt = (ev.clipboardData || window.clipboardData).getData('text');
+  if(!/[\t\n]/.test(txt)) return;
+  ev.preventDefault();
+  var r0 = +el.dataset.r, d0 = +el.dataset.d, n = 0;
+  txt.replace(/\r/g, '').split('\n').filter(function(l, i, a){ return l.length || i < a.length - 1; }).forEach(function(line, i){
+    line.split('\t').forEach(function(cell, j){
+      var c = daFwCell(r0 + i, d0 + j); if(!c || c.disabled) return;
+      var v = parseFloat(String(cell).replace(',', '.'));
+      if(!isNaN(v) && v >= 0){ c.value = v; n++; } else if(String(cell).trim() === ''){ /* keep */ }
+    });
+  });
+  daFwTotals(); toast('📋 اتلصق ' + n + ' رقم');
+}
+function daFwFillSFR(){
+  var st = window._fw, n = 0;
+  st.rows.forEach(function(u, r){
+    var sfr = parseFloat((document.getElementById('fw-sfr-' + r) || {dataset:{}}).dataset.sfr) || 0;
+    st.days.forEach(function(d, di){ var c = daFwCell(r, di); if(c && !c.disabled && c.value === '' && sfr > 0){ c.value = (Math.round(sfr * 10) / 10).toFixed(1); n++; } });
+  });
+  daFwTotals(); toast('📊 اتملت ' + n + ' خانة من SFR — راجعها وعدّل اللي محتاج');
+}
+function daFwRepeat(r){
+  var st = window._fw, first = null;
+  st.days.forEach(function(d, di){ var c = daFwCell(r, di); if(first === null && c && c.value !== '') first = c.value; });
+  if(first === null){ toast('⚠️ اكتب رقم في أي يوم الأول'); return; }
+  st.days.forEach(function(d, di){ var c = daFwCell(r, di); if(c && !c.disabled && c.value === '') c.value = first; });
+  daFwTotals();
+}
+function daFwClearNew(){
+  var st = window._fw;
+  st.rows.forEach(function(u, r){ st.days.forEach(function(d, di){ var c = daFwCell(r, di); if(c && !c.disabled && !c.dataset.tx) c.value = ''; }); });
+  daFwTotals();
+}
+function daFwSaveGap(){
+  var v = parseInt(daVal('fw-gap'), 10); if(!(v > 0)){ toast('⚠️ رقم أيام صحيح'); return; }
+  var c = daFeedCfg(); c.gapDays = v;
+  try{ localStorage.setItem(FEEDCFG_KEY, JSON.stringify(c)); }catch(e){}
+  toast('✅ التنبيه هيظهر بعد ' + v + ' يوم من غير تغذية');
+}
+async function daFwSave(){
+  var st = window._fw; if(!st || !st.rows) return;
+  var who = currentUser ? {by:currentUser.email, byName:(getSession() || {}).name || '', byRole:currentUserRole} : {};
+  var now = new Date().toISOString(), adds = [], edits = [], dels = [], blocked = [], flagged = 0, badNum = 0; window._fwQueued = 0;
+  st.rows.forEach(function(unit, r){
+    var feed = daVal('fw-feed-' + r);
+    st.days.forEach(function(date, di){
+      var c = daFwCell(r, di); if(!c || c.disabled) return;
+      var raw = String(c.value).trim(), orig = c.dataset.orig, txid = c.dataset.tx;
+      if(raw === '' || parseFloat(raw) === 0){ if(txid && orig !== '') dels.push(txid); return; }
+      var kg = parseFloat(raw); if(isNaN(kg) || kg < 0){ badNum++; return; }
+      if(txid){ if(String(kg) !== String(parseFloat(orig))) edits.push({id:txid, kg:kg, feed:feed}); return; }
+      var t = Object.assign({id:'wk-' + unit + '-' + date, type:'feeding', date:date, unit:unit, kg:+kg.toFixed(3), feed:feed, meal:'يومي',
+        source:'weekly', at:now, ts:now}, who);
+      if(t.byRole === 'worker') t.status = 'pending';
+      var v = validateTX(t);
+      if(v.level === 'block'){ blocked.push(unit + ' ' + date + ': ' + v.msgs.join(' ')); return; }
+      if(v.level === 'warn'){ t.flagged = true; t.flagMsg = v.msgs.join(' · '); if(!t.status) t.status = 'pending'; flagged++; }
+      adds.push(t);
+    });
+  });
+  if(badNum){ toast('⚠️ فيه ' + badNum + ' خانة مش رقم صحيح'); return; }
+  if(!adds.length && !edits.length && !dels.length && !blocked.length){ toast('مفيش تغيير'); return; }
+  var btn = document.getElementById('fw-save'); if(btn){ btn.disabled = true; btn.textContent = '⏳ جاري الحفظ...'; }
+  try{
+    if(adds.length){
+      var arr = getTX(), ix = {}; arr.forEach(function(t, i){ ix[t.id] = i; });
+      adds.forEach(function(t){ if(ix[t.id] !== undefined) arr[ix[t.id]] = t; else arr.push(t); });
+      saveTX(arr); await idbFlush();
+      var failed = adds;
+      if(sbReady && SB_FARM_ID && navigator.onLine) failed = await daUploadTxBatch(adds);
+      failed.forEach(function(t){ addToOfflineQueue('upsert_tx', t); });
+      window._fwQueued = failed.length;
+    }
+    edits.forEach(function(e){ updateTX(e.id, {kg:e.kg, feed:e.feed}); });
+    dels.forEach(function(id){ deleteTX(id); });
+    _invMemo = {k:'', v:null};
+  }finally{ if(btn){ btn.disabled = false; btn.textContent = '💾 حفظ الأسبوع'; } }
+  var kgTot = adds.reduce(function(s, t){ return s + t.kg; }, 0);
+  var msg = '<div style="font-size:17px;font-weight:800;margin-bottom:10px">✅ اتحفظ الأسبوع</div><div style="line-height:2;font-size:14px">'
+    + '➕ ' + adds.length + ' يوم/تانك جديد (' + kgTot.toFixed(1) + ' كجم)<br>' + (window._fwQueued ? '<span style="color:#b45309">📴 ' + window._fwQueued + ' مستنية النت — هتترفع لوحدها</span><br>' : '') + (edits.length ? '✏️ ' + edits.length + ' اتعدل<br>' : '') + (dels.length ? '🗑️ ' + dels.length + ' اتشال<br>' : '')
+    + (flagged ? '<span style="color:#b45309">⚠️ ' + flagged + ' رقم غير معتاد (أكتر من ضعف المتوقع مثلاً) — اتحفظ واتعلّم للمراجعة</span><br>' : '')
+    + (blocked.length ? '<span style="color:#dc2626">⛔ ' + blocked.length + ' مش هيتحفظ:</span><div style="font-size:12px;color:#dc2626;max-height:140px;overflow:auto">' + blocked.slice(0, 30).map(daEsc).join('<br>') + '</div>' : '')
+    + '</div><button class="savebtn" style="width:auto;padding:9px 22px;margin-top:14px" onclick="daCloseModal(&quot;fw-done&quot;)">تمام</button>';
+  daModal('fw-done', msg);
+  show('feed-week', true);
+}
+VIEWS['feed-week'] = renderFeedWeek;
+VIEW_PERMS['feed-week'] = 'input_feeding';
+
+
+// ── feeding-rate alert reads real feeding transactions, only over days that have records ──
+var _fwinMemo = {k:'', m:null};
+function daTxFeedWindow(unit, days){
+  var tx = getTX(), today = daToday(), key = tx.length + '|' + (tx.length ? tx[tx.length - 1].id : '') + '|' + days + '|' + today;
+  if(_fwinMemo.k !== key){
+    var since = daAddDays(today, -(Math.max(1, days) - 1)), m = {};
+    tx.forEach(function(t){
+      if(t.type !== 'feeding' || !t.date || t.date < since || t.date > today) return;
+      var e = m[t.unit] = m[t.unit] || {kg:0, d:{}}; e.kg += parseFloat(t.kg) || 0; e.d[t.date] = 1;
+    });
+    _fwinMemo = {k:key, m:m};
+  }
+  var e = _fwinMemo.m[unit]; return e ? {kg:e.kg, days:Object.keys(e.d).length} : {kg:0, days:0};
+}
+
+// ── reliable batch upload: returns what failed so nothing is dropped ──
+async function daUploadTxBatch(list){
+  var failed = [], now = new Date().toISOString();
+  for(var i = 0; i < list.length; i += 100){
+    var chunk = list.slice(i, i + 100);
+    try{
+      await sbFetch('transactions', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body: JSON.stringify(chunk.map(function(t){
+        return {id:t.id, farm_id:SB_FARM_ID, type:t.type || '', date:t.date || '', unit:t.unit || '', data:t, ts:t.ts || now}; }))});
+    }catch(e){ failed = failed.concat(chunk); }
+  }
+  return failed;
+}
+var _offSyncing = false, _offLast = 0;
+async function syncOfflineQueue(){
+  if(_offSyncing || !sbReady || !SB_FARM_ID || !navigator.onLine) return;
+  if(Date.now() - _offLast < 15000) return;
+  var q = getOfflineQueue(); if(!q.length) return;
+  _offSyncing = true; _offLast = Date.now();
+  try{
+    var latest = {}; q.forEach(function(x){ if(x.op === 'upsert_tx' && x.data && x.data.id) latest[x.data.id] = x.data; });
+    var ups = Object.keys(latest).map(function(k){ return latest[k]; });
+    var keep = (ups.length ? await daUploadTxBatch(ups) : []).map(function(t){ return {op:'upsert_tx', data:t, ts:new Date().toISOString(), id:Date.now() + '_' + Math.random().toString(36).slice(2, 5)}; });
+    for(var i = 0; i < q.length; i++){
+      var it = q[i]; if(it.op === 'upsert_tx') continue;
+      try{
+        if(it.op === 'delete_tx') await sbFetch('transactions?id=eq.' + encodeURIComponent(it.data.id) + '&farm_id=eq.' + SB_FARM_ID, {method:'DELETE'});
+        else if(it.op === 'upsert_feedinv'){ var e = it.data;
+          await sbFetch('feed_inventory', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body: JSON.stringify({id:e.id, farm_id:SB_FARM_ID,
+            feed_type:e.feedType || '', kg:e.kg || 0, tx_type:e.txType || 'purchase', date:e.date || '', price:e.price || null, notes:e.notes || '', data:e, ts:e.ts || new Date().toISOString()})}); }
+      }catch(err){ keep.push(it); }
+    }
+    saveOfflineQueue(keep);
+    var done = q.length - keep.length;
+    if(done > 0) toast('✅ اترفع ' + done + ' عملية كانت مستنية النت');
+  }finally{ _offSyncing = false; try{ updateOfflineStatus(); }catch(e){} }
 }
 
 // ── Init ──────────────────────────────────────
