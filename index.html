@@ -2937,15 +2937,8 @@ function renderSettings(){
     h+='<div class="card" style="margin-bottom:14px">';
     h+='<div class="card" style="margin-bottom:14px">';
     h+=renderThemeSelector();
-  h+='<div class="card-title">🤖 Cloudflare AI — المستشار الذكي (مجاني)</div>';
-    h+='<div class="fg2">';
-    h+='<div class="field"><label>API Token</label>';
-    h+='<input type="password" id="st-cf-token" value="'+(s.cfToken||'')+'" placeholder="cfut_..."/>';
-    h+='</div>';
-    h+='<div class="field"><label>Account ID</label>';
-    h+='<input type="text" id="st-cf-account" value="'+(s.cfAccount||'245302f87be8752301a52cc8f9942e9f')+'" placeholder="Account ID"/>';
-    h+='</div></div>';
-    h+='<button class="savebtn" style="width:auto;padding:8px 18px" onclick="saveCFKey()">💾 حفظ</button>';
+  h+='<div class="card-title">🤖 المستشار الذكي</div>';
+    h+='<div style="font-size:12px;color:var(--muted);line-height:1.8">بيشتغل من خلال تسجيل دخولك — مفيش مفاتيح أو توكنات بتتحفظ في الأداة.</div>';
     h+='</div>';
     h+='<div class="card-title">🔗 Supabase — مزامنة البيانات</div>';
     h+='<div style="display:flex;align-items:center;gap:12px;padding:14px;background:'+(sbOk?'#dcfce7':'#fef3c7')+';border-radius:10px;margin-bottom:14px">';
@@ -2996,16 +2989,6 @@ function renderSettings(){
 
 // ── Helper functions ──
 
-function saveCFKey(){
-  var t = document.getElementById('st-cf-token');
-  var a = document.getElementById('st-cf-account');
-  if(!t||!t.value){ toast('⚠️ ادخل الـ API Token'); return; }
-  var cfg = getSettings(_settingsFarm);
-  cfg.cfToken   = t.value.trim();
-  cfg.cfAccount = (a&&a.value) ? a.value.trim() : '245302f87be8752301a52cc8f9942e9f';
-  saveSettings(cfg, _settingsFarm);
-  toast('✅ تم حفظ Cloudflare AI Token');
-}
 
 function saveSBConfig(){ saveSBConfigAndConnect(); }
 function forceSyncTX(){
@@ -7958,102 +7941,6 @@ function photoHandleFile(input){
   reader.readAsDataURL(file);
 }
 
-async function photoSendToAI(){
-  if(!_photoState.imageB64){ toast('⚠️ ارفع صورة أولاً'); return; }
-  _photoState.status = 'reading';
-  _photoState.parsed = null;
-  show('photo-entry');
-
-  var farm    = _photoState.farm;
-  var mode    = _photoState.mode;
-  var allUnits= allUnitNames().filter(function(u){ return u.startsWith(farm+'.'); });
-
-  // Build prompt based on sheet type
-  var prompt = '';
-  if(mode==='feeding'){
-    prompt = 'This is a fish feeding log sheet from a fish farm. ';
-    prompt += 'Extract ALL feeding data. The sheet has columns: Tank (like 1.1, 1.2, etc or S1.1), meal at 8am, meal at 12pm, meal at 4pm (in kg), feed Size (pellet size like 1m,2m,3m), and dead (mortality count). ';
-    prompt += 'The farm prefix is "'+farm+'" so tank "1.1" = unit "'+farm+'.S01T01" or map to the closest unit. Use this unit list as reference: '+allUnits.slice(0,20).join(',')+'. ';
-    prompt += 'Return ONLY a JSON object with this exact structure, no markdown, no explanation: ';
-    prompt += '{"rows":[{"tank":"F1.S01T01","meal8":1.2,"meal12":1.2,"meal4":1.2,"size":"3m","dead":0},...]}. ';
-    prompt += 'If a value is blank or dashes, use null. Include ALL rows visible in the sheet.';
-  } else if(mode==='sampling'){
-    prompt = 'This is a fish sampling sheet. Extract tank/unit numbers and for each: sample count (number of fish weighed), total weight (grams), average weight per fish (grams), and any notes. ';
-    prompt += 'Farm prefix "'+farm+'". Return ONLY JSON: {"rows":[{"tank":"F1.S01T01","sampleCount":30,"totalWt":9500,"avgWt":316.7,"notes":""},...]}';
-  } else if(mode==='wq'){
-    prompt = 'This is a water quality log sheet. Extract per tank: temperature (°C), dissolved oxygen DO (mg/L), pH, salinity (ppt), ammonia NH3 (mg/L), and notes. ';
-    prompt += 'Farm prefix "'+farm+'". Return ONLY JSON: {"rows":[{"tank":"F1.S01T01","temp":28.5,"do":6.2,"ph":7.8,"salinity":0,"ammonia":0.02,"notes":""},...]}';
-  }
-
-  try{
-    // Use sample capability (works in published artifact, no CSP issues)
-    // Use Netlify AI proxy (works on GitHub Pages via candid-naiad)
-    var sample = null; // Not using claude.use on GitHub Pages
-
-    // Convert base64 to Blob for image input
-    var b64 = _photoState.imageB64;
-    var byteStr = atob(b64);
-    var arr = new Uint8Array(byteStr.length);
-    for(var i=0;i<byteStr.length;i++) arr[i]=byteStr.charCodeAt(i);
-    var imgBlob = new Blob([arr], {type:'image/jpeg'});
-
-    // Call Anthropic API directly (key stored in settings)
-    var apiKey = getSettings().anthropicKey || '';
-    if(!apiKey) throw new Error('ادخل Anthropic API Key في Control Center → الإعدادات');
-    var aiResp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: [
-          { type: 'image', source: { type: 'base64', media_type: _photoState.imageType||'image/jpeg', data: _photoState.imageB64 }},
-          { type: 'text',  text: prompt }
-        ]}]
-      })
-    });
-    if(!aiResp.ok) throw new Error('Anthropic API error: ' + aiResp.status);
-    var aiData = await aiResp.json();
-    var text = (aiData.content && aiData.content[0]) ? aiData.content[0].text : '';
-
-    // Clean and parse JSON
-    text = text.replace(/```json/g,'').replace(/```/g,'').trim();
-    // Extract JSON if wrapped in text
-    var jsonMatch = text.match(/\{[\s\S]*\}/);
-    if(jsonMatch) text = jsonMatch[0];
-    var parsed = JSON.parse(text);
-
-    // Map tank numbers to full unit names
-    if(parsed && parsed.rows){
-      parsed.rows = parsed.rows.map(function(row){
-        if(row.tank && !row.tank.startsWith(farm+'.')){
-          var parts = String(row.tank).split('.');
-          if(parts.length===2){
-            var sec  = 'S'+String(parseInt(parts[0])).padStart(2,'0');
-            var tnk  = 'T'+String(parseInt(parts[1])).padStart(2,'0');
-            var match = allUnits.find(function(u){return u.indexOf(sec)>=0&&u.indexOf(tnk)>=0;});
-            row.tank = match || (farm+'.'+sec+'.'+tnk);
-          }
-        }
-        return row;
-      });
-    }
-
-    _photoState.parsed = parsed;
-    _photoState.status = 'review';
-    _photoState.imageB64 = ''; // clear immediately
-  }catch(err){
-    _photoState.status = 'error';
-    _photoState.errMsg = err.message || 'خطأ غير معروف';
-    _photoState.imageB64 = '';
-  }
-  show('photo-entry');
-}
 
 function photoUpdateTotal(i){
   var el = document.getElementById('photo-total-'+i);
@@ -8295,7 +8182,7 @@ async function aiSendQuestion(){
   try{
     var cfg = getSettings();
     var cfToken   = cfg.cfToken   || 'worker';
-    var cfAccount = cfg.cfAccount || '245302f87be8752301a52cc8f9942e9f';
+    var cfAccount = cfg.cfAccount || '';
 
     // ── Build rich farm context ──
     var liveRs  = _txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
@@ -8396,11 +8283,13 @@ async function aiSendQuestion(){
       cfMessages = messages.slice(0,-1).concat([{role:'user', content: systemPrompt + '\n\n' + messages[messages.length-1].content}]);
     }
 
-    var resp = await fetch('https://dar-aqua-ai.mohammedshehta86.workers.dev/', {
+    if(!DA_AI_URL) throw new Error('المستشار الذكي مش متوصل لسه');
+    try{ await sbRefreshToken(false); }catch(e){}
+    var resp = await fetch(DA_AI_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CF-Token': cfToken
+        'Authorization': 'Bearer ' + (SB_TOKEN || '')
       },
       body: JSON.stringify({
         messages: cfMessages,
@@ -8420,7 +8309,7 @@ async function aiSendQuestion(){
     // Remove loading, add answer
     var ldEl=document.getElementById(loadId);
     if(ldEl) ldEl.remove();
-    chatEl.innerHTML+='<div style="display:flex;justify-content:flex-start"><div style="max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.7;background:var(--paper);color:var(--ink);white-space:pre-wrap">'+answer+'</div></div>';
+    chatEl.innerHTML+='<div style="display:flex;justify-content:flex-start"><div style="max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.7;background:var(--paper);color:var(--ink);white-space:pre-wrap">'+daEsc(answer)+'</div></div>';
     chatEl.scrollTop=chatEl.scrollHeight;
 
   }catch(err){
@@ -12611,6 +12500,33 @@ async function daRealtimePull(){
     }
   }catch(e){}
   finally{ _rtBusy = false; }
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  AI WITHOUT SECRETS IN THE APP — signed-in session only; old keys scrubbed
+// ══════════════════════════════════════════════════════════
+var DA_AI_URL = 'https://farm-ai-2.mohammedshehta86.workers.dev/';   // secure Worker: Workers AI binding, app origin + signed-in users only
+var DA_SECRET_FIELDS = ['cfToken', 'cfAccount', 'anthropicKey', 'geminiKey', 'claudeKey', 'openaiKey'];
+function daScrubSecrets(){
+  var keys = []; for(var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+  keys.forEach(function(k){
+    if(String(k).indexOf('daracqua_settings') !== 0) return;
+    try{
+      var o = JSON.parse(localStorage.getItem(k) || 'null'); if(!o || typeof o !== 'object') return;
+      var dirty = false; DA_SECRET_FIELDS.forEach(function(f){ if(f in o){ delete o[f]; dirty = true; } });
+      if(dirty) localStorage.setItem(k, JSON.stringify(o));   // also pushes the cleaned copy to the farm's cloud settings
+    }catch(e){}
+  });
+}
+daScrubSecrets();
+var _pullSettingsCore = daPullSettings;
+daPullSettings = async function(){ await _pullSettingsCore(); daScrubSecrets(); };
+function saveCFKey(){ toast('ℹ️ مفيش مفاتيح في الأداة تاني — الذكاء الاصطناعي بيشتغل من خلال حسابك'); }
+async function photoSendToAI(){
+  var el = document.getElementById('photo-result') || document.getElementById('content');
+  toast('ℹ️ قراءة البيانات من الصورة مش متاحة حالياً — سجّل يدوي أو من Excel');
+  if(el && el.id === 'photo-result') el.innerHTML = '<div class="card" style="color:var(--muted)">📷 قراءة الصور بالذكاء الاصطناعي مش متاحة حالياً. استخدم 📅 تغذية الأسبوع (بتقبل لصق من Excel) أو شاشات الإدخال العادية.</div>';
 }
 
 // ── Init ──────────────────────────────────────
