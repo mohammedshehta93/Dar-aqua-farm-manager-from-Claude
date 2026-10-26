@@ -703,7 +703,7 @@ function renderDashboard(){
   var feedDays=[];
   for(var i=6;i>=0;i--){
     var d=new Date(); d.setDate(d.getDate()-i);
-    var ds=d.toISOString().slice(0,10);
+    var ds=daYmd(d);
     var kg=logs.filter(function(l){return l.type==='feed'&&l.date===ds;}).reduce(function(s,l){return s+(l.kg||0);},0);
     feedDays.push({lbl:ds.slice(5),val:kg});
   }
@@ -732,7 +732,7 @@ function renderDashboard(){
   var mortDays=[];
   for(var j=6;j>=0;j--){
     var md=new Date(); md.setDate(md.getDate()-j);
-    var mds=md.toISOString().slice(0,10);
+    var mds=daYmd(md);
     var mc=logs.filter(function(l){return l.type==='mortality'&&l.date===mds;}).reduce(function(s,l){return s+(l.count||0);},0);
     mortDays.push({lbl:mds.slice(5),val:mc});
   }
@@ -1297,43 +1297,6 @@ async function _txSyncToSB(txArr){
   toast('✅ تم مزامنة '+txArr.length+' معاملة مع Supabase');
 }
 
-async function loadTXFromSB(){
-  if(!sbReady||!SB_FARM_ID) return;
-  try{
-    // Load all TX for this farm - paginate if needed
-    var all = [], page = 0, limit = 1000;
-    while(true){
-      var rows = await sbFetch('transactions?farm_id=eq.'+SB_FARM_ID
-        +'&order=ts.desc&limit='+limit+'&offset='+(page*limit));
-      if(!rows||!rows.length) break;
-      rows.forEach(function(r){ if(r.data) all.push(r.data); });
-      if(rows.length < limit) break;
-      page++;
-      if(page > 200) break; // safety
-    }
-    if(!all.length){
-      // Cloud empty (first sync) — upload everything we have locally
-      var localAll = getTX();
-      if(localAll.length) await _txSyncToSB(localAll);
-      return;
-    }
-    // Merge with local (SB is source of truth)
-    var local = getTX();
-    var sbIds  = {};
-    all.forEach(function(t){ sbIds[t.id]=1; });
-    // Keep local TX not in SB yet (pending upload)
-    var pending = local.filter(function(t){ return !sbIds[t.id]; });
-    var merged  = all.concat(pending);
-    // Sort by date desc
-    merged.sort(function(a,b){return (b.date||'')>(a.date||'')?1:-1;});
-    if(!TX_IDB.db && merged.length>5000) merged=merged.slice(0,5000);
-    saveTX(merged);
-    _txCache = null;
-    console.log('Loaded '+all.length+' TX from Supabase, '+pending.length+' pending upload');
-    // Upload pending
-    if(pending.length) await _txSyncToSB(pending);
-  }catch(e){ console.warn('loadTXFromSB:',e.message); }
-}
 
 // ── Feed Inventory Sync ───────────────────────────────────
 
@@ -1464,7 +1427,7 @@ async function saveLogs(arr){
       await sbFetch('daily_logs?farm_id=eq.'+SB_FARM_ID, {method:'DELETE'});
       if(arr.length){
         var rows = arr.map(function(l){
-          return {id:l.id, farm_id:SB_FARM_ID, unit_name:l.unit||'', log_type:l.type||'feed', log_date:l.date||new Date().toISOString().slice(0,10), data:l};
+          return {id:l.id, farm_id:SB_FARM_ID, unit_name:l.unit||'', log_type:l.type||'feed', log_date:l.date||daToday(), data:l};
         });
         await sbFetch('daily_logs', {method:'POST', body:JSON.stringify(rows)});
       }
@@ -1521,7 +1484,7 @@ function wqBadge(param,val){
 
 // ── Sheet tab state ───────────────────────────
 var sheetTab='feed'; // feed | mortality | water | sampling
-var sheetDate=new Date().toISOString().slice(0,10);
+var sheetDate=daToday();
 
 // Get all units from RAW + farm setup
 function getAllUnits(){
@@ -1612,7 +1575,7 @@ function saveSheet(){
 // ── Render daily sheet ────────────────────────
 function renderDaily(){
   var units=getAllUnits();
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
 
   var h='<div class="ph"><div><h2>📋 '+(isAr?'الشيت اليومي':'Daily Sheet')+'</h2>';
   h+='<p>'+(isAr?'أدخل البيانات مباشرة في الجدول — كل الأحواض في صفحة واحدة':'Enter data directly in the table — all tanks in one view')+'</p></div></div>';
@@ -1966,12 +1929,12 @@ var HISTORY_KEY = 'daracqua_snapshots_v1';
 var _snapsCache = null;
 
 function takeSnapshot(){
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   try{var ex=JSON.parse(localStorage.getItem('daracqua_snapshots_v1')||'[]');if(ex.length&&ex[0].date===today)return;}catch(e){}
   var liveRs=_txLiveRows(),allTX=getTX(),cfg=getSettings();
   var units=liveRs.filter(function(r){return(r.fishNo||0)>0;}).map(function(r){return{unit:r.unit,farm:r.farm||'',fishNo:r.fishNo||0,avgWt:+(r.avgWt||0).toFixed(2),biomass:+(r.biomass||0).toFixed(3),density:+(r.density||0).toFixed(2),sgr:r.sgr?+r.sgr.toFixed(3):null,fcr:r.fcr?+r.fcr.toFixed(2):null};});
   var totFish=units.reduce(function(s,u){return s+u.fishNo;},0),totBio=units.reduce(function(s,u){return s+u.biomass;},0);
-  var yd=new Date();yd.setDate(yd.getDate()-1);var yds=yd.toISOString().slice(0,10);
+  var yd=new Date();yd.setDate(yd.getDate()-1);var yds=daYmd(yd);
   var feedT=allTX.filter(function(t){return t.type==='feeding'&&t.date>=yds;}).reduce(function(s,t){return s+(t.kg||0);},0);
   var mortT=allTX.filter(function(t){return t.type==='mortality'&&t.date>=yds;}).reduce(function(s,t){return s+(t.count||0);},0);
   var snap={date:today,ts:new Date().toISOString(),farmName:daFarmName(),totFish:totFish,totBio:+totBio.toFixed(3),activeUnits:units.length,feedLast24h:+feedT.toFixed(2),mortLast24h:mortT,alarms:units.filter(function(u){return u.density>=25;}).length,warns:units.filter(function(u){return u.density>=20&&u.density<25;}).length,units:units};
@@ -2152,7 +2115,7 @@ function handleFile(file){
       });
       if(!parsed.length){ toast(isAr?'❌ لم يتم العثور على بيانات في الملف':'❌ No valid data found in file'); return; }
       uploadState.parsed = parsed;
-      uploadState.date = new Date().toISOString().slice(0,10);
+      uploadState.date = daToday();
       toast(isAr?'✅ تم قراءة '+parsed.length+' وحدة':'✅ Read '+parsed.length+' units');
       show('upload');
     } catch(err){
@@ -2400,7 +2363,7 @@ function generateAlerts(){
   var rs = rows();
   var logs = getLogs();
   var alerts = [];
-  var today = new Date().toISOString().slice(0,10);
+  var today = daToday();
   var snaps = getSnapshots();
   var prevData = snaps.length ? snaps[0].data : null;
   var daysSince = 7;
@@ -2408,7 +2371,7 @@ function generateAlerts(){
 
   // Feed logs per unit (last 7 days)
   var last7days = [];
-  for(var i=0;i<7;i++){ var d=new Date(); d.setDate(d.getDate()-i); last7days.push(d.toISOString().slice(0,10)); }
+  for(var i=0;i<7;i++){ var d=new Date(); d.setDate(d.getDate()-i); last7days.push(daYmd(d)); }
 
   var feedByUnit = {};
   var feedDaysByUnit = {};
@@ -2720,11 +2683,6 @@ var SETTINGS_KEY='daracqua_settings_v2'; // per-farm
 // ── TX Core ─────────────────────────────────────────────────
 var TX_KEY = 'daracqua_transactions_v1';
 var _txCache = null;
-function deleteTX(id){
-  var arr=getTX().filter(function(t){return t.id!==id;});
-  saveTX(arr);
-  if(sbReady&&SB_FARM_ID) _txDeleteOne(id);
-}
 // Feed Inventory
 var FEED_INV_KEY='daracqua_feed_inventory_v1';
 var _feedInvCache=null;
@@ -3097,7 +3055,7 @@ var _batchState = {
 var _batchEditId = null; // null = new, else = editing existing tx id
 
 function renderTxStocking(){
-  var today = new Date().toISOString().slice(0,10);
+  var today = daToday();
   if(!_batchState.date) _batchState.date = today;
   if(!_batchState.emptyUnitsDate) _batchState.emptyUnitsDate = today;
 
@@ -3397,10 +3355,10 @@ function batchCalcBio(){
 }
 
 function batchReset(){
-  _batchState = {date:new Date().toISOString().slice(0,10),site:'',hatchery:'',
+  _batchState = {date:daToday(),site:'',hatchery:'',
     species:'Silver Tilapia',batch:'',batchGroup:'',fishNo:'',avgWt:'',
     costPerFish:'',quality:'A',comments:'',hatcheryBatchCode:'',
-    emptyUnitsDate:new Date().toISOString().slice(0,10),rows:[]};
+    emptyUnitsDate:daToday(),rows:[]};
   _batchEditId=null;
   show('tx-stocking');
 }
@@ -3504,7 +3462,7 @@ function _wqTextColor(status){
 }
 
 function renderTxWaterQuality(){
-  var today = new Date().toISOString().slice(0,10);
+  var today = daToday();
   if(!_wqSheetDate){ _wqSheetDate=today; }
 
   var unitNames = allUnitNames().filter(function(n){
@@ -3659,7 +3617,7 @@ function wqUpdateNotes(uid, idx){
 }
 
 function wqCopyYesterday(){
-  var d=new Date(_wqSheetDate||new Date().toISOString().slice(0,10));
+  var d=new Date(_wqSheetDate||daToday());
   d.setDate(d.getDate()-1);
   var yest=d.toISOString().slice(0,10);
   var yTX=getTX().filter(function(t){return t.type==='water_quality'&&t.date===yest;});
@@ -3674,7 +3632,7 @@ function wqCopyYesterday(){
 }
 
 function wqSaveAll(){
-  var date=_wqSheetDate||new Date().toISOString().slice(0,10);
+  var date=_wqSheetDate||daToday();
   var saved=0;
   Object.keys(_wqSheet).forEach(function(uid){
     var v=_wqSheet[uid];
@@ -3794,9 +3752,9 @@ var _rptUnit   = '';
 
 function renderTxReports(){
   // Default dates: last 30 days
-  var today  = new Date().toISOString().slice(0,10);
+  var today  = daToday();
   var d30    = new Date(); d30.setDate(d30.getDate()-30);
-  var from30 = d30.toISOString().slice(0,10);
+  var from30 = daYmd(d30);
   if(!_rptFrom) _rptFrom = from30;
   if(!_rptTo)   _rptTo   = today;
 
@@ -4401,9 +4359,9 @@ async function openBookReport(){
   var cfg     = getSettings();
   var liveRs  = _txLiveRows().filter(function(r){ return (r.fishNo||0)>0 && (farmFilter==='all'||r.farm===farmFilter); });
   var allTX   = getTX();
-  var today   = new Date().toISOString().slice(0,10);
+  var today   = daToday();
   var d30     = new Date(); d30.setDate(d30.getDate()-30);
-  var rFrom   = _rptFrom || d30.toISOString().slice(0,10);
+  var rFrom   = _rptFrom || daYmd(d30);
   var rTo     = _rptTo   || today;
   var recentTX = allTX.filter(function(t){ return (t.date||'')>=rFrom && (t.date||'')<=rTo; });
 
@@ -4681,7 +4639,7 @@ function sheetNavDate(sheet, delta){
     samp: _sampSheetDate,
     wq:   _wqSheetDate,
   };
-  var cur = dateMap[sheet] || new Date().toISOString().slice(0,10);
+  var cur = dateMap[sheet] || daToday();
   var d = new Date(cur);
   d.setDate(d.getDate() + delta);
   sheetChangeDate(sheet, d.toISOString().slice(0,10));
@@ -4704,12 +4662,12 @@ function _txLiveRows(){
   var cfg  = getSettings();
   var dAlarm = cfg.densAlarm||25, dWarn = cfg.densWarn||15;
   var allTX  = getTX();
-  var today  = new Date().toISOString().slice(0,10);
+  var today  = daToday();
 
   base.forEach(function(r){
     var uid = r.unit;
     // Apply TX in chronological order
-    allTX.filter(function(t){return t.unit===uid;})
+    (daTxByUnit()[uid]||[]).slice()
          .sort(daTxOrder)
          .forEach(function(t){
            var _od = daUnitOpenDate(uid); if(_od && t.date && t.date < _od && t.type !== 'water_quality') return;
@@ -4766,13 +4724,13 @@ rows = function(){
 var _generateAlertsOrig = generateAlerts;
 generateAlerts = function(){
   var alerts = _generateAlertsOrig();  // keep all existing alerts
-  var today  = new Date().toISOString().slice(0,10);
+  var today  = daToday();
   var allTX  = getTX();
   var cfg    = getSettings();
   var liveRs = _txLiveRows();
 
   // Helper
-  function daysAgo(n){ var d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
+  function daysAgo(n){ var d=new Date(); d.setDate(d.getDate()-n); return daYmd(d); }
 
   // ── A: Missed feeding (no feed TX for >2 days, unit has fish) ──
   var feedByUnit = {};
@@ -5073,7 +5031,7 @@ function _frGridRows(liveRs,todayFeed,temp,doVal){
 
 function renderFeedingRegime(){
   var liveRs=_txLiveRows().filter(function(r){return (r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   var cfg=getSettings(farmFilter);
   var waterTemp=parseFloat(cfg.waterTemp)||28;
   var waterDO=parseFloat(cfg.waterDO)||0;
@@ -5195,7 +5153,7 @@ function frRecalc(){
   var dn=document.getElementById('fr-do-note');   if(dn) dn.innerHTML=_frDONote(doVal);
   var fd=document.getElementById('fr-factor-disp');if(fd) fd.innerHTML=_frFactorDisplay(tf,df);
   // Recalc
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   var todayFeed={};
   getTX().filter(function(t){return t.type==='feeding'&&t.date===today;}).forEach(function(t){todayFeed[t.unit]=(todayFeed[t.unit]||0)+(t.kg||0);});
   var liveRs=_txLiveRows().filter(function(r){return (r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
@@ -5238,7 +5196,7 @@ function frUpdateTemp(val){
 
 function frApplyToSheet(){
   // Copy suggested amounts to feeding sheet for today
-  var today = new Date().toISOString().slice(0,10);
+  var today = daToday();
   _feedSheetDate = today;
   _feedSheet = {};
   var liveRs = _txLiveRows().filter(function(r){ return (r.fishNo||0)>0; });
@@ -5329,7 +5287,7 @@ function renderDailyOverview(){
 // 6. WhatsApp Daily Report
 // ════════════════════════════════════════════════════════════
 function generateWhatsAppReport(){
-  var today = new Date().toISOString().slice(0,10);
+  var today = daToday();
   var cfg   = getSettings();
   var live  = _txLiveRows().filter(function(r){return(r.fishNo||0)>0;});
   var allTX = getTX();
@@ -5385,7 +5343,7 @@ function generateWhatsAppReport(){
 // ══════════════════════════════════════════════════════════
 
 function generateDailySchedule(date){
-  date = date || new Date().toISOString().slice(0,10);
+  date = date || daToday();
   var cfg    = getSettings();
   var liveRs = _txLiveRows().filter(function(r){
     return (r.fishNo||0)>0 && (farmFilter==='all'||r.farm===farmFilter);
@@ -5438,7 +5396,7 @@ function generateDailySchedule(date){
 var _qfState = { farm: '', section: '', date: '', meal: 'صباح' };
 
 function renderQuickFeed(){
-  var today = new Date().toISOString().slice(0,10);
+  var today = daToday();
   if(!_qfState.date) _qfState.date = today;
 
   var liveRs = _txLiveRows().filter(function(r){
@@ -5734,7 +5692,7 @@ if(typeof window !== 'undefined'){
 // ══════════════════════════════════════════════════════════
 
 function generateExecutiveReport(){
-  var today  = new Date().toISOString().slice(0,10);
+  var today  = daToday();
   var cfg    = getSettings();
   var liveRs = _txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
   var allTX  = getTX();
@@ -5742,7 +5700,7 @@ function generateExecutiveReport(){
 
   // 30-day window
   var d30 = new Date(); d30.setDate(d30.getDate()-30);
-  var d30s = d30.toISOString().slice(0,10);
+  var d30s = daYmd(d30);
   var tx30 = allTX.filter(function(t){return (t.date||'')>=d30s;});
 
   // Metrics
@@ -5889,7 +5847,7 @@ function openExecutiveReport(){
 }
 
 function renderFeedingSchedule(){
-  var today  = new Date().toISOString().slice(0,10);
+  var today  = daToday();
   var cfg    = getSettings();
   var sched  = generateDailySchedule(today);
   var liveRs = sched.schedule;
@@ -5973,7 +5931,7 @@ function refreshSchedule(){
 
 function applyScheduleToSheet(){
   // Pre-fill feeding sheet with scheduled amounts
-  var sched = generateDailySchedule(new Date().toISOString().slice(0,10));
+  var sched = generateDailySchedule(daToday());
   sched.schedule.forEach(function(r){
     if(r.blocked) return;
     var kgEl   = document.getElementById('fd-kg-'+r.unit);
@@ -7098,7 +7056,7 @@ function renderUnitTrend(){
 //  TX summary + WQ + charts — print-ready A4 layout.
 // ══════════════════════════════════════════════════════════
 function renderPDFReport(){
-  var today    = new Date().toISOString().slice(0,10);
+  var today    = daToday();
   var cfg      = getSettings();
   var liveRs   = _txLiveRows().filter(function(r){
     return (r.fishNo||0)>0 && (farmFilter==='all'||r.farm===farmFilter);
@@ -7114,7 +7072,7 @@ function renderPDFReport(){
 
   // Last 30 days TX summary
   var d30 = new Date(); d30.setDate(d30.getDate()-30);
-  var from30 = d30.toISOString().slice(0,10);
+  var from30 = daYmd(d30);
   var recentTX = allTX.filter(function(t){return (t.date||'')>=from30;});
   var totFeedKg  = recentTX.filter(function(t){return t.type==='feeding';}).reduce(function(s,t){return s+(t.kg||0);},0);
   var totMort    = recentTX.filter(function(t){return t.type==='mortality';}).reduce(function(s,t){return s+(t.count||0);},0);
@@ -7370,7 +7328,7 @@ function renderFeedInventory(){
     });
     summaryHTML+='</div>';
   }
-  var today  = new Date().toISOString().slice(0,10);
+  var today  = daToday();
   var feedTypes = getFeedTypes();
   var balances  = getAllFeedBalances();
   var totalStock= balances.reduce(function(s,b){return s+(b.balance>0?b.balance:0);},0);
@@ -7542,7 +7500,7 @@ function renderFeedInventory(){
   // ── TAB: Consumption Report ──
   if(_invTab==='report'){
     var last30 = new Date(); last30.setDate(last30.getDate()-30);
-    var from30 = last30.toISOString().slice(0,10);
+    var from30 = daYmd(last30);
     var recentTX = getTX().filter(function(t){return t.type==='feeding'&&t.date>=from30;});
 
     // By feed type
@@ -7623,7 +7581,7 @@ function renderFeedInventory(){
       var consumed30=getTX().filter(function(t){return t.type==='feeding'&&t.feed===ft&&t.date>=from30;}).reduce(function(s,t){return s+(t.kg||0);},0);
       var dailyAvg=consumed30/30;
       var daysLeft=dailyAvg>0?Math.round(bal/dailyAvg):999;
-      var runOutDate=dailyAvg>0?(function(){var d=new Date();d.setDate(d.getDate()+daysLeft);return d.toISOString().slice(0,10);})():'—';
+      var runOutDate=dailyAvg>0?(function(){var d=new Date();d.setDate(d.getDate()+daysLeft);return daYmd(d);})():'—';
       var urgency=daysLeft<7?'var(--red)':daysLeft<14?'var(--amber)':'var(--green)';
       h+='<tr>';
       h+='<td><strong>'+ft+'</strong></td>';
@@ -7728,7 +7686,7 @@ function invRemoveLine(idx){
 }
 
 function saveShipment(){
-  var date     = (document.getElementById('inv-date')||{}).value||new Date().toISOString().slice(0,10);
+  var date     = (document.getElementById('inv-date')||{}).value||daToday();
   var supplier = (document.getElementById('inv-supplier')||{}).value||'';
   var invoice  = (document.getElementById('inv-invoice')||{}).value||'';
   var notes    = (document.getElementById('inv-notes')||{}).value||'';
@@ -7794,7 +7752,7 @@ var _photoState = {
 };
 
 function renderPhotoEntry(){
-  var today = new Date().toISOString().slice(0,10);
+  var today = daToday();
   if(!_photoState.date) _photoState.date = today;
   var farms = getFarmList();
   var farmIds = Object.keys(farms).filter(function(f){return f!=='all';});
@@ -8237,7 +8195,7 @@ function renderAI(){
   var totBio  = liveRs.reduce(function(s,r){return s+(r.biomass||0);},0);
   var txAll   = getTX();
   var last7   = new Date(); last7.setDate(last7.getDate()-7);
-  var last7s  = last7.toISOString().slice(0,10);
+  var last7s  = daYmd(last7);
   var feed7   = txAll.filter(function(t){return t.type==='feeding'&&t.date>=last7s;}).reduce(function(s,t){return s+(t.kg||0);},0);
   var mort7   = txAll.filter(function(t){return t.type==='mortality'&&t.date>=last7s;}).reduce(function(s,t){return s+(t.count||0);},0);
 
@@ -8343,9 +8301,9 @@ async function aiSendQuestion(){
     var liveRs  = _txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
     var txAll   = getTX();
     var cfg     = getSettings();
-    var today   = new Date().toISOString().slice(0,10);
+    var today   = daToday();
     var last14  = new Date(); last14.setDate(last14.getDate()-14);
-    var last14s = last14.toISOString().slice(0,10);
+    var last14s = daYmd(last14);
     var recentTX = txAll.filter(function(t){return t.date>=last14s;});
     var alerts   = generateAlerts();
 
@@ -8477,7 +8435,7 @@ function renderProfile(){settingsTab='farms';return renderSettings();}
 // ── Site Overview ──
 function renderSiteOverview(){
   var liveRs=_txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   var txAll=getTX();
   var totFish=liveRs.reduce(function(s,r){return s+(r.fishNo||0);},0);
   var totBio=liveRs.reduce(function(s,r){return s+(r.biomass||0);},0);
@@ -8585,7 +8543,7 @@ function soColReset(){try{localStorage.removeItem('daracqua_so_cols_v1');}catch(
 // ── Feeding TX Sheet ──
 var _feedSheetDate='',_mortSheetDate='',_sampSheetDate='',_wqSheetDate='';
 function renderTxFeeding(){
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   if(!_feedSheetDate)_feedSheetDate=today;
   var savedDate=_feedSheetDate;
   var liveRs=_txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
@@ -8696,7 +8654,7 @@ function feedSaveAll(){
   _feedSheetDate=date; show('tx-feeding');
 }
 function feedCopyYesterday(){
-  var d=new Date(_feedSheetDate||new Date().toISOString().slice(0,10));d.setDate(d.getDate()-1);
+  var d=new Date(_feedSheetDate||daToday());d.setDate(d.getDate()-1);
   var yd=d.toISOString().slice(0,10);
   getTX().filter(function(t){return t.type==='feeding'&&t.date===yd;}).forEach(function(t){
     var el=document.getElementById('fd-kg-'+t.unit);if(el)el.value=t.kg;
@@ -8712,7 +8670,7 @@ function feedSetGlobal(){
 
 // ── Mortality TX Sheet ──
 function renderTxMortality(){
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   if(!_mortSheetDate)_mortSheetDate=today;
   var savedDate=_mortSheetDate;
   var liveRs=_txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
@@ -8756,7 +8714,7 @@ function mortSaveAll(){
 
 // ── Sampling TX Sheet ──
 function renderTxSampling(){
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   if(!_sampSheetDate)_sampSheetDate=today;
   var savedDate=_sampSheetDate;
   var liveRs=_txLiveRows().filter(function(r){return(r.fishNo||0)>0&&(farmFilter==='all'||r.farm===farmFilter);});
@@ -8781,7 +8739,7 @@ h+='<input type="date" id="sp-date" value="'+savedDate+'" onclick="try{this.show
     h+='<div style="padding:0 8px;font-weight:700;font-size:12px;color:var(--teal)">'+r.unit+'</div>';
     h+='<div style="padding:4px 5px"><input type="number" class="sh-inp" id="sp-wt-'+r.unit+'" data-unit="'+r.unit+'" data-prev="'+prevWt+'" data-days="'+daysSince+'" placeholder="g" min="0" step="0.1" style="width:82px" oninput="sampCalcSGR(this)"/></div>';
     h+='<div style="padding:4px 5px"><input type="number" class="sh-inp" id="sp-n-'+r.unit+'" placeholder="30" min="1" style="width:65px"/></div>';
-    var daysSince=ls?Math.max(1,Math.floor((new Date(_sampSheetDate||new Date().toISOString().slice(0,10))-new Date(ls.date))/86400000)):'—';
+    var daysSince=ls?Math.max(1,Math.floor((new Date(_sampSheetDate||daToday())-new Date(ls.date))/86400000)):'—';
     h+='<div style="padding:0 8px;font-size:11px;color:var(--muted)">'+n(prevWt,1)+'</div>';
     h+='<div style="padding:0 8px;font-size:11px;color:var(--muted)">'+daysSince+'</div>';
     h+='<div style="padding:0 8px;font-size:12px;font-weight:700" id="sp-sgr-'+r.unit+'">—</div>';
@@ -8829,7 +8787,7 @@ function sampSaveAll(){
 
 // ── Transfer & Harvesting ──
 function renderTxTransfer(){
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   var txs=getTX().filter(function(t){return t.type==='transfer_out'||t.type==='transfer_in';}).sort(function(a,b){return b.date>a.date?1:-1;});
   var unitNames=allUnitNames().filter(function(nm){return farmFilter==='all'||nm.startsWith(farmFilter+'.')||nm.split('.')[0]===farmFilter;});
   var h='';
@@ -8873,7 +8831,7 @@ function saveTxTransfer(){
   show('tx-transfer');
 }
 function renderTxHarvesting(){
-  var today=new Date().toISOString().slice(0,10);
+  var today=daToday();
   var txs=getTX().filter(function(t){return t.type==='harvesting';}).sort(function(a,b){return b.date>a.date?1:-1;});
   var unitNames=allUnitNames().filter(function(nm){return farmFilter==='all'||nm.startsWith(farmFilter+'.')||nm.split('.')[0]===farmFilter;});
   var totFish=txs.reduce(function(s,t){return s+(t.fishNo||0);},0);
@@ -9824,7 +9782,6 @@ async function ensureFarm(){
 var DA_TYPE = {feeding:'🌾 تغذية', mortality:'💀 نفوق', sampling:'🔬 عينة', water_quality:'💧 مياه',
   harvesting:'🎣 حصاد', transfer_out:'↗️ نقل خروج', transfer_in:'↙️ نقل دخول', stocking:'🐟 تخزين', treatment:'💊 علاج'};
 var DA_ROLE = {admin:'أدمن', manager:'مدير', engineer:'مهندس', worker:'عامل', viewer:'مشاهد'};
-function daToday(){ return new Date().toISOString().slice(0,10); }
 function daAddDays(d, n){ var x = new Date(String(d).slice(0,10) + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0,10); }
 function daDaysBetween(a, b){ return Math.round((new Date(String(b).slice(0,10)+'T00:00:00Z') - new Date(String(a).slice(0,10)+'T00:00:00Z')) / 864e5); }
 function daNum(v, d){ var x = parseFloat(v); return isNaN(x) ? 0 : (d === undefined ? x : +x.toFixed(d)); }
@@ -9921,7 +9878,7 @@ function getTX(){
   try{ _txCache = JSON.parse(localStorage.getItem(TX_KEY) || '[]'); return _txCache || []; }catch(e){ return []; }
 }
 function saveTX(arr){
-  _txCache = arr;
+  _dataVer++; _txCache = arr;
   if(TX_IDB.db){
     _txMem = arr;
     _idbPendingArr = arr;
@@ -9938,7 +9895,7 @@ function addTX(obj){
   var arr = getTX();
   obj.id = obj.id || (Date.now() + '_' + Math.random().toString(36).slice(2,6));
   obj.ts = obj.ts || new Date().toISOString();
-  arr.push(obj);
+  arr.push(obj); daUnmarkDead(obj.id);
   if(!TX_IDB.db && arr.length > 5000) arr.splice(0, arr.length - 5000);
   saveTX(arr);
   if(sbReady && SB_FARM_ID) _txUpsertOne(obj);
@@ -10121,33 +10078,6 @@ deleteTX = function(id){
 };
 
 // ── realtime: also pull edits made on other devices ──
-function startRealtimeSync(){
-  if(_realtimeInterval) return;
-  _realtimeInterval = setInterval(async function(){
-    if(!sbReady || !SB_FARM_ID || !navigator.onLine) return;
-    try{
-      var last = localStorage.getItem('daracqua_last_sync') || '2000-01-01T00:00:00Z';
-      var since = new Date(new Date(last).getTime() - 5*60000).toISOString();   // 5-min overlap for clock skew
-      var stamp = new Date().toISOString();
-      var rows = await sbFetch('transactions?farm_id=eq.'+SB_FARM_ID+'&ts=gt.'+encodeURIComponent(since)+'&order=ts.asc&limit=500');
-      localStorage.setItem('daracqua_last_sync', stamp);
-      if(!rows || !rows.length) return;
-      var local = getTX(), idx = {};
-      local.forEach(function(t, i){ idx[t.id] = i; });
-      var added = 0, updated = 0;
-      rows.forEach(function(r){
-        var d = r.data; if(!d || !d.id) return;
-        if(idx[d.id] === undefined){ local.push(d); idx[d.id] = local.length - 1; added++; }
-        else if((d.ts || '') > (local[idx[d.id]].ts || '')){ local[idx[d.id]] = d; updated++; }
-      });
-      if(added || updated){
-        saveTX(local);
-        if(added) toast('🔄 '+added+' معاملة جديدة من مستخدم آخر');
-        if(['dashboard','site-overview','review-queue','audit-log'].indexOf(currentView) >= 0) show(currentView, true);
-      }
-    }catch(e){}
-  }, 30000);
-}
 
 // ── review queue ──
 var DA_MAIN_FIELD = {feeding:'kg', mortality:'count', sampling:'avgWt', harvesting:'kg', transfer_out:'fishNo', transfer_in:'fishNo'};
@@ -10467,16 +10397,6 @@ function renderSupplyPlan(){
 // ══════════════════════════════════════════════════════════
 //  PHASE 5 — HEALTH, WITHDRAWAL, TRACEABILITY
 // ══════════════════════════════════════════════════════════
-function getActiveWithdrawal(unit, date){
-  date = date || daToday(); var best = null;
-  getTX().forEach(function(t){
-    if(t.type !== 'treatment' || t.unit !== unit) return;
-    var wd = parseInt(t.withdrawalDays) || 0; if(wd <= 0 || !t.date) return;
-    var until = daAddDays(t.date, wd);
-    if(t.date <= date && until > date && (!best || until > best.until)) best = {product:t.product || 'علاج', until:until, date:t.date};
-  });
-  return best;
-}
 function renderHealth(){
   var st = window._hState = window._hState || {farm:'', section:''};
   var live = _txLiveRows().filter(function(r){ return (r.fishNo||0) > 0; });
@@ -10662,6 +10582,7 @@ var _lsSetRaw = Storage.prototype.setItem, _lsRemoveRaw = Storage.prototype.remo
 var _settingsPushTimer = null, _settingsPulling = false;
 Storage.prototype.setItem = function(k, v){
   _lsSetRaw.call(this, k, v);
+  if(this === window.localStorage && daIsSyncedKey(k)) _dataVer++;
   if(this === window.localStorage && !_settingsPulling && daIsSyncedKey(k)) daScheduleSettingsPush();
 };
 Storage.prototype.removeItem = function(k){
@@ -10689,9 +10610,9 @@ async function daPullSettings(){
 }
 
 // ── units (formerly hard-coded in the page) live per farm in the cloud ──
-function daSetRAW(list){ RAW.length = 0; (list || []).forEach(function(u){ if(u && u.unit) RAW.push(u); }); _valCache = {t:0, map:{}}; }
+function daSetRAW(list){ _dataVer++; RAW.length = 0; (list || []).forEach(function(u){ if(u && u.unit) RAW.push(u); }); _valCache = {t:0, map:{}}; }
 async function daLoadUnitsCache(){ var u = await idbGet('units'); if(Array.isArray(u)) daSetRAW(u); }
-function daPersistUnitsLocal(){ return idbPutNow('units', RAW.map(function(u){ return Object.assign({}, u); })); }
+function daPersistUnitsLocal(){ _dataVer++; return idbPutNow('units', RAW.map(function(u){ return Object.assign({}, u); })); }
 async function loadUnitsFromCloud(){
   if(!sbReady || !SB_FARM_ID) return;
   var rows = await sbFetch('farm_units?farm_id=eq.' + encodeURIComponent(SB_FARM_ID) + '&select=data&limit=10000');
@@ -10716,7 +10637,8 @@ async function daWipeLocalTenant(){
   _txCache = null; _txMem = []; _unitsCache = null; _feedInvCache = null;
   _invMemo = {k:'', v:null}; _valCache = {t:0, map:{}};
   RAW.length = 0;
-  if(TX_IDB.db){ _idbPendingArr = null; if(_idbTimer){ clearTimeout(_idbTimer); _idbTimer = null; } await idbPutNow('tx', []); await idbPutNow('units', []); }
+  if(TX_IDB.db){ _idbPendingArr = null; if(_idbTimer){ clearTimeout(_idbTimer); _idbTimer = null; } await idbPutNow('tx', []); await idbPutNow('units', []); await idbPutNow('txdead', {}); }
+  _txDead = {};
 }
 async function daEnsureTenant(fid){
   if(!fid) return;
@@ -11123,7 +11045,7 @@ async function daRunImport(){
     if(p.tx.length){
       var arr = getTX(), ix = {};
       arr.forEach(function(t, i){ ix[t.id] = i; });
-      p.tx.forEach(function(t){ if(ix[t.id] !== undefined) arr[ix[t.id]] = t; else arr.push(t); });
+      p.tx.forEach(function(t){ daUnmarkDead(t.id); if(ix[t.id] !== undefined) arr[ix[t.id]] = t; else arr.push(t); });
       saveTX(arr); await idbFlush();
       if(sbReady && SB_FARM_ID) await _txSyncToSB(p.tx);
     }
@@ -12353,7 +12275,7 @@ async function daFwSave(){
   try{
     if(adds.length){
       var arr = getTX(), ix = {}; arr.forEach(function(t, i){ ix[t.id] = i; });
-      adds.forEach(function(t){ if(ix[t.id] !== undefined) arr[ix[t.id]] = t; else arr.push(t); });
+      adds.forEach(function(t){ daUnmarkDead(t.id); if(ix[t.id] !== undefined) arr[ix[t.id]] = t; else arr.push(t); });
       saveTX(arr); await idbFlush();
       var failed = adds;
       if(sbReady && SB_FARM_ID && navigator.onLine) failed = await daUploadTxBatch(adds);
@@ -12476,7 +12398,7 @@ function daSimulateUnit(unit, list){
   return {probs:probs, states:states, base:base, raw:raw};
 }
 function daStateAt(unit, date){
-  var s = daSimulateUnit(unit, getTX().filter(function(t){ return t.unit === unit && String(t.date || '') <= date; }));
+  var s = daSimulateUnit(unit, (daTxByUnit()[unit] || []).filter(function(t){ return String(t.date || '') <= date; }));
   var ds = Object.keys(s.states).filter(function(d){ return d <= date; }).sort();
   var raw = s.raw;
   return ds.length ? s.states[ds[ds.length - 1]] : {fish:raw.fishNo || 0, wt:raw.avgWt || 0};
@@ -12484,7 +12406,7 @@ function daStateAt(unit, date){
 // Only problems that the change itself introduces (old mess never blocks new work)
 function daTimelineCheck(unit, ch){
   if(!unit || !daRawUnit(unit)) return [];
-  var cur = getTX().filter(function(t){ return t.unit === unit; });
+  var cur = (daTxByUnit()[unit] || []).slice();
   var next = cur.filter(function(t){ return !(ch.remove && t.id === ch.remove) && !(ch.replace && t.id === ch.replace.id); });
   var cand = ch.add || (ch.replace && ch.replace.tx);
   if(cand) next.push(cand);
@@ -12512,7 +12434,7 @@ function validateTX(t){
       var r = daLiveMap()[t.unit];
       if(r){
         var exp = daExpectedDailyFeed(r);
-        var same = getTX().filter(function(x){ return x.type === 'feeding' && x.unit === t.unit && x.date === t.date && x.id !== t.id; });
+        var same = (daTxByUnit()[t.unit] || []).filter(function(x){ return x.type === 'feeding' && x.date === t.date && x.id !== t.id; });
         var dayTot = same.reduce(function(s, x){ return s + (parseFloat(x.kg) || 0); }, 0) + kg;
         if(exp > 0.05 && dayTot > exp * 2) warn('علف يوم ' + t.date + ' للوحدة ' + dayTot.toFixed(1) + ' كجم — أكتر من ضعف المتوقع (' + exp.toFixed(1) + ' كجم)');
         if(t.meal && same.some(function(x){ return x.meal === t.meal; })) warn('وجبة "' + t.meal + '" متسجلة قبل كده لنفس اليوم');
@@ -12574,6 +12496,123 @@ function daCheckEdit(t, ch){
   return c;
 }
 
+
+// ══════════════════════════════════════════════════════════
+//  ROBUSTNESS — local dates, deletes that stay deleted, complete sync, speed at scale
+// ══════════════════════════════════════════════════════════
+function daYmd(d){ return d.getFullYear() + '-' + daPad2(d.getMonth() + 1) + '-' + daPad2(d.getDate()); }
+function daToday(){ return daYmd(new Date()); }       // the farm's local calendar day (not UTC)
+
+// ── data version: anything that changes the record bumps it; heavy views reuse results until it changes ──
+var _dataVer = 1;
+var _idxMemo = {v:-1, m:null};
+function daTxByUnit(){
+  if(_idxMemo.v === _dataVer && _idxMemo.m) return _idxMemo.m;
+  var m = {}; getTX().forEach(function(t){ (m[t.unit] = m[t.unit] || []).push(t); });
+  _idxMemo = {v:_dataVer, m:m}; return m;
+}
+var _treatMemo = {v:-1, m:null};
+function getActiveWithdrawal(unit, date){
+  date = date || daToday();
+  if(_treatMemo.v !== _dataVer || !_treatMemo.m){
+    var m = {}; getTX().forEach(function(t){ if(t.type === 'treatment' && (parseInt(t.withdrawalDays) || 0) > 0 && t.date) (m[t.unit] = m[t.unit] || []).push(t); });
+    _treatMemo = {v:_dataVer, m:m};
+  }
+  var best = null;
+  (_treatMemo.m[unit] || []).forEach(function(t){
+    var until = daAddDays(t.date, parseInt(t.withdrawalDays) || 0);
+    if(t.date <= date && until > date && (!best || until > best.until)) best = {product:t.product || 'علاج', until:until, date:t.date};
+  });
+  return best;
+}
+var _liveCore = _txLiveRows, _liveMemo = {k:'', v:null};
+_txLiveRows = function(){
+  var k = _dataVer + '|' + RAW.length + '|' + daToday();
+  if(_liveMemo.k === k && _liveMemo.v) return _liveMemo.v;
+  var v = _liveCore.apply(this, arguments); _liveMemo = {k:k, v:v}; return v;
+};
+var _saveSettingsCore = saveSettings;
+saveSettings = function(){ _dataVer++; return _saveSettingsCore.apply(this, arguments); };
+
+// ── deletes leave a tombstone so another device can never bring the record back ──
+var _txDead = {}, _deadTimer = null;
+function daSaveDead(){ if(_deadTimer) clearTimeout(_deadTimer); _deadTimer = setTimeout(function(){ if(TX_IDB.db) idbPutNow('txdead', _txDead); }, 200); }
+function daMarkDead(id){ if(!_txDead[id]){ _txDead[id] = Date.now(); daSaveDead(); } }
+function daUnmarkDead(id){ if(_txDead[id]){ delete _txDead[id]; daSaveDead(); } }
+function daIsDead(id){ return !!_txDead[id]; }
+async function daLoadDead(){ try{ var d = await idbGet('txdead'); if(d && typeof d === 'object') _txDead = d; }catch(e){} }
+function deleteTX(id){
+  var t = null;
+  var keep = getTX().filter(function(x){ if(x.id === id){ t = x; return false; } return true; });
+  if(!t) return;
+  saveTX(keep); daMarkDead(id);
+  var now = new Date().toISOString();
+  var tomb = Object.assign({}, t, {deleted:true, deletedAt:now, deletedBy: currentUser ? currentUser.email : '', ts:now});
+  if(sbReady && SB_FARM_ID && navigator.onLine) daUploadTxBatch([tomb]).then(function(f){ f.forEach(function(x){ addToOfflineQueue('upsert_tx', x); }); });
+  else addToOfflineQueue('upsert_tx', tomb);
+}
+async function loadTXFromSB(){
+  if(!sbReady || !SB_FARM_ID) return;
+  try{
+    var all = [], page = 0, limit = 1000;
+    while(true){
+      var rows = await sbFetch('transactions?farm_id=eq.' + SB_FARM_ID + '&order=ts.desc&limit=' + limit + '&offset=' + (page * limit));
+      if(!rows || !rows.length) break;
+      rows.forEach(function(r){ if(r.data) all.push(r.data); });
+      if(rows.length < limit) break;
+      page++; if(page > 500) break;
+    }
+    var cloudIds = {};
+    all.forEach(function(t){ cloudIds[t.id] = 1; if(t.deleted) daMarkDead(t.id); });
+    var live = all.filter(function(t){ return !t.deleted; });
+    var pending = getTX().filter(function(t){ return !cloudIds[t.id] && !daIsDead(t.id); });
+    var merged = live.concat(pending);
+    merged.sort(function(a, b){ return (b.date || '') > (a.date || '') ? 1 : -1; });
+    if(!TX_IDB.db && merged.length > 5000) merged = merged.slice(0, 5000);
+    saveTX(merged);
+    _txCache = null;
+    if(pending.length){ var failed = await daUploadTxBatch(pending); failed.forEach(function(t){ addToOfflineQueue('upsert_tx', t); }); }
+  }catch(e){ console.warn('loadTXFromSB:', e.message); }
+}
+// ── realtime: page through everything new (a weekly save can be ~1000 rows) and honour deletes ──
+function startRealtimeSync(){
+  if(_realtimeInterval) return;
+  _realtimeInterval = setInterval(daRealtimePull, 30000);
+}
+var _rtBusy = false;
+async function daRealtimePull(){
+  if(_rtBusy || !sbReady || !SB_FARM_ID || !navigator.onLine) return;
+  _rtBusy = true;
+  try{
+    var last = localStorage.getItem('daracqua_last_sync') || '2000-01-01T00:00:00Z';
+    var since = new Date(new Date(last).getTime() - 5 * 60000).toISOString();
+    var stamp = new Date().toISOString(), rows = [], off = 0;
+    while(true){
+      var page = await sbFetch('transactions?farm_id=eq.' + SB_FARM_ID + '&ts=gt.' + encodeURIComponent(since) + '&order=ts.asc&limit=1000&offset=' + off);
+      if(!page || !page.length) break;
+      rows = rows.concat(page); if(page.length < 1000) break; off += 1000; if(off > 50000) break;
+    }
+    localStorage.setItem('daracqua_last_sync', stamp);
+    if(!rows.length) return;
+    var local = getTX(), idx = {};
+    local.forEach(function(t, i){ idx[t.id] = i; });
+    var added = 0, updated = 0, removed = 0;
+    rows.forEach(function(r){
+      var d = r.data; if(!d || !d.id) return;
+      if(d.deleted){ daMarkDead(d.id); if(idx[d.id] !== undefined && local[idx[d.id]]){ local[idx[d.id]] = null; removed++; } return; }
+      if(daIsDead(d.id) && (!d.ts || d.ts <= String(new Date(_txDead[d.id]).toISOString()))) return;
+      if(idx[d.id] === undefined){ local.push(d); idx[d.id] = local.length - 1; added++; daUnmarkDead(d.id); }
+      else if(local[idx[d.id]] && (d.ts || '') > (local[idx[d.id]].ts || '')){ local[idx[d.id]] = d; updated++; }
+    });
+    if(added || updated || removed){
+      saveTX(local.filter(function(t){ return t; }));
+      if(added) toast('🔄 ' + added + ' معاملة جديدة من مستخدم آخر');
+      if(['dashboard','site-overview','review-queue','audit-log','feed-week','traceability'].indexOf(currentView) >= 0) show(currentView, true);
+    }
+  }catch(e){}
+  finally{ _rtBusy = false; }
+}
+
 // ── Init ──────────────────────────────────────
 (function(){
   var _bc = getSettings();
@@ -12585,7 +12624,7 @@ function daCheckEdit(t, ch){
   try{ loadSavedTheme(); }catch(e){}
   daMigrateLocalUsers();
   if(daParseAuthHash()){ show('reset-password'); return; }
-  txStoreInit().then(daLoadUnitsCache).then(function(){ return restoreSession(); }).then(async function(ok){
+  txStoreInit().then(daLoadUnitsCache).then(daLoadDead).then(function(){ return restoreSession(); }).then(async function(ok){
     if(!ok){ show('login-page'); return; }
     await daEnsureTenant((getSession() || {}).farm_id);
     show(homeView());
