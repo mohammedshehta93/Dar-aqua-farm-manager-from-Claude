@@ -4710,8 +4710,9 @@ function _txLiveRows(){
     var uid = r.unit;
     // Apply TX in chronological order
     allTX.filter(function(t){return t.unit===uid;})
-         .sort(function(a,b){return a.ts>b.ts?1:-1;})
+         .sort(daTxOrder)
          .forEach(function(t){
+           var _od = daUnitOpenDate(uid); if(_od && t.date && t.date < _od && t.type !== 'water_quality') return;
            if(t.type==='mortality'){
              r.fishNo = Math.max(0,(r.fishNo||0)-(t.count||0));
            }
@@ -4720,6 +4721,9 @@ function _txLiveRows(){
            }
            if(t.type==='transfer_out'){
              r.fishNo = Math.max(0,(r.fishNo||0)-(t.fishNo||0));
+           }
+           if(t.type==='harvesting'){
+             r.fishNo = Math.max(0,(r.fishNo||0)-(parseInt(t.fishNo)||0));
            }
            if(t.type==='transfer_in'){
              var prevBio=(r.fishNo||0)*(r.avgWt||0);
@@ -10021,65 +10025,6 @@ function daExpectedDailyFeed(r){
   try{ var c = getSettings(r.farm); return (r.biomass||0) * getSFRAdjusted(r.avgWt||0, r.farm, c.waterTemp||28, c.waterDO||7) / 100; }
   catch(e){ return 0; }
 }
-function validateTX(t){
-  var msgs = [], level = 'ok';
-  function warn(m){ msgs.push('⚠️ '+m); if(level === 'ok') level = 'warn'; }
-  function block(m){ msgs.push('⛔ '+m); level = 'block'; }
-  var today = daToday();
-  if(t.date){
-    if(t.date > daAddDays(today, 1)) block('التاريخ في المستقبل ('+t.date+')');
-    else if(t.date < daAddDays(today, -60)) warn('التاريخ أقدم من 60 يوم ('+t.date+')');
-  }
-  var r = t.unit ? daLiveMap()[t.unit] : null;
-  var fish = r ? (r.fishNo||0) : 0;
-  switch(t.type){
-    case 'feeding':
-      var kg = parseFloat(t.kg) || 0;
-      if(kg <= 0){ block('كمية العلف لازم تكون أكبر من صفر'); break; }
-      if(kg > 300) warn(kg+' كجم في إدخال واحد — رقم كبير جداً');
-      if(r){
-        var exp = daExpectedDailyFeed(r);
-        var same = getTX().filter(function(x){ return x.type === 'feeding' && x.unit === t.unit && x.date === t.date; });
-        var dayTot = same.reduce(function(s, x){ return s + (parseFloat(x.kg)||0); }, 0) + kg;
-        if(exp > 0.05 && dayTot > exp * 2) warn('علف اليوم للوحدة '+dayTot.toFixed(1)+' كجم — أكتر من ضعف المتوقع ('+exp.toFixed(1)+' كجم)');
-        if(t.meal && same.some(function(x){ return x.meal === t.meal; })) warn('وجبة "'+t.meal+'" متسجلة قبل كده لنفس اليوم');
-      }
-      break;
-    case 'mortality':
-      var c = parseInt(t.count) || 0;
-      if(c <= 0){ block('عدد النفوق لازم يكون أكبر من صفر'); break; }
-      if(fish > 0 && c > fish) block('النفوق ('+c+') أكبر من عدد السمك في الوحدة ('+fish+')');
-      else if(fish > 0 && c > Math.max(20, fish * 0.05)) warn('نفوق '+c+' = '+(c/fish*100).toFixed(1)+'% من الوحدة في يوم واحد');
-      break;
-    case 'sampling':
-      var w = parseFloat(t.avgWt) || 0;
-      if(w <= 0){ block('متوسط الوزن لازم يكون أكبر من صفر'); break; }
-      if(r && r.avgWt > 0){
-        if(w < r.avgWt * 0.85) warn('الوزن نزل '+((1 - w/r.avgWt)*100).toFixed(0)+'% عن آخر وزن ('+r.avgWt.toFixed(0)+'g)');
-        if(w > r.avgWt * 2.5) warn('الوزن '+w+'g أكتر من 2.5 ضعف آخر وزن ('+r.avgWt.toFixed(0)+'g) — اتأكد من الرقم');
-      }
-      break;
-    case 'water_quality':
-      var lim = {temp:[5,45,'الحرارة'], do:[0,25,'الأكسجين'], ph:[3,12,'pH'], ammonia:[0,50,'الأمونيا']};
-      Object.keys(lim).forEach(function(k){
-        if(t[k] === null || t[k] === undefined || t[k] === '') return;
-        var v = parseFloat(t[k]); if(isNaN(v)) return;
-        if(v < lim[k][0] || v > lim[k][1]) block(lim[k][2]+' = '+v+' — قيمة مستحيلة، غالباً غلط في الكتابة');
-      });
-      break;
-    case 'harvesting':
-      var hn = parseInt(t.fishNo) || 0;
-      if(fish > 0 && hn > fish) block('عدد الحصاد ('+hn+') أكبر من عدد السمك ('+fish+')');
-      var wd = getActiveWithdrawal(t.unit, t.date || today);
-      if(wd) block('الوحدة في فترة سحب ('+wd.product+') لحد '+wd.until+' — ممنوع الحصاد');
-      break;
-    case 'transfer_out':
-      var tn = parseInt(t.fishNo) || 0;
-      if(fish > 0 && tn > fish) block('عدد النقل ('+tn+') أكبر من عدد السمك ('+fish+')');
-      break;
-  }
-  return {level:level, msgs:msgs};
-}
 
 // ── audit stamp + validation gate on every new transaction ──
 var _txHeld = [], _txHeldTimer = null;
@@ -10244,7 +10189,7 @@ function rqApprove(i, silent){
   var t = (window._rqItems || [])[i]; if(!t) return;
   var fld = DA_MAIN_FIELD[t.type], el = document.getElementById('rq-'+i);
   if(fld && el && el.value !== '' && String(parseFloat(el.value)) !== String(parseFloat(t[fld]))){
-    var ch = {}; ch[fld] = parseFloat(el.value); updateTX(t.id, ch);
+    var ch = {}; ch[fld] = parseFloat(el.value); var ck = daCheckEdit(t, ch); if(ck.length){ toast('⛔ ' + ck[0]); return; } updateTX(t.id, ch);
   }
   updateTX(t.id, {reviewedBy: currentUser ? currentUser.email : '', reviewedByName: (getSession()||{}).name || '', reviewedAt: new Date().toISOString(), status:'approved'});
   if(!silent){ toast('✅ اتعتمد'); show('review-queue', true); }
@@ -12002,7 +11947,9 @@ function daOpenTxEditor(id){
   h += '<div style="font-size:12px;color:#64748b;margin-bottom:12px">' + txSummary(t) + ' — أدخلها ' + daEsc(t.byName || t.by || '—') + '</div>';
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
   h += '<div><label style="font-size:11px;color:#64748b">التاريخ</label><input id="te-date" type="date" value="' + daEsc(t.date || '') + '" style="' + inp + '"/></div>';
-  if(fld) h += '<div><label style="font-size:11px;color:#64748b">' + fld + '</label><input id="te-val" type="number" step="any" value="' + daEsc(t[fld]) + '" style="' + inp + '"/></div>';
+  var FLD_AR = {kg:'الكمية (كجم)', count:'العدد', avgWt:'متوسط الوزن (جم)', fishNo:'عدد السمك'};
+  if(fld) h += '<div><label style="font-size:11px;color:#64748b">' + (FLD_AR[fld] || fld) + '</label><input id="te-val" type="number" step="any" value="' + daEsc(t[fld]) + '" style="' + inp + '"/></div>';
+  if(t.type === 'harvesting') h += '<div><label style="font-size:11px;color:#64748b">عدد السمك</label><input id="te-n2" type="number" step="1" min="0" value="' + daEsc(t.fishNo == null ? '' : t.fishNo) + '" style="' + inp + '"/></div>';
   if(ex) h += '<div><label style="font-size:11px;color:#64748b">' + ex[1] + '</label><input id="te-extra" value="' + daEsc(t[ex[0]] || '') + '" style="' + inp + '"/></div>';
   h += '</div><div style="margin-top:10px"><label style="font-size:11px;color:#64748b">سبب التعديل *</label><input id="te-why" placeholder="مثلاً: غلط في الكتابة، الرقم الصح من الشيت" style="' + inp + '"/></div>';
   h += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button id="te-save" class="savebtn" style="width:auto;padding:10px 22px" data-id="' + daEsc(id) + '" onclick="daSaveTxEdit(this.dataset.id)">💾 حفظ</button>'
@@ -12018,8 +11965,10 @@ function daSaveTxEdit(id){
   var d = daParseDate(daVal('te-date'));
   if(d && d !== t.date){ if(d > daAddDays(daToday(), 1)){ toast('⚠️ التاريخ في المستقبل'); return; } ch.date = d; }
   if(fld){ var v = parseFloat(daVal('te-val')); if(isNaN(v) || v < 0){ toast('⚠️ الرقم مش صحيح'); return; } if(v !== parseFloat(t[fld])) ch[fld] = v; }
+  if(t.type === 'harvesting' && document.getElementById('te-n2')){ var v2 = parseInt(daVal('te-n2'), 10); if(isNaN(v2) || v2 < 0){ toast('⚠️ عدد السمك مش صحيح'); return; } if(v2 !== (parseInt(t.fishNo, 10) || 0)) ch.fishNo = v2; }
   if(ex){ var e = daVal('te-extra').trim(); if(e !== String(t[ex[0]] || '')) ch[ex[0]] = e; }
   if(!Object.keys(ch).length){ daCloseModal('tx-edit'); return; }
+  var chk = daCheckEdit(t, ch); if(chk.length){ toast('⛔ ' + chk[0]); return; }
   var n0 = (t.history || []).length;
   var u = updateTX(id, ch);
   if(u && u.history){ for(var i = n0; i < u.history.length; i++) u.history[i].why = why; saveTX(getTX()); if(sbReady && SB_FARM_ID) _txUpsertOne(u); }
@@ -12302,10 +12251,10 @@ function renderFeedWeek(){
       + (dflt && feedTypes.indexOf(dflt) < 0 ? '<option selected>' + daEsc(dflt) + '</option>' : '') + '</select></td>';
     days.forEach(function(d, di){
       var c = ex[r.unit + '|' + d];
-      var locked = c && !c.editable, val = c ? +c.sum.toFixed(2) : '';
+      var preBase = !!(daUnitBaseDate(r.unit) && d < daUnitBaseDate(r.unit)); var locked = (c && !c.editable) || preBase, val = c ? +c.sum.toFixed(2) : '';
       h += '<td style="padding:2px"><input id="fw-' + ri + '-' + di + '" type="number" step="0.1" min="0" inputmode="decimal" value="' + val + '"'
         + ' data-r="' + ri + '" data-d="' + di + '" data-orig="' + val + '"' + (c && c.editable ? ' data-tx="' + daEsc(c.ids[0]) + '"' : '')
-        + (locked ? ' disabled title="متسجل من شاشة تانية (' + c.ids.length + ' إدخال) — عدّله من التتبع"' : '')
+        + (locked ? ' disabled title="' + (preBase ? 'قبل تاريخ بداية التانك (' + daUnitBaseDate(r.unit) + ')' : 'متسجل من شاشة تانية (' + c.ids.length + ' إدخال) — عدّله من التتبع') + '"' : '')
         + ' oninput="daFwTotals()" onpaste="daFwPaste(event,this)"'
         + ' style="width:58px;padding:5px 3px;border:1px solid var(--line);border-radius:6px;text-align:center;font:inherit;font-size:13px;' + (locked ? 'background:#e2e8f0;color:#475569' : c ? 'background:#ecfdf5' : '') + '"/></td>';
     });
@@ -12478,6 +12427,151 @@ async function syncOfflineQueue(){
     var done = q.length - keep.length;
     if(done > 0) toast('✅ اترفع ' + done + ' عملية كانت مستنية النت');
   }finally{ _offSyncing = false; try{ updateOfflineStatus(); }catch(e){} }
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  TIMELINE CONSISTENCY — enter anything on any date, never contradict the record
+// ══════════════════════════════════════════════════════════
+var DA_TX_PHASE = {stocking:0, transfer_in:0, feeding:1, sampling:1, water_quality:1, treatment:1, mortality:2, harvesting:3, transfer_out:3};
+var DA_NEEDS_FISH = {feeding:1, sampling:1, treatment:1, mortality:1, harvesting:1, transfer_out:1};
+var DA_SUB_FIELD = {mortality:'count', harvesting:'fishNo', transfer_out:'fishNo'};
+var DA_TYPE_SHORT = {feeding:'تغذية', sampling:'عينة', treatment:'علاج', mortality:'نفوق', harvesting:'حصاد', transfer_out:'نقل خارج', transfer_in:'نقل داخل', stocking:'تخزين', water_quality:'قياس مياه'};
+function daTxOrder(a, b){
+  var da = String(a.date || ''), db = String(b.date || '');
+  if(da !== db) return da < db ? -1 : 1;
+  var pa = DA_TX_PHASE[a.type] === undefined ? 1 : DA_TX_PHASE[a.type], pb = DA_TX_PHASE[b.type] === undefined ? 1 : DA_TX_PHASE[b.type];
+  if(pa !== pb) return pa - pb;
+  return String(a.ts || '') < String(b.ts || '') ? -1 : 1;
+}
+function daUnitBaseDate(unit){ var u = daRawUnit(unit); if(!u) return ''; return u.open ? u.open.date : (u.startDate || ''); }
+// Replays one tank's record day by day; returns problems + fish/weight at a date
+function daSimulateUnit(unit, list){
+  var raw = daRawUnit(unit) || {}, base = raw.open ? raw.open.date : (raw.startDate || '');
+  var fish = raw.fishNo || 0, wt = raw.avgWt || 0, probs = [], emptiedBy = null;
+  var byDate = {};
+  list.slice().sort(daTxOrder).forEach(function(t){ (byDate[t.date || ''] = byDate[t.date || ''] || []).push(t); });
+  var states = {};
+  Object.keys(byDate).sort().forEach(function(d){
+    var ev = byDate[d];
+    if(base && d && d < base) ev.forEach(function(t){ if(t.type !== 'water_quality') probs.push({key:'pre|' + t.id, t:t, msg: DA_TYPE_SHORT[t.type] + ' يوم ' + d + ' قبل ' + (raw.open ? 'تاريخ الرصيد الافتتاحي (' + base + ') — اللي قبله محسوب في الرصيد' : 'تاريخ تخزين الوحدة (' + base + ')')}); });
+    ev.forEach(function(t){ if(t.type === 'stocking' || t.type === 'transfer_in'){
+      var n = parseInt(t.fishNo) || 0, w = parseFloat(t.avgWt) || wt;
+      if(fish + n > 0) wt = (fish * wt + n * w) / (fish + n);
+      fish += n; if(n > 0) emptiedBy = null; } });
+    var start = fish;
+    states[d] = {fish:start, wt:wt};
+    ev.forEach(function(t){
+      if(DA_NEEDS_FISH[t.type] && start <= 0)
+        probs.push({key:'empty|' + t.id, t:t, msg:'التانك فاضي يوم ' + d + (emptiedBy ? ' (بعد ' + DA_TYPE_SHORT[emptiedBy.type] + ' يوم ' + emptiedBy.date + ')' : '') + ' — بس فيه ' + DA_TYPE_SHORT[t.type] + ' مسجل'});
+      if(t.type === 'sampling' && parseFloat(t.avgWt) > 0) wt = parseFloat(t.avgWt);
+    });
+    var sub = 0, subEv = null;
+    ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(f){ sub += parseInt(t[f]) || 0; subEv = t; } });
+    if(sub > 0 && start > 0 && sub > start)
+      probs.push({key:'neg|' + d, t:subEv, msg:'يوم ' + d + ': النفوق والحصاد والنقل (' + sub + ') أكبر من السمك الموجود (' + start + ')'});
+    fish = Math.max(0, start - sub);
+    if(start > 0 && fish === 0 && subEv) emptiedBy = subEv;
+  });
+  return {probs:probs, states:states, base:base, raw:raw};
+}
+function daStateAt(unit, date){
+  var s = daSimulateUnit(unit, getTX().filter(function(t){ return t.unit === unit && String(t.date || '') <= date; }));
+  var ds = Object.keys(s.states).filter(function(d){ return d <= date; }).sort();
+  var raw = s.raw;
+  return ds.length ? s.states[ds[ds.length - 1]] : {fish:raw.fishNo || 0, wt:raw.avgWt || 0};
+}
+// Only problems that the change itself introduces (old mess never blocks new work)
+function daTimelineCheck(unit, ch){
+  if(!unit || !daRawUnit(unit)) return [];
+  var cur = getTX().filter(function(t){ return t.unit === unit; });
+  var next = cur.filter(function(t){ return !(ch.remove && t.id === ch.remove) && !(ch.replace && t.id === ch.replace.id); });
+  var cand = ch.add || (ch.replace && ch.replace.tx);
+  if(cand) next.push(cand);
+  var before = {}; daSimulateUnit(unit, cur).probs.forEach(function(p){ before[p.key] = 1; });
+  return daSimulateUnit(unit, next).probs.filter(function(p){ return !before[p.key]; }).map(function(p){ return p.msg; });
+}
+
+function validateTX(t){
+  var msgs = [], level = 'ok';
+  function warn(m){ msgs.push('⚠️ ' + m); if(level === 'ok') level = 'warn'; }
+  function block(m){ msgs.push('⛔ ' + m); level = 'block'; }
+  var today = daToday();
+  if(t.date){
+    if(t.date > daAddDays(today, 1)) block('التاريخ في المستقبل (' + t.date + ')');
+    else if(t.date < daAddDays(today, -120)) warn('التاريخ أقدم من 120 يوم (' + t.date + ')');
+  }
+  if(t._pairHeld){ msgs.push((t._pairHeld.level === 'block' ? '⛔ ' : '⚠️ ') + 'مرتبط بخروج السمك من التانك التاني'); level = t._pairHeld.level === 'block' ? 'block' : (level === 'block' ? 'block' : 'warn'); delete t._pairHeld; }
+  var at = t.unit && t.date && daRawUnit(t.unit) ? daStateAt(t.unit, t.date) : null;
+  var fishAt = at ? at.fish : 0, wtAt = at ? at.wt : 0;
+  switch(t.type){
+    case 'feeding':
+      var kg = parseFloat(t.kg) || 0;
+      if(kg <= 0){ block('كمية العلف لازم تكون أكبر من صفر'); break; }
+      if(kg > 300) warn(kg + ' كجم في إدخال واحد — رقم كبير جداً');
+      var r = daLiveMap()[t.unit];
+      if(r){
+        var exp = daExpectedDailyFeed(r);
+        var same = getTX().filter(function(x){ return x.type === 'feeding' && x.unit === t.unit && x.date === t.date && x.id !== t.id; });
+        var dayTot = same.reduce(function(s, x){ return s + (parseFloat(x.kg) || 0); }, 0) + kg;
+        if(exp > 0.05 && dayTot > exp * 2) warn('علف يوم ' + t.date + ' للوحدة ' + dayTot.toFixed(1) + ' كجم — أكتر من ضعف المتوقع (' + exp.toFixed(1) + ' كجم)');
+        if(t.meal && same.some(function(x){ return x.meal === t.meal; })) warn('وجبة "' + t.meal + '" متسجلة قبل كده لنفس اليوم');
+      }
+      break;
+    case 'mortality':
+      var c = parseInt(t.count) || 0;
+      if(c <= 0){ block('عدد النفوق لازم يكون أكبر من صفر'); break; }
+      if(fishAt > 0 && c <= fishAt && c > Math.max(20, fishAt * 0.05)) warn('نفوق ' + c + ' = ' + (c / fishAt * 100).toFixed(1) + '% من التانك يوم ' + t.date);
+      break;
+    case 'sampling':
+      var w = parseFloat(t.avgWt) || 0;
+      if(w <= 0){ block('متوسط الوزن لازم يكون أكبر من صفر'); break; }
+      if(wtAt > 0){
+        if(w < wtAt * 0.85) warn('الوزن نزل ' + ((1 - w / wtAt) * 100).toFixed(0) + '% عن الوزن قبله (' + wtAt.toFixed(0) + 'g)');
+        if(w > wtAt * 2.5) warn('الوزن ' + w + 'g أكتر من 2.5 ضعف الوزن قبله (' + wtAt.toFixed(0) + 'g) — اتأكد من الرقم');
+      }
+      break;
+    case 'water_quality':
+      var lim = {temp:[5,45,'الحرارة'], do:[0,25,'الأكسجين'], ph:[3,12,'pH'], ammonia:[0,50,'الأمونيا']};
+      Object.keys(lim).forEach(function(k){
+        if(t[k] === null || t[k] === undefined || t[k] === '') return;
+        var v = parseFloat(t[k]); if(isNaN(v)) return;
+        if(v < lim[k][0] || v > lim[k][1]) block(lim[k][2] + ' = ' + v + ' — قيمة مستحيلة، غالباً غلط في الكتابة');
+      });
+      break;
+    case 'harvesting':
+      var wd = getActiveWithdrawal(t.unit, t.date || today);
+      if(wd) block('الوحدة في فترة سحب (' + wd.product + ') لحد ' + wd.until + ' — ممنوع الحصاد');
+      break;
+  }
+  if(t.unit && t.type) daTimelineCheck(t.unit, {add:t}).forEach(block);
+  return {level:level, msgs:msgs};
+}
+
+// transfers: if the "out" leg is held, the "in" leg is held with it
+var _addTXChecked = addTX;
+addTX = function(obj){
+  if(obj && obj.type === 'transfer_in' && obj.txGroup){
+    var mate = _txHeld.filter(function(x){ return x.obj.txGroup === obj.txGroup; })[0];
+    if(mate) obj._pairHeld = {level: mate.v.level};
+  }
+  return _addTXChecked(obj);
+};
+// deletes that would break later records are refused
+var _deleteTXChecked = deleteTX;
+deleteTX = function(id){
+  var t = getTX().filter(function(x){ return x.id === id; })[0];
+  if(t && t.unit && daRawUnit(t.unit)){
+    var c = daTimelineCheck(t.unit, {remove:id});
+    if(c.length){ toast('⛔ مينفعش تتمسح: ' + c[0]); return; }
+  }
+  return _deleteTXChecked(id);
+};
+function daCheckEdit(t, ch){
+  var cand = Object.assign({}, t, ch);
+  var c = daTimelineCheck(t.unit, {replace:{id:t.id, tx:cand}});
+  if(cand.date && cand.date > daAddDays(daToday(), 1)) c.unshift('التاريخ في المستقبل');
+  return c;
 }
 
 // ── Init ──────────────────────────────────────
