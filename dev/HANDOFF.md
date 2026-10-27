@@ -1,0 +1,61 @@
+# Farm Manager — developer handoff
+
+Single-file web app for aquaculture farms (RAS, aquaponics, ponds). Multi-farm SaaS:
+a platform owner creates farms + licences; each farm's data is isolated by Supabase RLS.
+**Live:** https://mohammedshehta93.github.io/Dar-aqua-farm-manager-from-Claude/
+**Language with the owner:** Egyptian Arabic, short and direct; explain trade-offs honestly; test before claiming.
+
+## Stack
+- `index.html` (~760 KB): all HTML/CSS/JS inline. GitHub Pages hosting. IndexedDB (local) + Supabase (auth, data, RLS).
+- Supabase project `mjtxibdxqxrgykuyftsr` — only the **publishable** key is in the app (public by design).
+- AI: Cloudflare Worker `farm-ai-2.mohammedshehta86.workers.dev` (`dev/ai-worker.js`): Workers AI **binding** (no API token),
+  accepts only the app origin + a valid Supabase session; tries a list of models, `MODEL` env var overrides.
+- No secrets anywhere in the repo or app. A deploy token is given by the owner in chat (repo-scoped, Contents R/W, expires 2027-10-26).
+
+## How the code is extended (important)
+- New features are written as a JS module and merged with `node dev/tools/merge_module.js module.js index.html`
+  (inserts before `// ── Init ──`, removes older duplicate top-level function declarations — **last definition wins**).
+- Wrappers pattern for existing functions: `var _core = fn; fn = function(){ ... _core.apply(this, arguments) ... }`.
+- Small edits: exact-string replacements that assert exactly one match (fail loudly otherwise).
+- After every change: `node --check` on the extracted main script + run the test suites.
+
+## Key concepts / modules (search these names)
+- Tenancy: `resolveAccess`, `daEnsureTenant`, `daWipeLocalTenant`, `TENANT_KEY`, platform: `renderPlatform`, `platform_*` RPCs.
+- Units (tanks) live in Supabase `farm_units`, cached in IDB; `RAW` array is filled at runtime (no farm data in code).
+  Layout builder (`daLayoutBuild`), site systems (`daSites`: aquaponics/ras/...), unit editor/rename (`daOpenUnitEditor`, `daRenameUnit`).
+- Live state: `_txLiveRows` replays transactions **by date** (`daTxOrder`), memoized by `_dataVer`; per-unit index `daTxByUnit()`.
+- Timeline consistency for back-dated entries: `daSimulateUnit`, `daTimelineCheck`, `validateTX` (blocks emptying a tank before later records, over-removal, entries before stocking/opening balance).
+- AquaManager "Site Overview" import with opening balances (`u.open`): `daParseAquaManager`; Excel template import/export: `daParseImport`, `daExportBackup`.
+- Sync: server-stamped `transactions.synced_at` → incremental `loadTXFromSB`, `daRealtimePull` (30 s), weekly id reconcile `daMaybeReconcile`,
+  tombstone deletes (`deleteTX` uploads `{deleted:true}`; `_txDead`), offline queue `syncOfflineQueue` (batch, keeps failures).
+- Farm settings shared via `farm_settings` (localStorage keys in `DA_SYNC_PREFIXES` auto-push).
+- Feeding: weekly grid `renderFeedWeek` (paste from Excel, real dates), printable sheet `renderFeedingPrint` (meals by temperature, A4 pages).
+- RAS: per-filter loops `daRasLoops`, capacity fixed in TAN from proven max feed × protein (or media), protein per pellet size, max feed & max biomass per section.
+- Error logging: `daLogError` → `client_errors`; platform page shows grouped errors. Dates are local (`daToday`, `daYmd`).
+- Navigation: top tabs `DA_NAV` (8 groups, permission-aware via `canAccessView`); old sidebar kept hidden in DOM (tests use it).
+
+## SQL (in `dev/sql`, all idempotent; confirm with the owner which ones were run)
+`multi_farm_setup.sql` (tenancy + RLS + platform RPCs) · `delete_user.sql` · `error_logging.sql` · `sync_timestamps.sql` (synced_at + trigger).
+The app degrades gracefully if a later one is missing (e.g. full download without `synced_at`).
+
+## Tests (Playwright + mock Supabase with RLS-like rules)
+```
+pip install playwright --break-system-packages && python -m playwright install chromium
+mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
+APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
+```
+17 suites, ~277 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
+
+## Deploy
+Edit `index.html` → run tests → commit → push to `main` with the owner's token (never store it in the repo/app) →
+GitHub Pages updates in ~1–2 min; open apps show a "new version" banner.
+
+## Next (owner's priority order)
+1. Optional mortality-cause presets (never mandatory) + harvest-ready alert ~14 days ahead, grouped by section, excluding broodstock/quarantine.
+2. FCR vs expected per growth stage + weekly auto report.
+3. Pilot-farm kit: short user guide (engineer / worker), terms & privacy page.
+
+## Known open points
+Supabase plan (free tier pauses, no daily backups) · iOS Safari may evict local storage (install to home screen) ·
+last-write-wins on simultaneous edits and on the shared settings blob · photo AI entry disabled · SFR/growth tables are tilapia defaults.
