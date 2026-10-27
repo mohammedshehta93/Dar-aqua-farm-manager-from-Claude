@@ -1249,24 +1249,6 @@ var _syncRunning = false;
 
 // ── TX Sync ───────────────────────────────────────────────
 
-async function _txUpsertOne(tx){
-  if(!sbReady||!SB_FARM_ID) return;
-  try{
-    await sbFetch('transactions', {
-      method: 'POST',
-      headers: {'Prefer':'resolution=merge-duplicates'},
-      body: JSON.stringify({
-        id:      tx.id,
-        farm_id: SB_FARM_ID,
-        type:    tx.type||'',
-        date:    tx.date||'',
-        unit:    tx.unit||'',
-        data:    tx,
-        ts:      tx.ts||new Date().toISOString()
-      })
-    });
-  }catch(e){ console.warn('TX upsert failed:',e.message); }
-}
 
 async function _txDeleteOne(id){
   if(!sbReady||!SB_FARM_ID) return;
@@ -11688,6 +11670,7 @@ function daOpenUnitEditor(unit){
   var h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:18px;font-weight:900">✏️ ' + daEsc(unit) + '</div>'
     + '<button onclick="daCloseModal(&quot;unit-edit&quot;)" style="border:0;background:#f1f5f9;border-radius:8px;padding:6px 12px;cursor:pointer">✕</button></div>';
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
+  h += f('ue-name', 'اسم الوحدة', u.unit);
   h += '<div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:3px">الغرض</label><select id="ue-purpose" style="' + inp + '"><option value="">—</option>'
     + Object.keys(DA_PURPOSE).map(function(k){ return '<option value="' + k + '"' + (u.purpose === k ? ' selected' : '') + '>' + DA_PURPOSE[k] + '</option>'; }).join('') + '</select></div>';
   h += f('ue-batch', 'الدفعة', u.batch) + f('ue-species', 'النوع', u.species) + f('ue-hatchery', 'المفرخ', u.hatchery);
@@ -11716,6 +11699,8 @@ function daOpenUnitEditor(unit){
 }
 async function daSaveUnitEdit(unit){
   var u = daRawUnit(unit); if(!u) return;
+  var nn = daNormUnit(daVal('ue-name').trim());
+  if(nn && nn !== unit){ if(daRawUnit(nn)){ toast('⚠️ فيه وحدة اسمها ' + nn); return; } if(!(await daRenameUnit(unit, nn))) return; unit = nn; u = daRawUnit(nn); }
   var who = currentUser ? currentUser.email : '', now = new Date().toISOString();
   var numOr = function(id, old){ var v = daVal(id).trim(); if(v === '') return old; var x = parseFloat(v); return isNaN(x) ? old : x; };
   var next = {
@@ -12440,67 +12425,12 @@ function deleteTX(id){
   if(sbReady && SB_FARM_ID && navigator.onLine) daUploadTxBatch([tomb]).then(function(f){ f.forEach(function(x){ addToOfflineQueue('upsert_tx', x); }); });
   else addToOfflineQueue('upsert_tx', tomb);
 }
-async function loadTXFromSB(){
-  if(!sbReady || !SB_FARM_ID) return;
-  try{
-    var all = [], page = 0, limit = 1000;
-    while(true){
-      var rows = await sbFetch('transactions?farm_id=eq.' + SB_FARM_ID + '&order=ts.desc&limit=' + limit + '&offset=' + (page * limit));
-      if(!rows || !rows.length) break;
-      rows.forEach(function(r){ if(r.data) all.push(r.data); });
-      if(rows.length < limit) break;
-      page++; if(page > 500) break;
-    }
-    var cloudIds = {};
-    all.forEach(function(t){ cloudIds[t.id] = 1; if(t.deleted) daMarkDead(t.id); });
-    var live = all.filter(function(t){ return !t.deleted; });
-    var pending = getTX().filter(function(t){ return !cloudIds[t.id] && !daIsDead(t.id); });
-    var merged = live.concat(pending);
-    merged.sort(function(a, b){ return (b.date || '') > (a.date || '') ? 1 : -1; });
-    if(!TX_IDB.db && merged.length > 5000) merged = merged.slice(0, 5000);
-    saveTX(merged);
-    _txCache = null;
-    if(pending.length){ var failed = await daUploadTxBatch(pending); failed.forEach(function(t){ addToOfflineQueue('upsert_tx', t); }); }
-  }catch(e){ console.warn('loadTXFromSB:', e.message); }
-}
 // ── realtime: page through everything new (a weekly save can be ~1000 rows) and honour deletes ──
 function startRealtimeSync(){
   if(_realtimeInterval) return;
   _realtimeInterval = setInterval(daRealtimePull, 30000);
 }
 var _rtBusy = false;
-async function daRealtimePull(){
-  if(_rtBusy || !sbReady || !SB_FARM_ID || !navigator.onLine) return;
-  _rtBusy = true;
-  try{
-    var last = localStorage.getItem('daracqua_last_sync') || '2000-01-01T00:00:00Z';
-    var since = new Date(new Date(last).getTime() - 5 * 60000).toISOString();
-    var stamp = new Date().toISOString(), rows = [], off = 0;
-    while(true){
-      var page = await sbFetch('transactions?farm_id=eq.' + SB_FARM_ID + '&ts=gt.' + encodeURIComponent(since) + '&order=ts.asc&limit=1000&offset=' + off);
-      if(!page || !page.length) break;
-      rows = rows.concat(page); if(page.length < 1000) break; off += 1000; if(off > 50000) break;
-    }
-    localStorage.setItem('daracqua_last_sync', stamp);
-    if(!rows.length) return;
-    var local = getTX(), idx = {};
-    local.forEach(function(t, i){ idx[t.id] = i; });
-    var added = 0, updated = 0, removed = 0;
-    rows.forEach(function(r){
-      var d = r.data; if(!d || !d.id) return;
-      if(d.deleted){ daMarkDead(d.id); if(idx[d.id] !== undefined && local[idx[d.id]]){ local[idx[d.id]] = null; removed++; } return; }
-      if(daIsDead(d.id) && (!d.ts || d.ts <= String(new Date(_txDead[d.id]).toISOString()))) return;
-      if(idx[d.id] === undefined){ local.push(d); idx[d.id] = local.length - 1; added++; daUnmarkDead(d.id); }
-      else if(local[idx[d.id]] && (d.ts || '') > (local[idx[d.id]].ts || '')){ local[idx[d.id]] = d; updated++; }
-    });
-    if(added || updated || removed){
-      saveTX(local.filter(function(t){ return t; }));
-      if(added) toast('🔄 ' + added + ' معاملة جديدة من مستخدم آخر');
-      if(['dashboard','site-overview','review-queue','audit-log','feed-week','traceability'].indexOf(currentView) >= 0) show(currentView, true);
-    }
-  }catch(e){}
-  finally{ _rtBusy = false; }
-}
 
 
 // ══════════════════════════════════════════════════════════
@@ -12527,6 +12457,209 @@ async function photoSendToAI(){
   var el = document.getElementById('photo-result') || document.getElementById('content');
   toast('ℹ️ قراءة البيانات من الصورة مش متاحة حالياً — سجّل يدوي أو من Excel');
   if(el && el.id === 'photo-result') el.innerHTML = '<div class="card" style="color:var(--muted)">📷 قراءة الصور بالذكاء الاصطناعي مش متاحة حالياً. استخدم 📅 تغذية الأسبوع (بتقبل لصق من Excel) أو شاشات الإدخال العادية.</div>';
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  FOUNDATION — download only what changed, keep every device current,
+//  tell users about new versions, rename tanks with their history
+// ══════════════════════════════════════════════════════════
+var SYNC_META_KEY = 'daracqua_txsync_v1';
+var _noSyncedAt = false;
+function daSyncMeta(){ try{ return JSON.parse(localStorage.getItem(SYNC_META_KEY) || '{}'); }catch(e){ return {}; } }
+function daSetSyncMeta(m){ try{ _lsSetRaw.call(localStorage, SYNC_META_KEY, JSON.stringify(m)); }catch(e){} }
+function daBumpSync(rows){
+  var m = daSyncMeta(); if(m.farm !== SB_FARM_ID) m = {farm:SB_FARM_ID};
+  rows.forEach(function(r){ if(r.synced_at && (!m.at || r.synced_at > m.at)) m.at = r.synced_at; });
+  daSetSyncMeta(m);
+}
+async function daFetchSince(since){
+  var out = [], off = 0;
+  while(true){
+    var q = 'transactions?farm_id=eq.' + SB_FARM_ID + '&select=data,synced_at&order=synced_at.asc&limit=1000&offset=' + off + (since ? '&synced_at=gt.' + encodeURIComponent(since) : '');
+    var page;
+    try{ page = await sbFetch(q); }
+    catch(e){ if(/synced_at|42703/i.test(e.message || '')){ _noSyncedAt = true; return null; } throw e; }
+    if(!page || !page.length) break;
+    out = out.concat(page); if(page.length < 1000) break;
+    off += 1000; if(off > 600000) break;
+  }
+  return out;
+}
+function daMergeRows(rows){
+  var local = getTX(), idx = {}, added = 0, updated = 0, removed = 0;
+  local.forEach(function(t, i){ idx[t.id] = i; });
+  rows.forEach(function(r){
+    var d = r.data; if(!d || !d.id) return;
+    if(d.deleted){ daMarkDead(d.id); if(idx[d.id] !== undefined && local[idx[d.id]]){ local[idx[d.id]] = null; removed++; } return; }
+    if(idx[d.id] === undefined){ local.push(d); idx[d.id] = local.length - 1; added++; daUnmarkDead(d.id); }
+    else if(local[idx[d.id]] && (d.ts || '') >= (local[idx[d.id]].ts || '') && JSON.stringify(d) !== JSON.stringify(local[idx[d.id]])){ local[idx[d.id]] = d; updated++; }
+  });
+  if(added || updated || removed) saveTX(local.filter(function(t){ return t; }));
+  return {added:added, updated:updated, removed:removed};
+}
+// a single save that fails is queued (it used to be dropped silently)
+async function _txUpsertOne(tx){
+  if(!sbReady || !SB_FARM_ID || !navigator.onLine){ addToOfflineQueue('upsert_tx', tx); return; }
+  var f = await daUploadTxBatch([tx]);
+  f.forEach(function(x){ addToOfflineQueue('upsert_tx', x); });
+}
+async function daFullLoadLegacy(){
+  var all = [], page = 0, limit = 1000;
+  while(true){
+    var rows = await sbFetch('transactions?farm_id=eq.' + SB_FARM_ID + '&order=ts.desc&limit=' + limit + '&offset=' + (page * limit));
+    if(!rows || !rows.length) break;
+    rows.forEach(function(r){ if(r.data) all.push(r.data); });
+    if(rows.length < limit) break; page++; if(page > 600) break;
+  }
+  return all;
+}
+async function daApplyFull(all){
+  var cloudIds = {};
+  all.forEach(function(t){ cloudIds[t.id] = 1; if(t.deleted) daMarkDead(t.id); });
+  var live = all.filter(function(t){ return !t.deleted; });
+  var pending = getTX().filter(function(t){ return !cloudIds[t.id] && !daIsDead(t.id); });
+  var merged = live.concat(pending);
+  merged.sort(function(a, b){ return (b.date || '') > (a.date || '') ? 1 : -1; });
+  if(!TX_IDB.db && merged.length > 5000) merged = merged.slice(0, 5000);
+  saveTX(merged); _txCache = null;
+  if(pending.length){ var failed = await daUploadTxBatch(pending); failed.forEach(function(t){ addToOfflineQueue('upsert_tx', t); }); }
+}
+async function loadTXFromSB(){
+  if(!sbReady || !SB_FARM_ID) return;
+  try{
+    var meta = daSyncMeta();
+    if(!_noSyncedAt && meta.farm === SB_FARM_ID && meta.at && getTX().length){
+      var rows = await daFetchSince(new Date(new Date(meta.at).getTime() - 2 * 60000).toISOString());
+      if(rows){
+        daMergeRows(rows); daBumpSync(rows);
+        _offLast = 0; syncOfflineQueue();
+        daMaybeReconcile();
+        window._lastLoadMode = 'incremental:' + rows.length;
+        return;
+      }
+    }
+    var full = _noSyncedAt ? null : await daFetchSince(null);
+    if(full === null){ await daApplyFull(await daFullLoadLegacy()); window._lastLoadMode = 'legacy-full'; return; }
+    await daApplyFull(full.map(function(r){ return r.data; }).filter(Boolean));
+    daBumpSync(full);
+    var m = daSyncMeta(); m.reconciledAt = Date.now(); daSetSyncMeta(m);
+    window._lastLoadMode = 'full:' + full.length;
+  }catch(e){ console.warn('loadTXFromSB:', e.message); }
+}
+// once a week: compare ids only, fix anything that slipped through
+async function daMaybeReconcile(force){
+  var m = daSyncMeta();
+  if(!force && m.reconciledAt && Date.now() - m.reconciledAt < 7 * 864e5) return;
+  try{
+    var ids = {}, off = 0;
+    while(true){
+      var page = await sbFetch('transactions?farm_id=eq.' + SB_FARM_ID + '&select=id&order=id.asc&limit=1000&offset=' + off);
+      if(!page || !page.length) break; page.forEach(function(r){ ids[r.id] = 1; });
+      if(page.length < 1000) break; off += 1000; if(off > 600000) break;
+    }
+    var local = getTX(), have = {};
+    local.forEach(function(t){ have[t.id] = 1; });
+    var up = local.filter(function(t){ return !ids[t.id] && !daIsDead(t.id); });
+    if(up.length){ var f = await daUploadTxBatch(up); f.forEach(function(x){ addToOfflineQueue('upsert_tx', x); }); }
+    var missing = Object.keys(ids).filter(function(id){ return !have[id] && !daIsDead(id); });
+    for(var i = 0; i < missing.length; i += 100){
+      var rows = await sbFetch('transactions?farm_id=eq.' + SB_FARM_ID + '&select=data,synced_at&id=in.(' + missing.slice(i, i + 100).map(function(x){ return '"' + String(x).replace(/"/g, '') + '"'; }).join(',') + ')');
+      daMergeRows(rows || []);
+    }
+    m = daSyncMeta(); m.reconciledAt = Date.now(); daSetSyncMeta(m);
+    window._lastReconcile = {uploaded:up.length, fetched:missing.length};
+  }catch(e){}
+}
+// realtime: changes by server time; tanks and farm settings follow too
+var _rtTick = 0, _unitsHash = '';
+async function daRealtimePull(){
+  if(_rtBusy || !sbReady || !SB_FARM_ID || !navigator.onLine) return;
+  _rtBusy = true; _rtTick++;
+  try{
+    var m = daSyncMeta(), res = null;
+    if(!_noSyncedAt && m.farm === SB_FARM_ID && m.at){
+      var rows = await daFetchSince(new Date(new Date(m.at).getTime() - 60000).toISOString());
+      if(rows){ res = daMergeRows(rows); daBumpSync(rows); }
+    }
+    if(!res){
+      var last = localStorage.getItem('daracqua_last_sync') || '2000-01-01T00:00:00Z', rr = [], off = 0;
+      var since = new Date(new Date(last).getTime() - 5 * 60000).toISOString(), stamp = new Date().toISOString();
+      while(true){
+        var page = await sbFetch('transactions?farm_id=eq.' + SB_FARM_ID + '&ts=gt.' + encodeURIComponent(since) + '&order=ts.asc&limit=1000&offset=' + off);
+        if(!page || !page.length) break; rr = rr.concat(page); if(page.length < 1000) break; off += 1000; if(off > 50000) break;
+      }
+      localStorage.setItem('daracqua_last_sync', stamp);
+      res = daMergeRows(rr);
+    }
+    var unitsChanged = await daPullUnitsIfChanged();
+    if(_rtTick % 4 === 0){ try{ await daPullSettings(); }catch(e){} }
+    if(res.added) toast('🔄 ' + res.added + ' معاملة جديدة من مستخدم آخر');
+    if((res.added || res.updated || res.removed || unitsChanged) && ['dashboard','site-overview','review-queue','audit-log','feed-week','traceability','farm-setup'].indexOf(currentView) >= 0) show(currentView, true);
+  }catch(e){}
+  finally{ _rtBusy = false; }
+}
+async function daPullUnitsIfChanged(){
+  var rows = await sbFetch('farm_units?farm_id=eq.' + encodeURIComponent(SB_FARM_ID) + '&select=data&limit=10000');
+  var list = (rows || []).map(function(r){ return r.data; }).filter(Boolean);
+  var h = daHash(JSON.stringify(list.map(function(u){ return u.unit; }).sort()) + '|' + JSON.stringify(list));
+  if(h === _unitsHash) return false;
+  var first = _unitsHash === ''; _unitsHash = h;
+  var mine = daHash(JSON.stringify(RAW.map(function(u){ return u.unit; }).sort()) + '|' + JSON.stringify(RAW));
+  if(first && mine === h) return false;
+  daSetRAW(list); await daPersistUnitsLocal(); return true;
+}
+
+// ── "new version" notice (a tiny HEAD request, not the whole page) ──
+var _verTag = null;
+async function daCheckUpdate(){
+  try{
+    var r = await fetch(location.href.split('#')[0], {method:'HEAD', cache:'no-store'});
+    var tag = r.headers.get('ETag') || r.headers.get('Last-Modified') || '';
+    if(!tag) return;
+    if(_verTag === null){ _verTag = tag; return; }
+    if(tag !== _verTag) daShowUpdateBanner();
+  }catch(e){}
+}
+function daShowUpdateBanner(){
+  if(document.getElementById('upd-banner')) return;
+  var d = document.createElement('div'); d.id = 'upd-banner';
+  d.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9998;background:#0D3B38;color:#fff;padding:10px 14px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center;font-size:13px;direction:rtl';
+  d.innerHTML = '🔄 فيه نسخة جديدة من الأداة <button onclick="location.reload()" style="border:0;background:#22c55e;color:#fff;border-radius:8px;padding:6px 14px;font:inherit;font-weight:700;cursor:pointer">تحديث</button>'
+    + '<button onclick="this.parentNode.remove()" style="border:0;background:transparent;color:#cbd5e1;font:inherit;cursor:pointer">بعدين</button>';
+  document.body.appendChild(d);
+}
+setTimeout(daCheckUpdate, 3000);
+setInterval(daCheckUpdate, 10 * 60000);
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) daCheckUpdate(); });
+
+// ── rename a tank: its whole history moves with it ──
+async function daRenameUnit(oldU, newU){
+  var u = daRawUnit(oldU); if(!u) return false;
+  var n = getTX().filter(function(t){ return t.unit === oldU; }).length;
+  if(!confirm('تغيير اسم ' + oldU + ' إلى ' + newU + '؟\n' + n + ' معاملة هتنتقل للاسم الجديد.')) return false;
+  var now = new Date().toISOString(), who = currentUser ? currentUser.email : '';
+  var m = newU.match(/^([A-Z]+\d+)\.S(\d+)T/);
+  u.unit = newU; if(m){ u.farm = m[1]; u.section = m[1] + '.S' + m[2]; }
+  u.history = u.history || []; u.history.push({at:now, by:who, f:'unit', from:oldU, to:newU});
+  u.formerNames = (u.formerNames || []).concat([oldU]);
+  var arr = getTX(), changed = [];
+  arr.forEach(function(t){
+    if(t.unit !== oldU) return;
+    t.history = t.history || []; t.history.push({at:now, by:who, f:'unit', from:oldU, to:newU, why:'تغيير اسم الوحدة'});
+    t.unit = newU; t.ts = now; changed.push(t);
+  });
+  saveTX(arr); await daPersistUnitsLocal();
+  if(window._trUnit === oldU) window._trUnit = newU;
+  if(sbReady && SB_FARM_ID && navigator.onLine){
+    try{ await sbFetch('farm_units?id=eq.' + encodeURIComponent(SB_FARM_ID + ':' + oldU), {method:'DELETE'}); }catch(e){}
+    try{ await saveUnitsToCloud([u]); }catch(e){}
+    var failed = changed.length ? await daUploadTxBatch(changed) : [];
+    failed.forEach(function(x){ addToOfflineQueue('upsert_tx', x); });
+  }else changed.forEach(function(x){ addToOfflineQueue('upsert_tx', x); });
+  _unitsHash = '';
+  toast('✅ ' + oldU + ' ← ' + newU + ' · اتنقلت ' + changed.length + ' معاملة');
+  return true;
 }
 
 // ── Init ──────────────────────────────────────
