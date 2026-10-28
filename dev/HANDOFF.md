@@ -52,6 +52,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   Supabase region (owner, 2026-10-28): Northeast Asia (Tokyo) ap-northeast-1, Free plan, Nano, no backups. Region can't change without a new project.
   Owner decision: legal name/e-mail + lawyer review deferred until the first external pilot farm; backups first.
   AI advisor prompt now uses `daFarmName()` / settings species & location (was hard-coded to one farm).
+- Tabs (module `dev/modules/tabs.js`, edits `dev/tools/patch_tabs.py`), AquaManager-style: one tab per page, each tab
+  owns a pane; only the active pane is attached to `#content` (hidden panes detached → no duplicate ids). Typing in a data
+  field marks the tab dirty (●); a real save (`_dataVer` changed by add/update/deleteTX, or applySettings) clears it.
+  Dirty tabs: kept when re-opened from the menu, never wiped by background re-renders (`daBgRefresh` replaced the
+  auto-refresh/sync/realtime `show(currentView…)` calls — realtime used to wipe a half-filled weekly feed grid), confirm on
+  close / logout / leaving the site. Max 10 tabs (LRU, dirty never dropped). Logout/tenant switch clears all tabs.
+  Unsaved input is in memory only: a page reload or the phone killing the browser loses it.
 - Error logging: `daLogError` → `client_errors`; platform page shows grouped errors. Dates are local (`daToday`, `daYmd`).
 - Navigation: top tabs `DA_NAV` (8 groups, permission-aware via `canAccessView`); old sidebar kept hidden in DOM (tests use it).
 
@@ -67,7 +74,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-20 suites, ~350 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+21 suites, ~375 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
