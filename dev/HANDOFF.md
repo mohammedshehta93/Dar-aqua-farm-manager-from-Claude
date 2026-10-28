@@ -18,6 +18,11 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Wrappers pattern for existing functions: `var _core = fn; fn = function(){ ... _core.apply(this, arguments) ... }`.
 - Small edits: exact-string replacements that assert exactly one match (fail loudly otherwise).
 - After every change: `node --check` on the extracted main script + run the test suites.
+- ⚠️ The merge tool de-duplicates **function declarations only**. Wrapper blocks (`var _x = fn; fn = function…`) are NOT
+  de-duplicated: merging the same module twice stacks them (→ infinite recursion). Always merge onto a clean `index.html`
+  (`git checkout index.html` first) and watch for `replaced: <name>` — it means you overwrote an existing app function.
+- ⚠️ `VIEWS = {daily: renderDaily, …}` captures render functions **by reference**: reassigning `renderDaily` later has no
+  effect on `show('daily')`. Patch the render source with exact edits, or also update `VIEWS[...]`.
 
 ## Key concepts / modules (search these names)
 - Tenancy: `resolveAccess`, `daEnsureTenant`, `daWipeLocalTenant`, `TENANT_KEY`, platform: `renderPlatform`, `platform_*` RPCs.
@@ -31,6 +36,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Farm settings shared via `farm_settings` (localStorage keys in `DA_SYNC_PREFIXES` auto-push).
 - Feeding: weekly grid `renderFeedWeek` (paste from Excel, real dates), printable sheet `renderFeedingPrint` (meals by temperature, A4 pages).
 - RAS: per-filter loops `daRasLoops`, capacity fixed in TAN from proven max feed × protein (or media), protein per pellet size, max feed & max biomass per section.
+- Mortality causes: optional, one farm-wide list `daCauseList()` (synced key `daracqua_settings_v2_mortcauses`, edited in
+  Settings → المعايير). New entries store the Arabic label; legacy keys (disease…) mapped by `daCauseLabel`. Wiring = `dev/tools/patch_mort_causes.py`.
+- Harvest-soon alert: `daHarvestSoon/daHarvestSoonAlerts` (module `dev/modules/mort_causes_harvest.js`): per section, ≤14 days,
+  skips brood/quarantine, SGR from samples ≥7 days apart, projected from the last sample date; per-farm `harvestTargetWt` → global. Shown in `smart`.
 - Error logging: `daLogError` → `client_errors`; platform page shows grouped errors. Dates are local (`daToday`, `daYmd`).
 - Navigation: top tabs `DA_NAV` (8 groups, permission-aware via `canAccessView`); old sidebar kept hidden in DOM (tests use it).
 
@@ -44,7 +53,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-17 suites, ~277 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+18 suites, ~300 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
@@ -52,7 +61,7 @@ Edit `index.html` → run tests → commit → push to `main` with the owner's t
 GitHub Pages updates in ~1–2 min; open apps show a "new version" banner.
 
 ## Next (owner's priority order)
-1. Optional mortality-cause presets (never mandatory) + harvest-ready alert ~14 days ahead, grouped by section, excluding broodstock/quarantine.
+1. ✅ Done (2026-10-28): optional mortality causes + harvest-soon alert (`e2e_mortharv`).
 2. FCR vs expected per growth stage + weekly auto report.
 3. Pilot-farm kit: short user guide (engineer / worker), terms & privacy page.
 

@@ -1682,8 +1682,6 @@ function renderDaily(){
     h+='<th style="padding:10px 12px;font-size:11px;font-weight:700;white-space:nowrap;min-width:140px">'+(isAr?'السبب':'Cause')+'</th>';
     h+='<th style="padding:10px 12px;font-size:11px;font-weight:700;white-space:nowrap;min-width:160px">'+(isAr?'ملاحظات':'Notes')+'</th>';
     h+='</tr></thead><tbody>';
-    var causes=['unknown','oxygen','disease','stress','handling','other'];
-    var causeLabels={unknown:'غير محدد',oxygen:'نقص أكسجين',disease:'مرض',stress:'إجهاد',handling:'تداول',other:'أخرى'};
     var totalDead=0;
     var uObjs2=getAllUnitObjects();
     units.forEach(function(unit,i){
@@ -1701,7 +1699,7 @@ function renderDaily(){
       h+='<td style="padding:7px 12px;font-size:12px;'+pctColor+'">'+(pct?pct+'%':'—')+(fishNo?' <span style="color:var(--muted);font-weight:400;font-size:10px">/ '+n(fishNo,0)+'</span>':'')+'</td>';
       // cause select
       h+='<td style="padding:4px 8px"><select id="m_cause_'+uid+'" class="sh-inp-text" style="width:130px" onchange="autoSaveRow(\'mortality\',\''+unit+'\')">';
-      causes.forEach(function(c){h+='<option value="'+c+'"'+(row&&row.cause===c?' selected':'')+'>'+causeLabels[c]+'</option>';});
+      h+=daCauseOptions(row&&row.cause);
       h+='</select></td>';
       h+='<td style="padding:4px 8px"><input type="text" id="m_notes_'+uid+'" value="'+(row&&row.notes?row.notes:'')+'" placeholder="'+(isAr?'ملاحظة...':'note...')+'" class="sh-inp-text" style="width:150px" onchange="autoSaveRow(\'mortality\',\''+unit+'\')"/></td>';
       h+='</tr>';
@@ -1888,7 +1886,7 @@ function renderLogbook(){
       }
       if(l.type==='mortality'){
         h+='<div><span>'+(isAr?'نافق':'Dead')+'</span> <strong>'+l.count+' '+(isAr?'سمكة':'fish')+'</strong></div>';
-        if(l.cause) h+='<div><span>'+(isAr?'سبب':'Cause')+'</span> <strong>'+l.cause+'</strong></div>';
+        if(l.cause) h+='<div><span>'+(isAr?'سبب':'Cause')+'</span> <strong>'+daEsc(daCauseLabel(l.cause))+'</strong></div>';
       }
       if(l.type==='water'){
         if(l.temp!=null) h+='<div><span>Temp</span> <strong>'+wqLabel('temp',l.temp)+'°C</strong></div>';
@@ -2865,6 +2863,7 @@ function renderSettings(){
     h+='<div class="field"><label>🌡️ إيقاف عند الحرارة المنخفضة °C</label><input type="number" id="al-tstop-lo" value="'+(s.tempStopLow||17)+'" step="0.5" min="10" max="22" style="border:2px solid #dc2626"/></div>';
     h+='<div class="field"><label>💨 إيقاف عند DO أقل من (mg/L)</label><input type="number" id="al-dostop" value="'+(s.doStop||2)+'" step="0.1" min="0" max="4" style="border:2px solid #dc2626"/></div>';
     h+='</div></div>';
+    h+=daCauseEditorCard();
     h+='<button class="savebtn" onclick="applySettings()">💾 حفظ المعايير</button>';
   }
 
@@ -3004,6 +3003,7 @@ function applySettings(){
   v=document.getElementById('al-dostop');    if(v){s.doStop=parseFloat(v.value)||2;DO_STOP=s.doStop;}
   v=document.getElementById('nf-gemkey');    if(v&&v.value) s.geminiKey=v.value;
   saveSettings(s,_settingsFarm);
+  try{ daSaveCauseEditor(); }catch(e){}
   toast('✅ تم حفظ إعدادات '+(_settingsFarm||'Global'));
 }
 
@@ -3691,7 +3691,7 @@ function renderUnitTx(){
       }[t.type]||t.type;
       var detail='';
       if(t.type==='feeding') detail='<strong>'+n(t.kg,2)+'</strong> كجم · '+(t.feed||'')+(t.meal?' · '+t.meal:'');
-      else if(t.type==='mortality') detail='<strong style="color:var(--red)">'+t.count+'</strong> سمكة · '+(t.cause||'');
+      else if(t.type==='mortality') detail='<strong style="color:var(--red)">'+t.count+'</strong> سمكة · '+(t.cause?daCauseLabel(t.cause):'');
       else if(t.type==='sampling') detail='<strong>'+n(t.avgWt,1)+'</strong> g · SGR:'+(t.sgr?n(t.sgr,3):'—')+' · FCR:'+(t.fcr?n(t.fcr,2):'—');
       else if(t.type==='transfer_out'||t.type==='transfer_in') detail='<strong>'+fmtK(t.fishNo||0)+'</strong> سمكة · '+n(t.avgWt||0,1)+' g';
       else if(t.type==='harvesting') detail='<strong>'+fmtK(t.fishNo||0)+'</strong> سمكة · '+n(t.kg,1)+' كجم · '+n(t.kg*1000/(t.fishNo||1),0)+' g avg';
@@ -3897,7 +3897,7 @@ function _rptMortality(txs){
 
   // By cause
   var byCause={};
-  morts.forEach(function(t){ var c=t.cause||'غير محدد'; byCause[c]=(byCause[c]||0)+(t.count||0); });
+  morts.forEach(function(t){ var c=daCauseLabel(t.cause); byCause[c]=(byCause[c]||0)+(t.count||0); });
 
   // By unit
   var byUnit={};
@@ -3956,7 +3956,7 @@ function _rptMortality(txs){
     h+='<tr><td style="color:var(--muted)">'+(i+1)+'</td><td>'+t.date+'</td>';
     h+='<td><strong style="color:var(--teal)">'+t.unit+'</strong></td>';
     h+='<td><strong style="color:var(--red)">'+t.count+'</strong></td>';
-    h+='<td>'+(t.cause||'—')+'</td><td style="font-size:11px;color:var(--muted)">'+(t.notes||'—')+'</td></tr>';
+    h+='<td>'+(t.cause?daEsc(daCauseLabel(t.cause)):'—')+'</td><td style="font-size:11px;color:var(--muted)">'+(t.notes||'—')+'</td></tr>';
   });
   h+='<tr class="sum-row"><td colspan="3">الإجمالي</td><td><strong>'+totCount+'</strong></td><td colspan="2"></td></tr>';
   h+='</tbody></table></div></div>';
@@ -4263,7 +4263,7 @@ function _rptSummary(txs){
   // Mortality summary
   if(morts.length){
     var byCause={};
-    morts.forEach(function(t){ var c=t.cause||'غير محدد'; byCause[c]=(byCause[c]||0)+(t.count||0); });
+    morts.forEach(function(t){ var c=daCauseLabel(t.cause); byCause[c]=(byCause[c]||0)+(t.count||0); });
     h+='<div class="card pr"><div class="card-title">💀 ملخص النفوق</div>';
     h+='<div class="tbl-wrap"><table><thead><tr><th>السبب</th><th>عدد</th></tr></thead><tbody>';
     Object.keys(byCause).sort(function(a,b){return byCause[b]-byCause[a];}).forEach(function(c){
@@ -4391,7 +4391,7 @@ async function openBookReport(){
       +'<td style="padding:5px 8px">'+t.date+'</td>'
       +'<td style="color:'+C.teal+';font-weight:600;padding:5px 8px">'+t.unit+'</td>'
       +'<td style="font-weight:700;color:'+C.red+';text-align:right;padding:5px 8px">'+(t.count||0)+'</td>'
-      +'<td style="padding:5px 8px">'+(t.cause||'—')+'</td>'
+      +'<td style="padding:5px 8px">'+(t.cause?daEsc(daCauseLabel(t.cause)):'—')+'</td>'
       +'</tr>';
   });
 
@@ -6662,7 +6662,7 @@ function renderMortalityAnalysis(){
 
   // By cause
   var byCause={};
-  morts.forEach(function(t){var c=t.cause||'غير محدد';byCause[c]=(byCause[c]||0)+(t.count||0);});
+  morts.forEach(function(t){var c=daCauseLabel(t.cause);byCause[c]=(byCause[c]||0)+(t.count||0);});
   // By unit
   var byUnit={};
   morts.forEach(function(t){var u=t.unit||'?';byUnit[u]=(byUnit[u]||0)+(t.count||0);});
@@ -7157,7 +7157,7 @@ function renderPDFReport(){
 
   // Mortality by cause
   var mortMap={};
-  recentTX.filter(function(t){return t.type==='mortality';}).forEach(function(t){mortMap[t.cause||'غير محدد']=(mortMap[t.cause||'غير محدد']||0)+(t.count||0);});
+  recentTX.filter(function(t){return t.type==='mortality';}).forEach(function(t){mortMap[daCauseLabel(t.cause)]=(mortMap[daCauseLabel(t.cause)]||0)+(t.count||0);});
   h += '<div class="card pdf-avoid"><div class="card-title">💀 النفوق — آخر 30 يوم</div>';
   h += '<table style="width:100%;font-size:11px"><tbody>';
   Object.keys(mortMap).sort(function(a,b){return mortMap[b]-mortMap[a];}).forEach(function(c){
@@ -8564,7 +8564,7 @@ h+='<input type="date" id="md-date" value="'+savedDate+'" onclick="try{this.show
     h+='<div style="background:'+bg+';display:grid;grid-template-columns:140px 100px 1fr 1fr;gap:0;border-bottom:1px solid var(--line);align-items:center;min-height:38px">';
     h+='<div style="padding:0 10px;font-weight:700;font-size:12px;color:var(--teal)">'+r.unit+'</div>';
     h+='<div style="padding:4px 6px"><input type="number" class="sh-inp" id="mt-cnt-'+r.unit+'" value="'+(cnt||'')+'" placeholder="0" min="0" style="width:80px;color:var(--red)"/></div>';
-    h+='<div style="padding:4px 6px"><select class="sh-inp-text" id="mt-cause-'+r.unit+'" style="font-size:11px"><option>طبيعي</option><option>مرض</option><option>إجهاد</option><option>جودة مياه</option><option>إصابة</option><option>غير محدد</option></select></div>';
+    h+='<div style="padding:4px 6px"><select class="sh-inp-text" id="mt-cause-'+r.unit+'" style="font-size:11px">'+daCauseOptions('')+'</select></div>';
     h+='<div style="padding:4px 6px"><input class="sh-inp-text" id="mt-notes-'+r.unit+'" placeholder="ملاحظات" style="width:100%"/></div>';
     h+='</div>';
   });
@@ -8576,7 +8576,7 @@ function mortSaveAll(){
   var saved=0;
   liveRs.forEach(function(r){
     var el=document.getElementById('mt-cnt-'+r.unit);var cnt=parseInt(el?el.value:0)||0;if(cnt<=0)return;
-    var cause=(document.getElementById('mt-cause-'+r.unit)||{}).value||'طبيعي';
+    var cause=(document.getElementById('mt-cause-'+r.unit)||{}).value||'';
     var notes=(document.getElementById('mt-notes-'+r.unit)||{}).value||'';
     addTX({type:'mortality',date:date,unit:r.unit,count:cnt,cause:cause,notes:notes});saved++;
   });
@@ -9681,7 +9681,7 @@ function daTable(heads, rows){
 function txSummary(t){
   switch(t.type){
     case 'feeding': return daNum(t.kg,2)+' كجم'+(t.feed ? ' · '+daEsc(t.feed) : '')+(t.meal ? ' · '+daEsc(t.meal) : '');
-    case 'mortality': return (parseInt(t.count)||0)+' سمكة'+(t.cause ? ' · '+daEsc(t.cause) : '');
+    case 'mortality': return (parseInt(t.count)||0)+' سمكة'+(t.cause ? ' · '+daEsc(daCauseLabel(t.cause)) : '');
     case 'sampling': return daNum(t.avgWt,1)+'g'+(t.sgr ? ' · SGR '+daNum(t.sgr,2)+'%' : '');
     case 'water_quality': return ['temp','do','ph','ammonia'].filter(function(k){ return t[k]!==null && t[k]!==undefined && t[k]!==''; })
       .map(function(k){ return k.toUpperCase()+' '+daEsc(t[k]); }).join(' · ');
@@ -10333,7 +10333,7 @@ function renderTraceability(){
   var feedBy = {}, mortBy = {}, feedTot = 0, mortTot = 0, harvKg = 0, harvN = 0, treats = [];
   tx.forEach(function(t){
     if(t.type === 'feeding'){ var k = t.feed || 'غير محدد'; feedBy[k] = (feedBy[k]||0) + (parseFloat(t.kg)||0); feedTot += parseFloat(t.kg)||0; }
-    if(t.type === 'mortality'){ var c = t.cause || 'غير محدد'; mortBy[c] = (mortBy[c]||0) + (parseInt(t.count)||0); mortTot += parseInt(t.count)||0; }
+    if(t.type === 'mortality'){ var c = daCauseLabel(t.cause); mortBy[c] = (mortBy[c]||0) + (parseInt(t.count)||0); mortTot += parseInt(t.count)||0; }
     if(t.type === 'harvesting'){ harvKg += parseFloat(t.kg)||0; harvN += parseInt(t.fishNo)||0; }
     if(t.type === 'treatment') treats.push(t);
   });
@@ -12786,6 +12786,104 @@ var _updReviewNav = updateReviewBadge;
 updateReviewBadge = function(){ _updReviewNav(); try{ daRenderTopNav(); }catch(e){} };
 var _updUserNav = updateUserUI;
 updateUserUI = function(){ _updUserNav(); try{ daRenderTopNav(); }catch(e){} };
+
+// ══════════════════════════════════════════════════════════
+//  MORTALITY CAUSES (optional) + HARVEST-SOON ALERT (14 days)
+// ══════════════════════════════════════════════════════════
+// Causes: one farm-wide list (synced key, prefix daracqua_settings_v2). Cause is never required:
+// the first option is blank. New entries store the Arabic label; old keys (disease, oxygen…) are mapped for display.
+var DA_CAUSE_KEY = 'daracqua_settings_v2_mortcauses';
+var DA_CAUSE_DEFAULT = ['نقص أكسجين', 'مرض', 'إجهاد', 'جودة مياه', 'تداول', 'إصابة', 'طبيعي', 'أخرى'];
+var DA_CAUSE_LEGACY = {unknown:'غير محدد', oxygen:'نقص أكسجين', disease:'مرض', stress:'إجهاد', handling:'تداول', other:'أخرى'};
+function daCauseList(){
+  try{ var a = JSON.parse(localStorage.getItem(DA_CAUSE_KEY) || 'null'); if(Array.isArray(a) && a.length) return a; }catch(e){}
+  return DA_CAUSE_DEFAULT.slice();
+}
+function daSetCauseList(list){
+  var seen = {}, out = [];
+  (list || []).forEach(function(c){ c = String(c || '').trim(); if(c && !seen[c]){ seen[c] = 1; out.push(c); } });
+  if(out.length) localStorage.setItem(DA_CAUSE_KEY, JSON.stringify(out)); else localStorage.removeItem(DA_CAUSE_KEY);
+  return daCauseList();
+}
+function daCauseLabel(c){ c = String(c || '').trim(); return c ? (DA_CAUSE_LEGACY[c] || c) : 'غير محدد'; }
+// <option>s for a cause <select>; keeps a saved value that is no longer in the list so re-saving never loses it.
+function daCauseOptions(cur){
+  var lbl = cur ? daCauseLabel(cur) : '', list = daCauseList();
+  if(lbl && list.indexOf(lbl) < 0) list.push(lbl);
+  return '<option value="">— بدون سبب —</option>' + list.map(function(c){
+    return '<option value="' + daEsc(c) + '"' + (c === lbl ? ' selected' : '') + '>' + daEsc(c) + '</option>'; }).join('');
+}
+function daCauseEditorCard(){
+  return '<div class="card" style="margin-bottom:14px"><div class="card-title">💀 أسباب النفوق <span style="font-size:11px;font-weight:400;color:var(--muted)">(اختيارية — سبب في كل سطر)</span></div>'
+    + '<textarea id="da-causes" rows="6" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:13px">' + daEsc(daCauseList().join('\n')) + '</textarea>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:4px">القايمة واحدة لكل المزارع. تسجيل النفوق من غير سبب مسموح دايماً. السجلات القديمة مش بتتغير.</div></div>';
+}
+function daSaveCauseEditor(){
+  var el = document.getElementById('da-causes'); if(!el) return;
+  daSetCauseList(el.value.split('\n'));
+}
+
+// ── harvest-soon alert ──
+// Per unit: SGR from the last sample and an earlier sample ≥7 days before it (else stocking weight/date),
+// projected from the LAST SAMPLE DATE (back-dated entries stay correct), compared to the farm's harvest target.
+function daHarvestTargetFor(farm){
+  return parseFloat((getSettings(farm) || {}).harvestTargetWt) || parseFloat((getSettings('all') || {}).harvestTargetWt) || 0;
+}
+function daHarvestProjection(r, samples, today){
+  var target = daHarvestTargetFor(r.farm);
+  if(!target) return null;
+  var s = (samples || []).filter(function(t){ return (t.avgWt || 0) > 0 && t.date && t.date <= today; })
+    .sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  if(!s.length) return null;
+  var last = s[s.length - 1], w = last.avgWt, base = null;
+  for(var i = s.length - 2; i >= 0; i--){ if(daDaysBetween(s[i].date, last.date) >= 7){ base = {wt:s[i].avgWt, date:s[i].date}; break; } }
+  if(!base){ var u = daRawUnit(r.unit) || {}; if(u.startWt > 0 && u.startDate && daDaysBetween(u.startDate, last.date) >= 7) base = {wt:u.startWt, date:u.startDate}; }
+  if(!base || w >= target) return null;                     // no growth data, or already at target (the "ready" alert covers it)
+  var sgr = computeSGR(base.wt, w, daDaysBetween(base.date, last.date));
+  if(!(sgr > 0 && sgr <= 6)) return null;                     // no growth / implausible
+  var date = daAddDays(last.date, Math.ceil(Math.log(target / w) / (sgr / 100)));
+  return {unit:r.unit, target:target, wt:w, sgr:sgr, date:date, days:daDaysBetween(today, date), sampleAge:daDaysBetween(last.date, today), fish:r.fishNo || 0};
+}
+function daHarvestSoon(windowDays){
+  var today = daToday(), W = windowDays == null ? 14 : windowDays, byUnit = {};
+  getTX().forEach(function(t){ if(t.type === 'sampling' && t.unit) (byUnit[t.unit] = byUnit[t.unit] || []).push(t); });
+  var secs = {};
+  daRows().forEach(function(r){
+    if(daIsBrood(r.unit)) return;
+    var p = daHarvestProjection(r, byUnit[r.unit], today);
+    if(!p || p.days > W) return;
+    var sec = r.section || (daRawUnit(r.unit) || {}).section || r.farm || '—';
+    (secs[sec] = secs[sec] || {section:sec, farm:r.farm || '', units:[]}).units.push(p);
+  });
+  return Object.keys(secs).sort().map(function(k){
+    var g = secs[k]; g.units.sort(function(a, b){ return a.days - b.days; });
+    g.minDays = g.units[0].days; g.date = g.units[0].date;
+    g.fish = g.units.reduce(function(s, u){ return s + u.fish; }, 0);
+    g.kg = g.units.reduce(function(s, u){ return s + u.fish * u.target / 1000; }, 0);
+    return g;
+  });
+}
+function daHarvestSoonAlerts(){
+  return daHarvestSoon(14).map(function(g){
+    var when = g.minDays <= 0 ? 'غالباً وصل الوزن — اعمل عينة للتأكيد' : 'خلال ' + g.minDays + ' يوم (' + g.date + ')';
+    var old = g.units.filter(function(u){ return u.sampleAge > 21; }).length;
+    return {level:g.minDays <= 7 ? 'warn' : 'info', icon:'🎣', title:'حصاد قريب — ' + g.section, unit:'', section:g.section,
+      msg:g.section + ': ' + g.units.length + ' تانك · ' + when + ' · ~' + Math.round(g.kg).toLocaleString() + ' كجم (' + g.fish.toLocaleString() + ' سمكة) — '
+        + g.units.map(function(u){ return u.unit + ' ' + (u.days <= 0 ? 'الآن' : u.days + 'ي'); }).join('، ')
+        + (old ? ' · ⚠️ ' + old + ' تانك آخر عينة أقدم من 3 أسابيع' : ''),
+      action:'harvest-planner'};
+  });
+}
+if(!window._daHarvestSoonWrapped){
+  window._daHarvestSoonWrapped = true;
+  var _genAlertsPreHarvest = generateAlerts;
+  generateAlerts = function(){
+    var a = [];
+    try{ a = _genAlertsPreHarvest.apply(this, arguments) || []; }catch(e){ a = []; }
+    try{ a = a.concat(daHarvestSoonAlerts()); }catch(e){ console.warn('harvest-soon alerts:', e); }
+    return a;
+  };
+}
 
 // ── Init ──────────────────────────────────────
 (function(){

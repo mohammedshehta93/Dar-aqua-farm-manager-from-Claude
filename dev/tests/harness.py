@@ -1,9 +1,8 @@
-import json, re, threading, http.server, socketserver, functools, time, itertools
+import os, json, re, threading, http.server, socketserver, functools, time, itertools
 from urllib.parse import urlparse, parse_qs, unquote
 from playwright.sync_api import sync_playwright
 
 ROOT = os.environ.get('APP_ROOT', '/mnt/user-data/outputs/DarAqua_Fresh')
-import os
 PORT = int(os.environ.get('E2E_PORT', '8771'))
 BASE = f'http://localhost:{PORT}/index.html'
 SB = 'https://mjtxibdxqxrgykuyftsr.supabase.co'
