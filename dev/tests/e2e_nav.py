@@ -34,7 +34,7 @@ with sync_playwright() as p:
     check('N4 other farm admins do not see "إدارة المنصة"', 'platform' not in pg.evaluate(ALLOWED))
     pg.evaluate('doLogout(true)'); pg.wait_for_timeout(400)
     login(pg,'worker@example.com','work123'); wait_sync(pg)
-    allowed = pg.evaluate(ALLOWED); legacy = sorted((set(visible_views(pg)) - {'all-units'}) | {'smart'})  # smart alerts: linked in the menu since 2026-10-28 (worker already had view_dashboard)
+    allowed = pg.evaluate(ALLOWED); legacy = sorted((set(visible_views(pg)) - {'all-units'}) | {'smart', 'help'})  # added to the menu 2026-10-28: smart alerts (worker already had view_dashboard), user guide (everyone)
     check('N3 worker sees exactly the pages they are allowed (same as before)', allowed == legacy, (sorted(set(allowed) ^ set(legacy))))
     groups = pg.evaluate("() => daNavGroups().map(g => g.id)")
     check('N3 empty tabs disappear for the worker (no setup / finance)', 'setup' not in groups and 'finance' not in groups, groups)
