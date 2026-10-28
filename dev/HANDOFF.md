@@ -34,7 +34,7 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Error logging: `daLogError` → `client_errors`; platform page shows grouped errors. Dates are local (`daToday`, `daYmd`).
 - Navigation: top tabs `DA_NAV` (8 groups, permission-aware via `canAccessView`); old sidebar kept hidden in DOM (tests use it).
 
-## SQL (in `dev/sql`, all idempotent; confirm with the owner which ones were run)
+## SQL (in `dev/sql`, all idempotent) — ✅ all four have been run on the live database (confirmed by the owner)
 `multi_farm_setup.sql` (tenancy + RLS + platform RPCs) · `delete_user.sql` · `error_logging.sql` · `sync_timestamps.sql` (synced_at + trigger).
 The app degrades gracefully if a later one is missing (e.g. full download without `synced_at`).
 
