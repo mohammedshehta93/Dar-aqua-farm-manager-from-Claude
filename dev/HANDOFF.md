@@ -64,8 +64,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   page; the farm layout is NOT in the public repo). One feeding record per tank/day id `fs-<unit>-<date>` (kg = Σ meals,
   `meals` breakdown, `size`, `feed` = inventory product chosen per pellet size in the header) + mortality `fsm-<unit>-<date>`.
   Saving again edits (history kept); asks before double counting with other screens; never touches mortality without permission.
-  Next: section-level water sheet (paper AQU-LG-25-01-01 is per section, app WQ is per tank — owner to decide), then the
-  printable sheet with digit boxes + on-device photo reading (no external AI; owner prefers 2.5 kg style, kg, 1/2/3 mm).
+  Next: the printable sheets with digit boxes + on-device photo reading (no external AI; kg like 2.5, size 1/2/3 mm).
+- Daily testing log (`wq-sheet`, module `dev/modules/wq_sheet.js`, edits `dev/tools/patch_wq_sheet.py`) — owner chose ONE
+  reading per SECTION: water_quality record with unit = section id ("F2.S01"), scope:'section', id ws-<section>-<date>.
+  ✓/✗ computed from per-farm limits (getSettings(farm): tempLo/tempHi/phMin/phMax/doCrit, edited in the page). WQ alerts
+  now use each reading's farm limits (were: pH hard-coded 6.5–9, no low temp, one farm's settings for all). Trends page
+  shows the section's readings for each tank. Out of range without corrective action → confirm.
 - `daStateAt` fixed (`dev/tools/patch_feed_sheet.py`): after the last event day it returns the END-of-day state; it used to
   return start-of-day, so emptied tanks kept their fish (validateTX + weekly report were affected).
 - Before merging a new module run `python3 dev/tools/check_clashes.py dev/modules/x.js` — a same-name function in index.html
@@ -85,7 +89,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-22 suites, ~410 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+23 suites, ~430 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
