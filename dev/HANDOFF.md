@@ -59,6 +59,17 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   auto-refresh/sync/realtime `show(currentView…)` calls — realtime used to wipe a half-filled weekly feed grid), confirm on
   close / logout / leaving the site. Max 10 tabs (LRU, dirty never dropped). Logout/tenant switch clears all tabs.
   Unsaved input is in memory only: a page reload or the phone killing the browser loses it.
+- Daily feed sheet (`feed-sheet`, module `dev/modules/feed_sheet.js`): the paper Feed Log (AQU-FR-25-01-07) on screen,
+  LTR like the paper. Meal times per section group per farm in synced `daracqua_plan_v1_sheets` (owner enters them in the
+  page; the farm layout is NOT in the public repo). One feeding record per tank/day id `fs-<unit>-<date>` (kg = Σ meals,
+  `meals` breakdown, `size`, `feed` = inventory product chosen per pellet size in the header) + mortality `fsm-<unit>-<date>`.
+  Saving again edits (history kept); asks before double counting with other screens; never touches mortality without permission.
+  Next: section-level water sheet (paper AQU-LG-25-01-01 is per section, app WQ is per tank — owner to decide), then the
+  printable sheet with digit boxes + on-device photo reading (no external AI; owner prefers 2.5 kg style, kg, 1/2/3 mm).
+- `daStateAt` fixed (`dev/tools/patch_feed_sheet.py`): after the last event day it returns the END-of-day state; it used to
+  return start-of-day, so emptied tanks kept their fish (validateTX + weekly report were affected).
+- Before merging a new module run `python3 dev/tools/check_clashes.py dev/modules/x.js` — a same-name function in index.html
+  is silently replaced by the merge tool (this almost broke the Excel import: `daSheetRows`).
 - Error logging: `daLogError` → `client_errors`; platform page shows grouped errors. Dates are local (`daToday`, `daYmd`).
 - Navigation: top tabs `DA_NAV` (8 groups, permission-aware via `canAccessView`); old sidebar kept hidden in DOM (tests use it).
 
@@ -74,7 +85,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-21 suites, ~375 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+22 suites, ~410 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
