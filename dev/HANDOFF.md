@@ -56,8 +56,8 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 ## SQL (in `dev/sql`, all idempotent) — ✅ all four have been run on the live database (confirmed by the owner)
 `multi_farm_setup.sql` (tenancy + RLS + platform RPCs) · `delete_user.sql` · `error_logging.sql` · `sync_timestamps.sql` (synced_at + trigger).
 The app degrades gracefully if a later one is missing (e.g. full download without `synced_at`).
-⏳ `error_retention.sql` (2026-10-28, trigger deleting error reports >90 days — the privacy page promises this) — **not yet run**.
-Until it is, the platform page prunes once a day when opened.
+✅ `error_retention.sql` (2026-10-28, trigger deleting error reports >90 days — the privacy page promises this) — run 2026-10-28.
+The platform page also prunes once a day when opened (harmless fallback).
 
 ## Tests (Playwright + mock Supabase with RLS-like rules)
 ```
