@@ -35,7 +35,7 @@ with sync_playwright() as p:
     ctx.close()
 
     # ── each role lands on its own guide tab; every menu path in the guide exists ──
-    for email, pw, tab, must in [('worker@example.com', 'work123', 'worker', 'تغذية سريعة'),
+    for email, pw, tab, must in [('worker@example.com', 'work123', 'worker', 'شيت العلف اليومي'),
                                  ('eng@example.com', 'eng12345', 'engineer', 'مراجعة البيانات'),
                                  ('admin@example.com', 'admin123', 'admin', 'نسخة احتياطية')]:
         ctx, pg = new_page(p, sb)

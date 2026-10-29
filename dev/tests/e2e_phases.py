@@ -21,7 +21,7 @@ with sync_playwright() as p:
     check('P1 localStorage freed after move to IndexedDB', pg.evaluate("() => localStorage.getItem('daracqua_transactions_v1')") is None)
     # P2 audit stamp + pending
     exp = pg.evaluate("() => daExpectedDailyFeed(daLiveMap()['F1.S01T01'])")
-    pg.evaluate(f"addTX({{id:'w-ok',type:'feeding',date:daToday(),unit:'F1.S01T01',kg:{round(exp/3,2)},meal:'صباح'}})"); pg.wait_for_timeout(300)
+    pg.evaluate(f"addTX({{id:'w-ok',type:'feeding',source:'sheet',date:daToday(),unit:'F1.S01T01',kg:{round(exp/3,2)},meal:'صباح'}})"); pg.wait_for_timeout(300)
     t = pg.evaluate("() => getTX().find(t=>t.id==='w-ok')")
     check('P2 TX stamped with user/role/time', t and t.get('by') == 'worker@example.com' and t.get('byRole') == 'worker' and t.get('at'), t)
     check('P2 worker entry pending review', t and t.get('status') == 'pending')
@@ -34,7 +34,7 @@ with sync_playwright() as p:
     check('P3 blocked TX not saved', not pg.evaluate("() => getTX().some(t=>t.id==='w-bad')"))
     pg.click('#txr-cancel')
     # P4 warn on 3x feed, save anyway → flagged
-    pg.evaluate(f"addTX({{id:'w-big',type:'feeding',date:daToday(),unit:'F1.S01T01',kg:{round(exp*3+1,2)},meal:'ظهر'}})"); pg.wait_for_timeout(400)
+    pg.evaluate(f"addTX({{id:'w-big',type:'feeding',source:'sheet',date:daToday(),unit:'F1.S01T01',kg:{round(exp*3+1,2)},meal:'ظهر'}})"); pg.wait_for_timeout(400)
     check('P4 overfeeding warning shown', pg.is_visible('#txr-save') and 'ضعف المتوقع' in pg.inner_text('#tx-review-modal'))
     pg.click('#txr-save'); pg.wait_for_timeout(300)
     t = pg.evaluate("() => getTX().find(t=>t.id==='w-big')")

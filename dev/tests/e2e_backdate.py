@@ -9,6 +9,7 @@ with sync_playwright() as p:
         fishNo: i===2 ? 0 : 1000, avgWt: 100, startWt:100, biomass: i===2 ? 0 : 100, volume:10})); _valCache={t:0,map:{}}; }""")
     D = lambda n: pg.evaluate(f"daAddDays(daToday(),{n})")
     def add(tx):
+        if tx.get('type') == 'feeding': tx = dict(tx, source='sheet')   # feeding is entered from the feed sheet only (2026-10-29)
         pg.evaluate("t => addTX(t)", tx); pg.wait_for_timeout(250)
         modal = pg.inner_text('#tx-review-modal') if pg.is_visible('#tx-review-modal') else ''
         if modal: pg.evaluate('txReviewClose()')
@@ -65,8 +66,12 @@ with sync_playwright() as p:
     od = pg.evaluate("() => daUnitOpenDate('F2.S06T01')")
     ok, m = add({'id':'pre','type':'feeding','date':pg.evaluate(f"daAddDays('{od}',-1)"),'unit':'F2.S06T01','kg':5})
     check('B13 imported tank: entries before the opening balance refused (no double counting)', not ok and 'الرصيد الافتتاحي' in m, m[:160])
-    pg.evaluate(f"window._fw={{site:'F2',section:'F2.S06',end:'{od}'}}; show('feed-week')"); pg.wait_for_timeout(300)
-    check('B13 weekly grid locks days before the opening balance', pg.is_disabled('#fw-0-0') and not pg.is_disabled('#fw-0-6'))
+    # feeding is entered from the feed sheet only (2026-10-29): the sheet must refuse a day before the opening balance
+    pg.evaluate(f"window._fs={{farm:'F2',date:daAddDays('{od}',-1)}}; show('feed-sheet')"); pg.wait_for_timeout(400)
+    ri = pg.evaluate("() => (window._fs.rows.find(r=>r.unit==='F2.S06T01')||{}).i")
+    pg.fill(f'#fs-{ri}-m0', '5'); pg.fill(f'#fs-{ri}-sz', '3')
+    dl = []; pg.once('dialog', lambda d: (dl.append(d.message), d.accept())); pg.click('#fs-save'); pg.wait_for_timeout(600)
+    check('B13 feed sheet refuses a day before the opening balance', dl and 'الرصيد الافتتاحي' in dl[0] and not pg.evaluate(f"getTX().some(t=>t.id==='fs-F2.S06T01-'+daAddDays('{od}',-1))"), dl)
     check('B15 no JS errors', not pg._errs, pg._errs[:3])
     ctx.close()
 srv.shutdown()

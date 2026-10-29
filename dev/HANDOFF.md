@@ -70,6 +70,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   ✓/✗ computed from per-farm limits (getSettings(farm): tempLo/tempHi/phMin/phMax/doCrit, edited in the page). WQ alerts
   now use each reading's farm limits (were: pH hard-coded 6.5–9, no low temp, one farm's settings for all). Trends page
   shows the section's readings for each tank. Out of range without corrective action → confirm.
+- FEEDING FROM ONE SCREEN ONLY (owner, 2026-10-29; module `dev/modules/feed_single.js`): quick-feed, tx-feeding,
+  feed-week, photo-entry removed from the menu (opening them shows a pointer to the sheet), the daily sheet lost its feed
+  tab, addTX refuses feeding unless source 'sheet' / 'import' (or _skipValidation). Old records stay valid; the sheet's
+  yellow warning has "📥 انقلها للشيت" (engineer+) → one fs- record per tank (meal kept if it matches a sheet meal, else
+  first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
+  the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
+  Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
 - `daStateAt` fixed (`dev/tools/patch_feed_sheet.py`): after the last event day it returns the END-of-day state; it used to
   return start-of-day, so emptied tanks kept their fish (validateTX + weekly report were affected).
 - To change an ALREADY-merged module: edit `dev/modules/x.js`, then `node dev/tools/update_functions.js dev/modules/x.js
@@ -103,7 +110,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-24 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+25 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

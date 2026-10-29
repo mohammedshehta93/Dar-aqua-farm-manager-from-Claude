@@ -28,7 +28,7 @@ with sync_playwright() as p:
     pg.evaluate("show('user-management')"); check('T3 user-management blocked', 'مش مسموحلك' in content(pg))
     check('T4 boot loaded TX from cloud', any(mm == 'GET' and pp.startswith('/rest/v1/transactions?farm_id=eq.farm-main') for mm, pp, _ in sb.log))
     check('T4 realtime + dashboard refresh started', pg.evaluate('() => !!_realtimeInterval && !!_dashRefreshInterval'))
-    pg.evaluate("addTX({id:'tx-w1',type:'feeding',date:'2026-10-25',unit:'F1.S01T01',kg:4.2,feed:'3mm'})"); pg.wait_for_timeout(800)
+    pg.evaluate("addTX({id:'tx-w1',type:'feeding',date:'2026-10-25',unit:'F1.S01T01',kg:4.2,feed:'3mm',source:'sheet'})"); pg.wait_for_timeout(800)
     posts = [hh for mm, pp, hh in sb.log if mm == 'POST' and pp.startswith('/rest/v1/transactions')]
     check('T4 TX uploaded exactly once', sb.upserts.get('tx-w1') == 1, sb.upserts)
     check('T4 upload carried apikey + user token', posts and posts[-1].get('apikey') and posts[-1].get('authorization', '').startswith('Bearer at-u-worker'))

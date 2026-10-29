@@ -10,7 +10,7 @@ with sync_playwright() as p:
     BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
     sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin'); sb.add_user('worker@example.com', 'work123', role='worker')
     ctx, pg = new_page(p, sb)
-    login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.evaluate('window.DA_SINGLE_FEED=false')  # legacy screens under test (retired from the menu 2026-10-29)
     home = pg.evaluate("homeView()")
     pg.evaluate("show('quick-feed')"); pg.wait_for_timeout(300)
     b = bar(pg)
@@ -65,14 +65,14 @@ with sync_playwright() as p:
     check('T15 logout clears all tabs', pg.evaluate("DA_TABS.length") == 0 and pg.evaluate("document.getElementById('da-tabbar').style.display") == 'none')
     check('T16 back button shows the page name, not its code', pg.evaluate("(document.getElementById('back-lbl')||{}).textContent||''") not in ('', 'fcr-stage', 'help', 'alarms') and not __import__('re').search(r'^[a-z-]+$', pg.evaluate("(document.getElementById('back-lbl')||{}).textContent||''")), pg.evaluate("(document.getElementById('back-lbl')||{}).textContent"))
     check('T16 no page errors (admin)', not pg._errs, pg._errs)
-    login(pg, 'worker@example.com', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.wait_for_timeout(300)
+    login(pg, 'worker@example.com', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.evaluate('window.DA_SINGLE_FEED=false')  # legacy screens under test (retired from the menu 2026-10-29); pg.wait_for_timeout(300)
     check('T15 next user sees none of the previous user\'s tabs', all(t['v'] != 'tx-mortality' for t in tabs(pg)) and '4' not in [pg.evaluate("(document.querySelector('#content input[type=number]')||{}).value||''")])
     ctx.close()
 
     # phone
     ctx = BROWSER.new_context(viewport={'width': 390, 'height': 800}); ctx.route('**/*', make_handler(sb)); pg = ctx.new_page(); pg._errs = []
     pg.on('pageerror', lambda e: pg._errs.append(str(e)))
-    pg.goto(BASE); pg.wait_for_timeout(500); login(pg, 'worker@example.com', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pg.goto(BASE); pg.wait_for_timeout(500); login(pg, 'worker@example.com', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.evaluate('window.DA_SINGLE_FEED=false')  # legacy screens under test (retired from the menu 2026-10-29)
     for v in ['quick-feed', 'tx-mortality', 'tx-sampling', 'feed-week']: pg.evaluate(f"show('{v}')"); pg.wait_for_timeout(100)
     m = pg.evaluate("(() => { const b=document.getElementById('da-tabbar'), r=b.querySelector('.dt-row'); return {vis:b.offsetHeight>0, scroll:r.scrollWidth>r.clientWidth, overflow:document.documentElement.scrollWidth>window.innerWidth+1}; })()")
     check('T17 phone: tab bar visible, scrolls sideways, page does not overflow', m['vis'] and m['scroll'] and not m['overflow'], m)
