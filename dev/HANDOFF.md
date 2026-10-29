@@ -74,6 +74,15 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   return start-of-day, so emptied tanks kept their fish (validateTX + weekly report were affected).
 - Before merging a new module run `python3 dev/tools/check_clashes.py dev/modules/x.js` — a same-name function in index.html
   is silently replaced by the merge tool (this almost broke the Excel import: `daSheetRows`).
+- Real data checks (2026-10-28, owner's 2510.xls): aqm/backdate/edit/loops/ras3 pass; e2e_week W1 fails on today's date
+  ALSO on pre-session code (a25edf3) — date-dependent (no feed records two months after the export's start dates), not a
+  regression; pin the clock in that test. Needs `pip install xlrd`. Units are F1.S01T01 style (feed sheet OK); the export
+  has fewer tanks than the paper (F2 S1 12/14, S3 10/14, S5 12/14, S12 1/2, S15 1/2, S16 missing) → empty tanks must
+  exist in farm setup to show on the sheets.
+- Filled paper feed logs seen: Western digits; FH2 S1–3 written in GRAMS (500/200/700) while others kg (FH1 .8/1.2);
+  dead written as sums "2+1"; X = not fed (?); size as "2m/3r"; technician/feed type/totals left blank. Open questions to
+  owner: grams per group, meaning of "a+b", X → record "not fed", backups option A. Photo reading postponed until the
+  on-screen sheets have been used 1–2 weeks (writing habits are the real hurdle, not the OCR).
 - Error logging: `daLogError` → `client_errors`; platform page shows grouped errors. Dates are local (`daToday`, `daYmd`).
 - Navigation: top tabs `DA_NAV` (8 groups, permission-aware via `canAccessView`); old sidebar kept hidden in DOM (tests use it).
 
