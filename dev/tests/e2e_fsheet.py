@@ -63,7 +63,11 @@ with sync_playwright() as p:
     check('S13 size other than 1/2/3 is refused', not fs_tx(pg, 'fs-F1.S01T03'))
     # same tank already fed today from another screen → ask before double counting
     pg.evaluate("addTX({id:'qf-x',type:'feeding',unit:'F1.S02T01',date:window._fs.date,kg:4,feed:'Grower 2mm',meal:'صباح',_skipValidation:true}); show('feed-sheet',true)"); pg.wait_for_timeout(300)
-    check('S14 other-screen feed shown on the row', '+4 كجم من شاشة تانية' in content(pg))
+    check('S14 other-screen feed shown on the row, naming the screen', 'متسجل من شاشة التغذية: 4 كجم' in content(pg), content(pg)[-600:])
+    check('S14 page-level warning names the screen and total', 'متسجل بالفعل من' in content(pg) and 'شاشة التغذية' in content(pg))
+    pg.evaluate("addTX({id:'wk-x',type:'feeding',unit:'F1.S01T03',date:window._fs.date,kg:3,feed:'Grower 2mm',meal:'يومي',source:'weekly',_skipValidation:true}); show('feed-sheet',true)"); pg.wait_for_timeout(300)
+    check('S14 weekly-grid entries are labelled "تغذية الأسبوع"', 'متسجل من تغذية الأسبوع: 3 كجم' in content(pg))
+    pg.evaluate("deleteTX('wk-x'); show('feed-sheet',true)"); pg.wait_for_timeout(300)
     fill(pg, '1.3', None, 2); fill(pg, '2.1', [1, 1, 1], 2)
     msg = []; pg.once('dialog', lambda d: (msg.append(d.message), d.dismiss())); pg.click('#fs-save'); pg.wait_for_timeout(300)
     check('S14 saving asks before double counting; cancel saves nothing', msg and 'مرتين' in msg[0] and not fs_tx(pg, 'fs-F1.S02T01') and not fs_tx(pg, 'fs-F1.S01T03'), msg)

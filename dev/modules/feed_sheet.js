@@ -47,12 +47,21 @@ function daFsRows(farm, date){
   return Object.keys(units).filter(daTankNo).sort(function(a, b){ var x = daTankNo(a), y = daTankNo(b); return x.s - y.s || x.t - y.t; })
     .map(function(u){ return {unit:u, no:daTankNo(u), fish:(daStateAt(u, date) || {}).fish || 0}; });
 }
+// which screen a record came from — so the "already recorded elsewhere" note can say where
+function daTxSourceLabel(t){
+  if(t.source === 'weekly') return 'تغذية الأسبوع';
+  if(t.source === 'import') return 'الاستيراد';
+  if(t.source === 'sheet') return 'شيت العلف';
+  if(t.notes === 'Photo Entry') return 'الإدخال بالصورة';
+  return t.type === 'mortality' ? 'شاشة النفوق' : 'شاشة التغذية';
+}
 function daFsLoad(rows, date){
-  var by = {}; rows.forEach(function(r){ by[r.unit] = r; r.feedTx = null; r.mortTx = null; r.otherKg = 0; r.otherDead = 0; });
+  var by = {}; rows.forEach(function(r){ by[r.unit] = r; r.feedTx = null; r.mortTx = null; r.otherKg = 0; r.otherDead = 0; r.otherSrc = {}; r.otherWho = {}; });
   getTX().forEach(function(t){
     var r = by[t.unit]; if(!r || t.date !== date || t.deleted) return;
-    if(t.type === 'feeding'){ if(t.id === 'fs-' + t.unit + '-' + date) r.feedTx = t; else r.otherKg += parseFloat(t.kg) || 0; }
-    else if(t.type === 'mortality'){ if(t.id === 'fsm-' + t.unit + '-' + date) r.mortTx = t; else r.otherDead += parseInt(t.count) || 0; }
+    var mine = t.id === (t.type === 'mortality' ? 'fsm-' : 'fs-') + t.unit + '-' + date;
+    if(t.type === 'feeding'){ if(mine) r.feedTx = t; else { r.otherKg += parseFloat(t.kg) || 0; r.otherSrc[daTxSourceLabel(t)] = 1; if(t.byName || t.by) r.otherWho[t.byName || t.by] = 1; } }
+    else if(t.type === 'mortality'){ if(mine) r.mortTx = t; else { r.otherDead += parseInt(t.count) || 0; r.otherSrc[daTxSourceLabel(t)] = 1; if(t.byName || t.by) r.otherWho[t.byName || t.by] = 1; } }
   });
 }
 function daFsNum(v){ return v === undefined || v === null || v === '' ? '' : String(+(+v).toFixed(3)); }
@@ -90,6 +99,10 @@ function renderFeedSheet(){
   if(!rows.length) return h + '<div class="card" style="text-align:center;padding:40px;color:var(--muted)">مفيش تانكات متسجلة للمزرعة دي.</div>';
   var idx = 0, existing = rows.some(function(r){ return r.feedTx || r.mortTx; });
   if(existing) h += '<div class="card" style="margin-bottom:12px;background:#f0fdf4;font-size:13px">✅ الشيت ده متسجل قبل كده — أي تعديل وحفظ بيعدّل نفس السجلات، مش بيكررها.</div>';
+  var elsewhere = rows.filter(function(r){ return r.otherKg > 0; }), srcs = {};
+  elsewhere.forEach(function(r){ Object.keys(r.otherSrc).forEach(function(k){ srcs[k] = 1; }); });
+  if(elsewhere.length) h += '<div class="card" style="margin-bottom:12px;background:#fffbeb;font-size:13px">⚠️ <b>' + elsewhere.length + ' تانك</b> علفهم في اليوم ده متسجل بالفعل من <b>' + daEsc(Object.keys(srcs).join(' + ')) + '</b> (إجمالي '
+    + daFsNum(elsewhere.reduce(function(a, r){ return a + r.otherKg; }, 0)) + ' كجم). لو ده نفس العلف، <b>متكتبوش هنا تاني</b> — هيتحسب مرتين. والتعديل عليه يبقى من نفس الشاشة دي.</div>';
   var used = {};
   groups.forEach(function(g, gi){
     var gr = rows.filter(function(r){ return !used[r.unit] && r.no.s >= g.from && r.no.s <= g.to; });
@@ -109,7 +122,8 @@ function renderFeedSheet(){
         + '<td><input type="number" inputmode="numeric" min="1" max="3" step="1" class="fs-sz" id="fs-' + i + '-sz" value="' + daEsc(size || '') + '"' + (off ? ' disabled' : '') + '/></td>'
         + '<td><input type="text" inputmode="tel" autocomplete="off" class="fs-d" id="fs-' + i + '-d" value="' + (mt ? daEsc(mt.countRaw || mt.count) : '') + '"' + (off || !canMort ? ' disabled' : '') + '/></td>'
         + '<td class="fs-sum" id="fs-' + i + '-sum"></td>'
-        + '<td class="fs-note">' + (off ? '' : '<button class="fs-fast" title="متأكلش النهارده (صايم)" onclick="daFsFast(' + i + ')">✕</button> ') + (r.otherKg ? '⚠️ +' + daFsNum(r.otherKg) + ' كجم من شاشة تانية' : '') + (r.otherDead ? (r.otherKg ? '<br>' : '') + '⚠️ +' + r.otherDead + ' نافق من شاشة تانية' : '') + (off ? 'فاضي' : '') + '</td></tr>';
+        + '<td class="fs-note" title="' + daEsc(Object.keys(r.otherWho).length ? 'سجّلها: ' + Object.keys(r.otherWho).join('، ') : '') + '">' + (off ? '' : '<button class="fs-fast" title="متأكلش النهارده (صايم)" onclick="daFsFast(' + i + ')">✕</button> ')
+        + (r.otherKg || r.otherDead ? '⚠️ متسجل من ' + daEsc(Object.keys(r.otherSrc).join(' + ')) + ': ' + (r.otherKg ? daFsNum(r.otherKg) + ' كجم' : '') + (r.otherKg && r.otherDead ? ' · ' : '') + (r.otherDead ? r.otherDead + ' نافق' : '') : '') + (off ? 'فاضي' : '') + '</td></tr>';
     });
     h += '</tbody></table></div></div>';
   });
