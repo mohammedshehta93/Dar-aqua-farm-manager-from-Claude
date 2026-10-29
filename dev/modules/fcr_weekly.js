@@ -44,7 +44,7 @@ function daUnitPeriods(unit, list){
       if(!anchor && wt > 0){ anchor = {date:d, fish:fish, wt:wt}; reset(); }   // first stocking starts the record
     }});
     ev.forEach(function(t){
-      if(t.type === 'feeding'){ var kg = parseFloat(t.kg) || 0; if(kg > 0){ pend.feed += kg; pend.feedDays[d] = 1; } }
+      if(t.type === 'feeding'){ var kg = parseFloat(t.kg) || 0; if(kg > 0){ pend.feed += kg; pend.feedDays[d] = 1; } else if(t.fasted) pend.feedDays[d] = 1; }   // a recorded "not fed" day is data, not a gap
       else if(t.type === 'sampling' && parseFloat(t.avgWt) > 0) sampleW = parseFloat(t.avgWt);
     });
     ev.forEach(function(t){
@@ -194,9 +194,9 @@ function daLastClosedWeekEnd(today){ var d = daAddDays(today || daToday(), -1); 
 function daWeeklyData(end, farm){
   var start = daAddDays(end, -6), st = daFcrStages(), inFarm = function(u){ var r = (daRawUnit(u) || {}); return !farm || farm === 'all' || r.farm === farm || String(u).indexOf(farm + '.') === 0; };
   var tx = getTX().filter(function(t){ return t.unit && t.date >= start && t.date <= end && inFarm(t.unit); });
-  var d = {start:start, end:end, farm:farm || 'all', feed:0, feedBy:{}, dead:0, causes:{}, harvKg:0, harvFish:0, stocked:0, samples:{}, units:{}};
+  var d = {start:start, end:end, farm:farm || 'all', feed:0, feedBy:{}, fasted:0, dead:0, causes:{}, harvKg:0, harvFish:0, stocked:0, samples:{}, units:{}};
   tx.forEach(function(t){
-    if(t.type === 'feeding'){ var kg = parseFloat(t.kg) || 0; d.feed += kg; var k = t.feed || '—'; d.feedBy[k] = (d.feedBy[k] || 0) + kg; d.units[t.unit + '|' + t.date] = 1; }
+    if(t.type === 'feeding'){ var kg = parseFloat(t.kg) || 0; if(t.fasted) d.fasted++; d.feed += kg; var k = t.feed || '—'; if(t.fasted) k = null; if(k) d.feedBy[k] = (d.feedBy[k] || 0) + kg; d.units[t.unit + '|' + t.date] = 1; }
     else if(t.type === 'mortality'){ var c = parseInt(t.count) || 0; d.dead += c; var cl = daCauseLabel(t.cause); d.causes[cl] = (d.causes[cl] || 0) + c; }
     else if(t.type === 'harvesting'){ d.harvKg += parseFloat(t.kg) || 0; d.harvFish += parseInt(t.fishNo) || 0; }
     else if(t.type === 'stocking'){ d.stocked += parseInt(t.fishNo) || 0; }
@@ -231,6 +231,7 @@ function daWeeklyText(d){
   L.push('');
   L.push('🐟 السمك: ' + f1(d.fishNow) + ' · الكتلة ~' + f1(d.bioNow) + ' كجم');
   L.push('🌾 العلف: ' + f1(d.feed) + ' كجم' + (Object.keys(d.feedBy).length > 1 ? ' (' + Object.keys(d.feedBy).sort().map(function(k){ return k + ' ' + f1(d.feedBy[k]); }).join(' · ') + ')' : ''));
+  if(d.fasted) L.push('🚫 أيام من غير علف (صيام/فاضي): ' + d.fasted + ' تانك-يوم');
   var tc = Object.keys(d.causes).sort(function(a, b){ return d.causes[b] - d.causes[a]; }).slice(0, 3);
   L.push('💀 النفوق: ' + f1(d.dead) + (d.mortPct != null ? ' (' + d.mortPct.toFixed(2) + '%)' : '') + (tc.length ? ' — ' + tc.map(function(k){ return k + ' ' + d.causes[k]; }).join('، ') : ''));
   if(d.harvKg) L.push('🎣 الحصاد: ' + f1(d.harvKg) + ' كجم (' + f1(d.harvFish) + ' سمكة)');

@@ -72,6 +72,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   shows the section's readings for each tank. Out of range without corrective action → confirm.
 - `daStateAt` fixed (`dev/tools/patch_feed_sheet.py`): after the last event day it returns the END-of-day state; it used to
   return start-of-day, so emptied tanks kept their fish (validateTX + weekly report were affected).
+- To change an ALREADY-merged module: edit `dev/modules/x.js`, then `node dev/tools/update_functions.js dev/modules/x.js
+  index.html` (replaces/insert functions in place via AST; never re-merge — that duplicates non-function code). Running it
+  on every module must print "updated: none" (= index.html and modules in sync). Non-function code → exact edits in both.
 - Before merging a new module run `python3 dev/tools/check_clashes.py dev/modules/x.js` — a same-name function in index.html
   is silently replaced by the merge tool (this almost broke the Excel import: `daSheetRows`).
 - Real data checks (2026-10-28, owner's 2510.xls): aqm/backdate/edit/loops/ras3 pass; e2e_week W1 fails on today's date
@@ -80,9 +83,11 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   has fewer tanks than the paper (F2 S1 12/14, S3 10/14, S5 12/14, S12 1/2, S15 1/2, S16 missing) → empty tanks must
   exist in farm setup to show on the sheets.
 - Filled paper feed logs seen: Western digits; FH2 S1–3 written in GRAMS (500/200/700) while others kg (FH1 .8/1.2);
-  dead written as sums "2+1"; X = not fed (?); size as "2m/3r"; technician/feed type/totals left blank. Open questions to
-  owner: grams per group, meaning of "a+b", X → record "not fed", backups option A. Photo reading postponed until the
-  on-screen sheets have been used 1–2 weeks (writing habits are the real hurdle, not the OCR).
+  dead written as sums "2+1"; X = not fed; size as "2m/3r"; technician/feed type/totals left blank.
+  Owner answers (2026-10-29), all implemented (`e2e_fsheet2`): grams per group ("1-3 = 8, 10 | g", stored as kg; <1 in a
+  grams table refused as typed kilos); dead "a+b" = two removals → summed, `countRaw` kept; X = not fed (fasting or empty)
+  → per meal, or ✕ for the day → record kg 0 `fasted:true` (FCR counts it as a recorded day, weekly report lists it, not
+  "missing"). Backups: postponed by owner. Photo reading postponed until the on-screen sheets are used 1–2 weeks.
 - Error logging: `daLogError` → `client_errors`; platform page shows grouped errors. Dates are local (`daToday`, `daYmd`).
 - Navigation: top tabs `DA_NAV` (8 groups, permission-aware via `canAccessView`); old sidebar kept hidden in DOM (tests use it).
 
@@ -98,7 +103,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-23 suites, ~430 checks. `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+24 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
