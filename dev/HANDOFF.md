@@ -77,6 +77,11 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- ALERT LIMITS PER FARM (module `alert_scope.js`, edits `dev/tools/patch_alert_scope.py`): settings live per farm
+  (…_F1/_F2) + global (…_global); getSettings() picks a HIDDEN farm (`_settingsFarm`, set by the settings page) and a farm
+  object without a key never falls back to global → saved limits silently ignored. Now each tank uses `daFarmLIM(farm)`:
+  farm key → global key → default (also `daWqLimits`). Alert page has an explicit scope selector (كل المزارع / F1 / F2).
+  Other code still calling getSettings() for limits has the same trap — use daRawSettings + fallback when touching it.
 - Settings respond at once (owner report 2026-10-30): the alert-settings page wrote alertDensity/warnDensity/alertDO/
   alertTemp that NOTHING read — alerts read densAlarm/densWarn/doCrit/tempHi (`dev/tools/patch_alert_settings.py` makes the
   page read/write those). saveSettings now also clears the active tab's unsaved mark (a saved settings page kept "●" →

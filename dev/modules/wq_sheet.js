@@ -6,9 +6,9 @@
 // id ws-<section>-<date>: saving again edits it. ✓/✗ is computed from the farm's acceptance limits (editable here,
 // stored in that farm's settings: tempLo, tempHi, phMin, phMax, doCrit) — the same limits the alerts use.
 var DA_WQ_DEF = {tempLo:21, tempHi:32, phMin:6.5, phMax:9, doCrit:4};
-function daWqLimits(farm){
-  var c = getSettings(farm) || {}, o = {};
-  Object.keys(DA_WQ_DEF).forEach(function(k){ var v = parseFloat(c[k]); o[k] = isNaN(v) ? DA_WQ_DEF[k] : v; });
+function daWqLimits(farm){   // the farm's own limit → else the all-farms limit → else the default
+  var c = typeof daRawSettings === 'function' ? daRawSettings(farm) : (getSettings(farm) || {}), g = typeof daRawSettings === 'function' ? daRawSettings('global') : {}, o = {};
+  Object.keys(DA_WQ_DEF).forEach(function(k){ var v = parseFloat(c[k]); if(isNaN(v)) v = parseFloat(g[k]); o[k] = isNaN(v) ? DA_WQ_DEF[k] : v; });
   return o;
 }
 function daSecOf(unit){ var r = daRawUnit(unit); if(r && r.section) return r.section; var m = /^(.*?\.?S\d+)T\d+$/i.exec(String(unit || '')); return m ? m[1] : ''; }

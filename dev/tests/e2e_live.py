@@ -31,6 +31,18 @@ with sync_playwright() as p:
     check('L6 refresh on a page with unsaved input asks first; cancel keeps it', pg.input_value(f'#fs-{i}-m0') == '3')
     pg.once('dialog', lambda d: d.accept()); pg.click('#dt-refresh'); pg.wait_for_timeout(600)
     check('L6 …ok → page redrawn, unsaved mark cleared', pg.input_value(f'#fs-{pg.evaluate("window._fs.rows[0].i")}-m0') == '' and not pg.evaluate("_daActiveTab.dirty"))
+    # the owner's case: general settings opened first (picks a hidden farm), then limits saved on the alert page
+    pg.evaluate("show('settings')"); pg.wait_for_timeout(300)
+    pg.evaluate("window._alsScope='global'; show('alert-settings')"); pg.wait_for_timeout(300)
+    check('L8 alert page says which farms the limits are for', 'كل المزارع' in content(pg) and pg.evaluate("!!document.getElementById('als-scope')"))
+    pg.fill('#st-alert-dens', '40'); pg.fill('#st-warn-dens', '39'); pg.evaluate("saveAlertSettings()"); pg.wait_for_timeout(200)
+    farms = lambda: pg.evaluate("[...new Set(generateAlerts().filter(a=>/كثافة وزن/.test(a.title||'')).map(a=>String(a.unit).split('.')[0]))]")
+    check('L8 "all farms" limit applies to every farm even after the settings page picked one', farms() == [], farms())
+    pg.evaluate("window._alsScope='F1'; show('alert-settings',true)"); pg.wait_for_timeout(200)
+    pg.fill('#st-alert-dens', '20'); pg.fill('#st-warn-dens', '15'); pg.evaluate("saveAlertSettings()"); pg.wait_for_timeout(200)
+    check('L9 a farm with its own limit uses it; the other farm keeps the all-farms limit', farms() == ['F1'] and pg.evaluate("daFarmLIM('F1').densAlarm") == 20 and pg.evaluate("daFarmLIM('F2').densAlarm") == 40, (farms(), pg.evaluate("[daFarmLIM('F1').densAlarm, daFarmLIM('F2').densAlarm]")))
+    pg.evaluate("var c=JSON.parse(localStorage.getItem(_settingsKey('F2'))||'{}'); c.farmName='x'; localStorage.setItem(_settingsKey('F2'), JSON.stringify(c)); c=JSON.parse(localStorage.getItem(_settingsKey('all'))||'{}'); c.phMax=8; localStorage.setItem(_settingsKey('all'), JSON.stringify(c));")
+    check('L10 a farm settings set without a limit falls back to the all-farms limit (density and pH)', pg.evaluate("daFarmLIM('F2').densAlarm") == 40 and pg.evaluate("daWqLimits('F2').phMax") == 8)
     check('L7 no page errors', not pg._errs, pg._errs)
     ctx.close()
     fails = [r for r in RESULTS if not r[1]]
