@@ -8,7 +8,7 @@ with sync_playwright() as p:
     BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
     sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin')
     ctx, pg = new_page(p, sb)
-    login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.evaluate('window.DA_SINGLE_FEED=false')  # legacy screens' cause lists under test (retired 2026-10-30)
 
     # ── M: optional mortality causes ──
     pg.evaluate("sheetTab='mortality'; show('daily')"); pg.wait_for_timeout(300)

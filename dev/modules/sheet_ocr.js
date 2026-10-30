@@ -26,7 +26,7 @@ function daOcrFeedLayout(farm){
     var c = Object.assign({y:y}, l); pages[pages.length - 1].push(c); y += DA_OCR_ROW;
   });
   var sig = 'feed|' + farm + '|' + lines.map(function(l){ return l.kind === 'head' ? 'H' + l.g.meals.join(',') + (l.g.unit || '') : l.unit; }).join(';');
-  return {kind:'feed', farm:farm, hash:daOcrHash(sig) & 511, pages:pages.map(function(ls){ return {lines:ls.map(daOcrFeedCols)}; })};
+  return {kind:'feed', farm:farm, hash:daOcrHash(sig) & 255, pages:pages.map(function(ls){ return {lines:ls.map(daOcrFeedCols)}; })};
 }
 function daOcrFeedCols(l){
   var x = 26, B = DA_OCR_BOX, grams = l.g.unit === 'g', f = {meals:[], size:[], fast:null, dead:[]};
@@ -47,14 +47,27 @@ function daOcrWqLayout(farm){
     var row = {kind:'sec', sec:sec, label:'S-' + ('0' + daSecNo(sec)).slice(-2), y:y, temp:mk(3, 1), ph:mk(3, 0), 'do':mk(3, 1)};
     row.notes = {x:x, x1:196 - 6}; lines.push(row); y += DA_OCR_ROW + 1.5;
   });
-  return {kind:'wq', farm:farm, hash:daOcrHash('wq|' + farm + '|' + secs.join(';')) & 511, pages:[{lines:lines}]};
+  return {kind:'wq', farm:farm, hash:daOcrHash('wq|' + farm + '|' + secs.join(';')) & 255, pages:[{lines:lines}]};
 }
-function daOcrBits(L, page){ var v = (L.kind === 'wq' ? 1 : 0) | ((page & 15) << 1) | ((L.hash & 511) << 5), o = [1]; for(var i = 0; i < 14; i++) o.push((v >> i) & 1); o.push(1); return o; }
+// sampling: stocked tanks of the farm (as on the sampling screen) — average weight g [ ][ ][ ][ ], fish weighed [ ][ ][ ]
+function daOcrSampLayout(farm){
+  var B = DA_OCR_BOX, units = _txLiveRows().filter(function(r){ return (r.fishNo || 0) > 0 && (r.farm === farm || String(r.unit).indexOf(farm + '.') === 0) && daTankNo(r.unit); })
+    .map(function(r){ return r.unit; }).sort(function(a, b){ var x = daTankNo(a), y = daTankNo(b); return x.s - y.s || x.t - y.t; });
+  var pages = [[]], y = DA_OCR_TOP + DA_OCR_ROW;
+  units.forEach(function(u){
+    if(y + DA_OCR_ROW > DA_OCR_BOTTOM){ pages.push([]); y = DA_OCR_TOP + DA_OCR_ROW; }
+    var x = 40, mk = function(n){ var b = []; for(var k = 0; k < n; k++){ b.push({x:x, y:y, w:B.w, h:B.h}); x += B.w; } var o = {boxes:b, x0:b[0].x, x1:x}; x += 12; return o; };
+    pages[pages.length - 1].push({kind:'samp', unit:u, label:daTankNo(u).label, y:y, wt:mk(4), n:mk(3), notes:{x:x, x1:190}}); y += DA_OCR_ROW;
+  });
+  return {kind:'samp', farm:farm, hash:daOcrHash('samp|' + farm + '|' + units.join(';')) & 255, pages:pages.map(function(ls){ return {lines:ls}; })};
+}
+var DA_OCR_KINDS = ['feed', 'wq', 'samp'];
+function daOcrBits(L, page){ var v = DA_OCR_KINDS.indexOf(L.kind) | ((page & 15) << 2) | ((L.hash & 255) << 6), o = [1]; for(var i = 0; i < 14; i++) o.push((v >> i) & 1); o.push(1); return o; }
 function daOcrStripCells(){ var o = []; for(var i = 0; i < 16; i++) o.push({x:41 + i * 8, y:280.5, w:5, h:5}); return o; }
 
 // ── printing (SVG in mm) ──
 function daOcrSVG(L, pi){
-  var P = L.pages[pi], t = [], esc = daEsc, B = DA_OCR_BOX, title = L.kind === 'wq' ? 'Daily Testing Log' : 'Fish Feed Log';
+  var P = L.pages[pi], t = [], esc = daEsc, B = DA_OCR_BOX, title = ({wq:'Daily Testing Log', samp:'Sampling Log', feed:'Fish Feed Log'})[L.kind];
   var house = 'Fish House ' + String(L.farm).replace(/^\D+/, ''), rev = (daSheetCfgAll()['rev:' + L.kind] || '');
   var rect = function(b, sw, fill){ t.push('<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" fill="' + (fill || 'none') + '" stroke="#555" stroke-width="' + (sw || 0.25) + '"/>'); };
   var text = function(x, y, s, sz, anchor, w){ t.push('<text x="' + x + '" y="' + y + '" font-size="' + (sz || 3) + '" text-anchor="' + (anchor || 'start') + '"' + (w ? ' font-weight="700"' : '') + ' font-family="Arial,sans-serif">' + esc(s) + '</text>'); };
@@ -67,7 +80,11 @@ function daOcrSVG(L, pi){
   text(26, 33, 'Technician: ________________', 2.8);
   text(105, 43, 'One digit per box · fill one circle for Size · leave a meal empty if not fed · dead: two removals in two boxes', 2.3, 'middle');
   t.push('<text x="105" y="46.5" font-size="2.5" text-anchor="middle" direction="rtl" font-family="Arial,sans-serif">رقم واحد في كل مربع · سوّد دايرة واحدة للحجم · الوجبة اللي متأكلتش سيبها فاضية · النافق: كل مرة في خانتها</text>');
+  if(L.kind === 'samp'){ text(18, DA_OCR_TOP + 5, 'Tank', 2.8, 'start', true); text(52, DA_OCR_TOP + 5, 'Avg weight (g)', 2.6, 'middle', true); text(83, DA_OCR_TOP + 5, 'Fish weighed', 2.6, 'middle', true); text(140, DA_OCR_TOP + 5, 'Notes', 2.6, 'middle', true);
+    t.push('<line x1="10" y1="' + (DA_OCR_TOP + 7.6) + '" x2="200" y2="' + (DA_OCR_TOP + 7.6) + '" stroke="#333" stroke-width="0.35"/>'); }
   P.lines.forEach(function(l){
+    if(L.kind === 'samp'){ text(18, l.y + 5.4, l.label, 3.4, 'start', true); l.wt.boxes.concat(l.n.boxes).forEach(function(b){ rect(b); });
+      t.push('<line x1="' + l.notes.x + '" y1="' + (l.y + B.h) + '" x2="' + l.notes.x1 + '" y2="' + (l.y + B.h) + '" stroke="#999" stroke-width="0.2"/>'); return; }
     if(L.kind === 'wq'){
       text(18, l.y + 5.3, l.label, 3.4, 'start', true);
       [['temp', 'Temp °C'], ['ph', 'pH'], ['do', 'DO mg/L']].forEach(function(f){ var o = l[f[0]]; if(l === P.lines[0]) text((o.x0 + o.x1) / 2, l.y - 2, f[1], 2.6, 'middle', true);
@@ -92,12 +109,15 @@ function daOcrSVG(L, pi){
     c.dead.forEach(function(d){ d.boxes.forEach(function(b){ rect(b); }); });
   });
   if(L.kind === 'feed' && pi === L.pages.length - 1) text(26, 274, 'Reviewed by: ______________        Approved by: ______________', 2.8);
-  if(L.kind === 'wq') text(26, 274, 'Checked by: ______________        Verified by: ______________', 2.8);
+  if(L.kind !== 'feed') text(26, 274, 'Checked by: ______________        Verified by: ______________', 2.8);
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 297" width="210mm" height="297mm" style="background:#fff">' + t.join('') + '</svg>';
 }
+function daOcrFarm(kind){ return kind === 'wq' ? window._wqs.farm : kind === 'samp' ? (farmFilter && farmFilter !== 'all' ? farmFilter : '') : window._fs.farm; }
+function daOcrLayout(kind, farm){ return kind === 'wq' ? daOcrWqLayout(farm) : kind === 'samp' ? daOcrSampLayout(farm) : daOcrFeedLayout(farm); }
 function daOcrPrint(kind){
-  var farm = kind === 'wq' ? window._wqs.farm : window._fs.farm, L = kind === 'wq' ? daOcrWqLayout(farm) : daOcrFeedLayout(farm);
-  var html = '<!doctype html><html><head><meta charset="utf-8"><title>' + daEsc(farm) + ' — ' + (kind === 'wq' ? 'Testing Log' : 'Feed Log') + '</title>'
+  var farm = daOcrFarm(kind); if(!farm){ toast('⚠️ اختار المزرعة من فوق الأول'); return; }
+  var L = daOcrLayout(kind, farm); if(!L.pages[0].lines.length){ toast('مفيش تانكات للمزرعة دي'); return; }
+  var html = '<!doctype html><html><head><meta charset="utf-8"><title>' + daEsc(farm) + ' — ' + ({wq:'Testing Log', samp:'Sampling Log', feed:'Feed Log'})[kind] + '</title>'
     + '<style>@page{size:A4;margin:0}body{margin:0}svg{display:block;page-break-after:always;break-after:page}</style></head><body>'
     + L.pages.map(function(p, i){ return daOcrSVG(L, i); }).join('') + '<script>setTimeout(function(){window.print()},300)<\/script></body></html>';
   var w = window.open('', '_blank');
@@ -215,8 +235,8 @@ function daOcrRegister(I, layouts){
     var bits = daOcrStripCells().map(function(cl){ return daOcrDark(I, H, cl.x, cl.y, cl.w, cl.h) > mid ? 1 : 0; });
     if(!bits[0] || !bits[15]) continue;
     var v = 0; for(var i = 0; i < 14; i++) v |= bits[i + 1] << i;
-    var kind = v & 1 ? 'wq' : 'feed', page = (v >> 1) & 15, hash = (v >> 5) & 511;
-    var L = layouts[kind]; if(!L) return {err:'دي صورة ' + (kind === 'wq' ? 'شيت القياسات' : 'شيت العلف') + ' — افتح الشاشة بتاعته'};
+    var kind = DA_OCR_KINDS[v & 3], page = (v >> 2) & 15, hash = (v >> 6) & 255; if(!kind) continue;
+    var L = layouts[kind]; if(!L) return {err:'دي صورة ' + ({feed:'شيت العلف', wq:'شيت القياسات', samp:'شيت العينات'})[kind] + ' — افتح الشاشة بتاعته'};
     if(L.hash !== hash) return {err:'الشيت ده اتطبع قبل ما التانكات أو مواعيد الوجبات تتغير — اطبع نسخة جديدة', stale:true};
     if(page >= L.pages.length) return {err:'رقم الصفحة مش مظبوط'};
     return {H:H, kind:kind, page:page, L:L, ink:{white:white, black:black}};
@@ -306,6 +326,7 @@ function daOcrReadPage(I, R){
   var bub = function(c){ var d = daOcrBubble(I, H, c); return (d - ink.white) / Math.max(0.2, ink.black - ink.white); };
   P.lines.forEach(function(l){
     if(R.kind === 'wq'){ out.rows.push({sec:l.sec, temp:daOcrField(I, H, l.temp.boxes, 1), ph:daOcrField(I, H, l.ph.boxes, 0), 'do':daOcrField(I, H, l['do'].boxes, 1)}); return; }
+    if(R.kind === 'samp'){ out.rows.push({unit:l.unit, wt:daOcrField(I, H, l.wt.boxes), n:daOcrField(I, H, l.n.boxes)}); return; }
     if(l.kind !== 'tank') return;
     var c = l.cols, grams = l.g.unit === 'g', row = {unit:l.unit, meals:[], size:null, fast:false, dead:[]};
     c.meals.forEach(function(m){ var f = daOcrField(I, H, m.boxes, grams ? undefined : 1); row.meals.push(f); });
@@ -322,8 +343,8 @@ function daOcrReadPage(I, R){
   return out;
 }
 async function daOcrReadFiles(files, kind){
-  var farm = kind === 'wq' ? window._wqs.farm : window._fs.farm, layouts = {};
-  layouts[kind] = kind === 'wq' ? daOcrWqLayout(farm) : daOcrFeedLayout(farm);
+  var farm = daOcrFarm(kind), layouts = {}; if(!farm) return {pages:[], errs:['اختار المزرعة من فوق الأول']};
+  layouts[kind] = daOcrLayout(kind, farm);
   var pages = [], errs = [];
   for(var i = 0; i < files.length; i++){
     try{ var I = await daOcrLoad(files[i]), R = daOcrRegister(I, layouts); if(R.err){ errs.push((files.length > 1 ? 'صورة ' + (i + 1) + ': ' : '') + R.err); continue; }
@@ -340,15 +361,21 @@ function daOcrPick(kind){
 }
 async function daOcrRun(files, kind){
   toast('📷 بقرا ' + files.length + ' صورة...');
-  var res = await daOcrReadFiles(files, kind), st = kind === 'wq' ? window._wqs : window._fs;
+  var res = await daOcrReadFiles(files, kind), st = kind === 'wq' ? window._wqs : kind === 'samp' ? {date:_sampSheetDate} : window._fs;
   if(!res.pages.length){ alert('⚠️ ' + res.errs.join('\n')); return; }
   var date = res.pages.map(function(p){ return p.date; }).filter(Boolean).sort(function(a, b){ return b.conf - a.conf; })[0];
   if(date && date.v !== st.date){
     if(date.v > daToday()) toast('⚠️ التاريخ المقري ' + date.v + ' في المستقبل — سيبته ' + st.date);
-    else if(confirm('التاريخ في الشيت ' + date.v + ' والشاشة على ' + st.date + '. أحوّل الشاشة لـ ' + date.v + '؟')){ st.date = date.v; show(kind === 'wq' ? 'wq-sheet' : 'feed-sheet', true); }
+    else if(confirm('التاريخ في الشيت ' + date.v + ' والشاشة على ' + st.date + '. أحوّل الشاشة لـ ' + date.v + '؟')){
+      if(kind === 'samp') _sampSheetDate = date.v; else st.date = date.v;
+      show(kind === 'wq' ? 'wq-sheet' : kind === 'samp' ? 'tx-sampling' : 'feed-sheet', true); }
   }
   var n = 0, low = 0, cnt = function(f){ if(!f) return; n++; if(f.conf < DA_OCR_LOW) low++; };
-  if(kind === 'wq'){
+  if(kind === 'samp'){
+    res.pages.forEach(function(p){ p.rows.forEach(function(r){
+      if(r.wt){ cnt(r.wt); daOcrMark(document.getElementById('sp-wt-' + r.unit), r.wt.text, r.wt.conf); }
+      if(r.n){ cnt(r.n); daOcrMark(document.getElementById('sp-n-' + r.unit), r.n.text, r.n.conf); } }); });
+  } else if(kind === 'wq'){
     res.pages.forEach(function(p){ p.rows.forEach(function(r){ var i = window._wqs.secs.indexOf(r.sec); if(i < 0) return;
       ['temp', 'ph', 'do'].forEach(function(k){ var f = r[k]; if(f){ cnt(f); daOcrMark(document.getElementById('wqs-' + i + '-' + k), f.text, f.conf); } }); }); });
   } else {

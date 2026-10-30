@@ -77,6 +77,15 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- ONE ENTRY SCREEN PER KIND (owner, 2026-10-30; module `dev/modules/entry_single.js`, edit `dev/tools/patch_entry_single.py`):
+  dead counts only from the feed sheet's dead column (addTX refuses mortality unless source 'sheet'/'import'/_skipValidation);
+  tx-mortality became "أسباب النفوق" (adds cause/notes to recorded mortality, never counts); the old daily sheet is
+  retired as an entry screen — it saved to the separate LOGS store that never reached stock/FCR/reports (logbook still
+  shows the old logs); dashboard 7-day feed/mortality charts now read TX (`daDashLogs`, they read LOGS); sampling stays on
+  tx-sampling with print/photo (sheet kind 'samp': avg weight g [ ][ ][ ][ ], fish weighed [ ][ ][ ]; code strip now
+  kind 2 bits / page 4 / hash 8). Feed sheet opens to mortality-only users (meals + size locked, never touches feeding).
+  "انقلها للشيت" also moves mortality (sum, "4+2" kept, single cause kept). Legacy switch: window.DA_SINGLE_FEED=false
+  (e2e_tabs, e2e_week, e2e_mortharv only).
 - PHOTO READING, ON THE PHONE, NO AI SERVICE (owner chose option A, 2026-10-30; modules `ocr_model.js` (generated,
   int8 CNN 145 KB, MNIST + photo-like augmentation; scripts in `dev/ocr/`) + `sheet_ocr.js`): one mm layout drives print
   and reader. Printed sheet = farm's form + 4 corner squares, 16-cell code strip (kind/page/9-bit layout hash → copies
@@ -123,7 +132,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-26 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+27 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

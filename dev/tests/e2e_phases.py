@@ -29,7 +29,7 @@ with sync_playwright() as p:
     check('P1 data survives reload from IndexedDB', pg.evaluate("() => getTX().some(t=>t.id==='w-ok') && getTX().length>=6001"))
     hook_toasts(pg)
     # P3 block impossible mortality
-    pg.evaluate("addTX({id:'w-bad',type:'mortality',date:daToday(),unit:'F1.S01T01',count:999999,cause:'x'})"); pg.wait_for_timeout(400)
+    pg.evaluate("addTX({id:'w-bad',type:'mortality',source:'sheet',date:daToday(),unit:'F1.S01T01',count:999999,cause:'x'})"); pg.wait_for_timeout(400)
     check('P3 impossible mortality blocked with modal', pg.is_visible('#tx-review-modal') and '⛔' in pg.inner_text('#tx-review-modal'))
     check('P3 blocked TX not saved', not pg.evaluate("() => getTX().some(t=>t.id==='w-bad')"))
     pg.click('#txr-cancel')

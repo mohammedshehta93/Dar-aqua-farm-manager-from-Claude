@@ -9,7 +9,7 @@ with sync_playwright() as p:
         fishNo: i===2 ? 0 : 1000, avgWt: 100, startWt:100, biomass: i===2 ? 0 : 100, volume:10})); _valCache={t:0,map:{}}; }""")
     D = lambda n: pg.evaluate(f"daAddDays(daToday(),{n})")
     def add(tx):
-        if tx.get('type') == 'feeding': tx = dict(tx, source='sheet')   # feeding is entered from the feed sheet only (2026-10-29)
+        if tx.get('type') in ('feeding', 'mortality'): tx = dict(tx, source='sheet')   # feeding + dead counts come from the feed sheet only
         pg.evaluate("t => addTX(t)", tx); pg.wait_for_timeout(250)
         modal = pg.inner_text('#tx-review-modal') if pg.is_visible('#tx-review-modal') else ''
         if modal: pg.evaluate('txReviewClose()')
