@@ -77,6 +77,11 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- Settings respond at once (owner report 2026-10-30): the alert-settings page wrote alertDensity/warnDensity/alertDO/
+  alertTemp that NOTHING read — alerts read densAlarm/densWarn/doCrit/tempHi (`dev/tools/patch_alert_settings.py` makes the
+  page read/write those). saveSettings now also clears the active tab's unsaved mark (a saved settings page kept "●" →
+  false "Reload site?" warning). 🔄 تحديث in the tab bar: pulls (daRealtimePull) + redraws, asks if unsaved. Cache
+  invalidation on settings was already there (saveSettings and synced-key writes bump _dataVer). Test: `e2e_live`.
 - ONE ENTRY SCREEN PER KIND (owner, 2026-10-30; module `dev/modules/entry_single.js`, edit `dev/tools/patch_entry_single.py`):
   dead counts only from the feed sheet's dead column (addTX refuses mortality unless source 'sheet'/'import'/_skipValidation);
   tx-mortality became "أسباب النفوق" (adds cause/notes to recorded mortality, never counts); the old daily sheet is
@@ -132,7 +137,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-27 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+28 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

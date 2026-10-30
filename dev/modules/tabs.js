@@ -87,11 +87,20 @@ function daRenderTabBar(){
       + (t.dirty ? '<span class="dt-dot">●</span>' : '')
       + (pin ? '' : '<button class="dt-x" data-tab="' + daEsc(t.v) + '" onclick="daTabClose(this.dataset.tab, event)" title="قفل">×</button>') + '</div>';
   }).join('') + '</div>';
+  h += '<button id="dt-refresh" class="dt-all" onclick="daTabRefresh()" title="تحديث الصفحة — يجيب آخر بيانات ويعرضها" style="font-size:13px;color:var(--teal);font-weight:700">🔄 تحديث</button>';
   if(DA_TABS.length > 2) h += '<button class="dt-all" onclick="daTabCloseOthers()" title="قفل كل التابات التانية">⨯⨯</button>';
   b.innerHTML = h;
   var on = b.querySelector('.dt.on'); if(on && on.scrollIntoView) try{ on.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){}
 }
 function daTabMarkDirty(t, d){ if(!t || t.dirty === d) return; t.dirty = d; daRenderTabBar(); }
+// 🔄 refresh: pull what others entered, then redraw this page (asks first if it holds unsaved input)
+async function daTabRefresh(){
+  var t = _daActiveTab; if(!t) return;
+  if(t.dirty && !confirm('فيه بيانات اتكتبت في "' + daTabTitle(t) + '" ومتحفظتش. التحديث هيمسحها. تكمل؟')) return;
+  var b = document.getElementById('dt-refresh'); if(b){ b.disabled = true; b.textContent = '⏳'; }
+  try{ if(typeof daRealtimePull === 'function' && sbReady && navigator.onLine) await daRealtimePull(); }catch(e){}
+  _dataVer++; t.dirty = false; show(currentView, true); toast('🔄 اتحدثت');
+}
 
 // typing in a data field marks the active tab dirty (selects, dates, search/filter boxes don't)
 document.addEventListener('input', function(e){
@@ -107,6 +116,11 @@ document.addEventListener('input', function(e){
   var w = function(){ var v0 = _dataVer, r = f.apply(this, arguments); if(_dataVer !== v0) daTabMarkDirty(_daActiveTab, false); return r; };
   w._daTabWrapped = true; window[name] = w;
 });
+if(typeof saveSettings === 'function' && !saveSettings._daTabWrapped){
+  var _saveSettingsPreTabs = saveSettings;   // every settings page saves through here (alerts, standards, harvest …)
+  saveSettings = function(){ var r = _saveSettingsPreTabs.apply(this, arguments); daTabMarkDirty(_daActiveTab, false); return r; };   // (saveSettings itself already bumps _dataVer)
+  saveSettings._daTabWrapped = true;
+}
 if(typeof applySettings === 'function' && !applySettings._daTabWrapped){
   var _applySettingsPreTabs = applySettings;
   applySettings = function(){ var r = _applySettingsPreTabs.apply(this, arguments); daTabMarkDirty(_daActiveTab, false); return r; };
