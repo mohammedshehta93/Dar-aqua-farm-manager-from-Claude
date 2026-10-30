@@ -84,7 +84,9 @@ function renderFeedSheet(){
   var canCfg = ['admin', 'manager', 'engineer'].indexOf(currentUserRole) >= 0;
   var inp = 'padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:13px';
   var h = '<div class="ph"><div><h2>📋 شيت العلف اليومي</h2><p style="font-size:11px;color:var(--muted)">نفس ترتيب الشيت الورق — الكميات بالكيلو لكل وجبة، والأداة بتجمعها</p></div>'
-    + '<button id="fs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daFsSave()">💾 حفظ الشيت</button></div>';
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="fs-print" onclick="daOcrPrint(&quot;feed&quot;)" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">🖨️ شيت للطباعة</button>'
+    + '<button id="fs-photo" onclick="daOcrPick(&quot;feed&quot;)" style="padding:9px 14px;border:1.5px solid var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer;font-weight:700">📷 من صورة</button>'
+    + '<button id="fs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daFsSave()">💾 حفظ الشيت</button></div></div>';
   h += '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
     + '<div class="field" style="margin:0"><label>التاريخ</label><input type="date" id="fs-date" value="' + st.date + '" max="' + daToday() + '" style="' + inp + '" onchange="daFsSwitch(&quot;date&quot;,this.value)"/></div>';
   if(!(farmFilter && farmFilter !== 'all')) h += '<div class="field" style="margin:0"><label>المزرعة</label><select id="fs-farm" style="' + inp + '" onchange="daFsSwitch(&quot;farm&quot;,this.value)">'
@@ -136,6 +138,7 @@ function renderFeedSheet(){
   if(canCfg) h += '<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">⚙️ مواعيد الوجبات لكل مجموعة سكاشن — ' + daEsc(st.farm) + '</summary>'
     + '<div style="font-size:12px;color:var(--muted);margin:8px 0">سطر لكل مجموعة: <code>السكاشن = المواعيد</code> — مثال: <code>1-3 = 8, 10, 12, 2, 4</code></div>'
     + '<textarea id="fs-groups" data-nodirty="1" rows="4" dir="ltr" style="width:100%;' + inp + ';font-family:monospace">' + daEsc(daSheetGroupsText(st.farm)) + '</textarea>'
+    + '<div class="field" style="margin:10px 0 0"><label>كود النموذج المطبوع (Rev) — اختياري</label><input id="fs-rev" data-nodirty="1" dir="ltr" value="' + daEsc(daSheetCfgAll()['rev:feed'] || '') + '" placeholder="AQU-FR-25-01-07" style="' + inp + ';width:200px"/></div>'
     + '<button class="savebtn" style="width:auto;padding:8px 16px;margin-top:8px" onclick="daFsSaveGroups()">💾 حفظ المواعيد</button></details>';
   setTimeout(daFsTotals, 0);
   return h;
@@ -151,6 +154,7 @@ function daFsSaveGroups(){
   var r = daParseSheetGroups((document.getElementById('fs-groups') || {}).value);
   if(r.bad.length){ toast('⚠️ السطر ' + r.bad.join('، ') + ' مش مفهوم — اكتبه كده: 1-3 = 8, 10, 12'); return; }
   var all = daSheetCfgAll(); if(r.groups.length) all[window._fs.farm] = r.groups; else delete all[window._fs.farm];
+  var rv = document.getElementById('fs-rev'); if(rv){ if(rv.value.trim()) all['rev:feed'] = rv.value.trim(); else delete all['rev:feed']; }
   localStorage.setItem(DA_SHEET_KEY, JSON.stringify(all)); toast('✅ اتحفظت المواعيد'); show('feed-sheet', true);
 }
 function daFsRead(r){

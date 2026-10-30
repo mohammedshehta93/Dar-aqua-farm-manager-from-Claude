@@ -40,7 +40,9 @@ function renderWqSheet(){
   var canCfg = ['admin', 'manager', 'engineer'].indexOf(currentUserRole) >= 0;
   var inp = 'padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:13px';
   var h = '<div class="ph"><div><h2>🧪 شيت القياسات اليومي</h2><p style="font-size:11px;color:var(--muted)">قراية واحدة لكل سكشن — نفس الشيت الورق</p></div>'
-    + '<button id="wqs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daWqsSave()">💾 حفظ الشيت</button></div>';
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="wqs-print" onclick="daOcrPrint(&quot;wq&quot;)" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">🖨️ شيت للطباعة</button>'
+    + '<button id="wqs-photo" onclick="daOcrPick(&quot;wq&quot;)" style="padding:9px 14px;border:1.5px solid var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer;font-weight:700">📷 من صورة</button>'
+    + '<button id="wqs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daWqsSave()">💾 حفظ الشيت</button></div></div>';
   h += '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
     + '<div class="field" style="margin:0"><label>التاريخ</label><input type="date" id="wqs-date" value="' + st.date + '" max="' + daToday() + '" style="' + inp + '" onchange="daWqsSwitch(&quot;date&quot;,this.value)"/></div>';
   if(!(farmFilter && farmFilter !== 'all')) h += '<div class="field" style="margin:0"><label>المزرعة</label><select id="wqs-farm" style="' + inp + '" onchange="daWqsSwitch(&quot;farm&quot;,this.value)">'
@@ -65,6 +67,7 @@ function renderWqSheet(){
     + '<div style="font-size:12px;color:var(--muted);margin:8px 0">نفس حدود الشيت الورق. التنبيهات الذكية بتستخدم نفس الأرقام دي للمزرعة دي.</div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
     + [['tempLo', 'الحرارة من'], ['tempHi', 'الحرارة لحد'], ['phMin', 'pH من'], ['phMax', 'pH لحد'], ['doCrit', 'الأكسجين أكبر من']].map(function(x){
       return '<div class="field" style="margin:0"><label>' + x[1] + '</label><input type="number" step="0.1" id="wqs-lim-' + x[0] + '" data-nodirty="1" value="' + lim[x[0]] + '" style="' + inp + ';width:90px"/></div>'; }).join('')
+    + '<div class="field" style="margin:0"><label>كود النموذج (Rev)</label><input id="wqs-rev" data-nodirty="1" dir="ltr" value="' + daEsc(daSheetCfgAll()['rev:wq'] || '') + '" placeholder="AQU-LG-25-01-01" style="' + inp + ';width:170px"/></div>'
     + '<button class="savebtn" style="width:auto;padding:8px 16px" onclick="daWqsSaveLimits()">💾 حفظ الحدود</button></div></details>';
   setTimeout(daWqsMarks, 0);
   return h;
@@ -100,7 +103,9 @@ function daWqsSaveLimits(){
   Object.keys(DA_WQ_DEF).forEach(function(k){ var v = parseFloat((document.getElementById('wqs-lim-' + k) || {}).value); if(isNaN(v)) ok = false; else c[k] = v; });
   if(!ok){ toast('⚠️ اكتب كل الحدود أرقام'); return; }
   if(c.tempLo >= c.tempHi || c.phMin >= c.phMax){ toast('⚠️ "من" لازم تبقى أقل من "لحد"'); return; }
-  saveSettings(c, st.farm); toast('✅ اتحفظت حدود ' + st.farm); show('wq-sheet', true);
+  saveSettings(c, st.farm);
+  var rv = document.getElementById('wqs-rev'); if(rv){ var all = daSheetCfgAll(); if(rv.value.trim()) all['rev:wq'] = rv.value.trim(); else delete all['rev:wq']; localStorage.setItem(DA_SHEET_KEY, JSON.stringify(all)); }
+  toast('✅ اتحفظت حدود ' + st.farm); show('wq-sheet', true);
 }
 function daWqsSave(){
   var st = window._wqs; if(!st || !st.secs) return;

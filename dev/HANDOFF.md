@@ -77,6 +77,19 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- PHOTO READING, ON THE PHONE, NO AI SERVICE (owner chose option A, 2026-10-30; modules `ocr_model.js` (generated,
+  int8 CNN 145 KB, MNIST + photo-like augmentation; scripts in `dev/ocr/`) + `sheet_ocr.js`): one mm layout drives print
+  and reader. Printed sheet = farm's form + 4 corner squares, 16-cell code strip (kind/page/9-bit layout hash → copies
+  printed before tanks/meal times changed are refused), digit boxes kg [ ][ ].[ ] / grams [ ][ ][ ], size bubbles 1/2/3,
+  "not fed" bubble, dead (1)+(2), date boxes; Rev code per sheet in the settings panels. Reader: 4 largest solid blobs
+  (rotation-proof moments test) → homography (4 orientations tried) → strip → boxes (border removal on outer 4 px,
+  edge-hugging thin lines dropped, neighbour pieces dropped) → 28×28 → CNN. Review flags (yellow, conf 0.5): model prob
+  < 0.85, gap inside the integer part, a digit split over two boxes (ink both sides of the shared line, or ink pressed
+  against the side next to a written box — this is what turned 0.7 into 10.7), a meal ≥1.6× off the tank's other meals.
+  Values only fill the on-screen sheet; nothing saved until Save. `e2e_ocr` = synthetic phone photos (MNIST TEST set,
+  perspective/rotation/light/noise/blur/JPEG) on the real F2 layout: ~92% exact, ≤1% wrong-and-unflagged, circles 100%.
+  NOT YET TRIED ON REAL PAPER — next step is the owner printing a page, a worker filling it, photo → tune on that.
+  To retrain: dev/ocr/train.py (JAX, CPU; MNIST from github raw), dev/ocr/export.py → regenerate ocr_model.js.
 - `daStateAt` fixed (`dev/tools/patch_feed_sheet.py`): after the last event day it returns the END-of-day state; it used to
   return start-of-day, so emptied tanks kept their fish (validateTX + weekly report were affected).
 - To change an ALREADY-merged module: edit `dev/modules/x.js`, then `node dev/tools/update_functions.js dev/modules/x.js
@@ -110,7 +123,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-25 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+26 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
