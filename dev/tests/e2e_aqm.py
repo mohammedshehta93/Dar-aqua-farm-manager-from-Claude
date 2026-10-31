@@ -49,6 +49,11 @@ with sync_playwright() as p:
     rows = pg.evaluate("() => daFpCompute(window._fpState).sites.map(s=>s.site+':'+s.rows.length)")
     check('A9 feeding sheet: F1 50 + F2 86 tanks with fish', rows == ['F1:50','F2:86'], rows)
     check('A10 layout + data saved to cloud', sum(1 for r in sb.units.values() if r['farm_id'] == 'farm-main') == 147)
+    # Site Overview must show AquaManager's own numbers for an imported tank nobody touched since (F1.S01T02 in 2510.xls)
+    pg.evaluate("window._ov={date:daToday()}; farmFilter='all'; show('site-overview')"); pg.wait_for_timeout(500)
+    r2 = pg.evaluate("(() => { const tr=document.querySelector('#ov-t tr[data-u=\"F1.S01T02\"]'); return tr && [...tr.cells].map(c=>c.textContent); })()")
+    check('A12 Site Overview = AquaManager for an imported tank (start 2026-09-05, 835 fish, 90→160 g, feed 89.6, mortality 5, UTD FCR 1.51)',
+          r2 and r2[1] == '2026-09-05' and r2[2] == '835' and r2[3] == '90.00' and r2[4] == '160.00' and r2[7] == '5' and r2[8] == '89.60' and r2[9] == '1.51', r2)
     pg._errs.clear()
     bad = pg.evaluate("() => { const o=[]; Object.keys(VIEWS).forEach(v=>{ try{ show(v); }catch(e){ o.push(v+': '+e.message); } }); return o; }"); pg.wait_for_timeout(800)
     check('A11 every page works with real farm data + empty tanks', not bad and not pg._errs, (bad + pg._errs)[:5])

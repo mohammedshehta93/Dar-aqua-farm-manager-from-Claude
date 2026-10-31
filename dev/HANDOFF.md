@@ -77,6 +77,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- SITE OVERVIEW IS DATED, AquaManager style (owner: no new pages; module `overview_am.js`): VIEWS['site-overview'] =
+  renderOverviewAM (old renderSiteOverview kept, unused). Date → tanks with fish THAT day (end of day, `daStateEnd`),
+  AquaManager columns; UTD = tank's cycle up to the date, LTD = same batch name across tanks; green ≥ harvest weight,
+  yellow ≥ 75 %; sort, filter, totals; click a row → its cycles card (close cycle). `tank-cycles` page removed from the menu
+  (view redirects). Imported cycles start at the AquaManager unit start date/weight and carry the imported totals
+  (raw.open.feed/mort/gain) — e2e_aqm A12 checks a real imported tank equals AquaManager (feed 89.6, FCR 1.51).
 - TANK CYCLES + FARM ON ANY DATE (module `cycles.js`, edit `dev/tools/patch_cycles.py`, test `e2e_cycles`): cycles are
   DERIVED (no input): open when an empty tank gets fish (stocking / transfer in / opening balance), close at 0 fish; a day
   that empties AND restocks closes the old cycle first. Page `tank-cycles`: state of every tank on a chosen date (daStateAt)

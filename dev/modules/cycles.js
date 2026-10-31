@@ -9,7 +9,11 @@ DA_SUB_FIELD.adjustment = 'count'; DA_TX_PHASE.adjustment = 3; if(typeof DA_TYPE
 function daUnitCycles(unit){
   var raw = daRawUnit(unit) || {}, base = raw.open ? raw.open.date : (raw.startDate || ''), fish = 0, wt = raw.avgWt || 0, cyc = [], cur = null;
   var open = function(d, n, w, how, batch){ cur = {no:cyc.length + 1, start:d, how:how, batch:batch || raw.batch || '', fish0:n, wt0:w, feed:0, dead:0, adj:0, outKg:0, outFish:0, harvKg:0, inKg:0, end:null, endBy:''}; cyc.push(cur); };
-  if((raw.fishNo || 0) > 0 && base) { fish = raw.fishNo; open(base, fish, wt, 'رصيد افتتاحي'); }
+  if((raw.fishNo || 0) > 0 && base){   // opening balance (AquaManager import): the cycle began at the unit start date, with its totals so far
+    fish = raw.fishNo; var o = raw.open || {};
+    open(raw.startDate && raw.startDate <= base ? raw.startDate : base, raw.stockFish || fish, raw.startWt || wt, 'رصيد افتتاحي');
+    cur.opening = {date:base, feed:+o.feed || 0, dead:+o.mort || 0, gain:o.gain > 0 ? +o.gain : null, bio:+o.bio || fish * wt / 1000};
+    cur.feed = cur.opening.feed; cur.dead = cur.opening.dead; }
   var byDate = {}; ((daTxByUnit()[unit]) || []).forEach(function(t){ var d = String(t.date || '').slice(0, 10); if(d && !t.deleted && (!base || d >= base)) (byDate[d] = byDate[d] || []).push(t); });
   Object.keys(byDate).sort().forEach(function(d){
     var ev = byDate[d].slice().sort(daTxOrder), subs = 0, adds = 0;
@@ -68,7 +72,7 @@ function renderTankCycles(){
 }
 function daCyclesCard(unit, can){
   var cs = daUnitCycles(unit), th = 'padding:6px 6px;white-space:nowrap', cur = cs.filter(function(c){ return !c.end; })[0];
-  var h = '<div class="card" style="margin-bottom:12px" id="tc-card"><div class="card-title">🔁 دورات ' + daEsc(unit) + ' <button onclick="window._tc.unit=null;show(&quot;tank-cycles&quot;,true)" style="border:0;background:none;cursor:pointer;color:var(--muted)">✕</button></div>';
+  var h = '<div class="card" style="margin-bottom:12px" id="tc-card"><div class="card-title">🔁 دورات ' + daEsc(unit) + ' <button onclick="window._tc.unit=null;show(currentView,true)" style="border:0;background:none;cursor:pointer;color:var(--muted)">✕</button></div>';
   if(!cs.length) return h + '<div style="color:var(--muted);font-size:13px">التانك ده متخزنش قبل كده.</div></div>';
   h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f1f5f9">'
     + ['#', 'البداية', 'النهاية', 'الأيام', 'بدأ بـ', 'العدد/الوزن أول', 'العلف (كجم)', 'نفوق', 'تسوية', 'خرج (كجم)', 'آخر عدد/وزن', 'FCR اقتصادي'].map(function(x){ return '<th style="' + th + '">' + x + '</th>'; }).join('') + '</tr></thead><tbody>';
@@ -88,7 +92,7 @@ function daCycleClose(unit){
   if(!(n > 0)){ toast('التانك فاضي في التاريخ ده'); return; }
   if(!confirm('قفل دورة ' + unit + ' يوم ' + d + ':\nهيتسجل تسوية ' + n.toLocaleString() + ' سمكة (فرق عد) والتانك يبقى فاضي.\nأي تخزين بعد كده يبدأ دورة جديدة. تكمل؟')) return;
   addTX({id:'adj-' + unit + '-' + d, type:'adjustment', unit:unit, date:d, count:n, reason:'قفل الدورة — فرق عد', source:'cycle-close', _skipValidation:true});
-  toast('🔒 اتقفلت الدورة — تسوية ' + n.toLocaleString() + ' سمكة'); show('tank-cycles', true);
+  toast('🔒 اتقفلت الدورة — تسوية ' + n.toLocaleString() + ' سمكة'); show(currentView, true);
 }
 // ── registration ──
 VIEWS['tank-cycles'] = renderTankCycles; VIEW_PERMS['tank-cycles'] = 'view_dashboard';
