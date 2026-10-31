@@ -77,6 +77,8 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- Site Overview header right-click menu (`daOvMenu`, test `e2e_ovmenu`): sort asc/desc, clear sort (natural tank order),
+  hide column, column chooser; hidden columns per device in `daov_hidden_cols` (not synced); Unit always shown.
 - DAILY OVERVIEW FROM RECORDS (module `daily_am.js`, test `e2e_daily`): the old page showed frozen snapshots taken when
   the app was opened (late entries never reached them; unopened days missing). Now each day is computed: end-of-day stock
   (`daUnitEndSeries`, one replay per tank), that day's feed / dead / harvest, and how many stocked tanks have feed entered.
@@ -185,7 +187,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-34 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+35 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
