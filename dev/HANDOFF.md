@@ -77,6 +77,18 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- DIGITAL TWIN phase 1 (`twin`, module `dev/modules/twin.js`, test `e2e_twin` checks the math against Python): per tank
+  TGC from its own samples (≥7 d apart) × its section's measured temperature (fallback section → farm median → setting),
+  mortality = section last-28-day rate, feed = getSFRAdjusted table; per section TAN = feed × protein(size band) × 0.092,
+  O₂ = feed × kg/kg, filter load % = TAN ÷ TAN at the PROVEN feed (setting, raised automatically by weekly NH₃ readings
+  ≤ limit using the section's mean feed of the 7 days BEFORE the reading). Scenarios: feed %, ±°C, horizon; assumption:
+  feed above table adds no growth, below scales growth. Backtest = predict 3rd sample from 1st→2nd. Weekly NH₃/NO₂ entry
+  on the page (water_quality, unit = section, id wn-<sec>-<date>). Settings in synced `daracqua_plan_v1_twin` per farm.
+  One-pass index (`daTwinIdx`, cached by _dataVer) — never rescan getTX() inside loops. Next (phase 2): predict TAN/NO₂
+  concentration (needs flow per section + water exchange %).
+- Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
+  marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
+  for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
 - ALERT LIMITS PER FARM (module `alert_scope.js`, edits `dev/tools/patch_alert_scope.py`): settings live per farm
   (…_F1/_F2) + global (…_global); getSettings() picks a HIDDEN farm (`_settingsFarm`, set by the settings page) and a farm
   object without a key never falls back to global → saved limits silently ignored. Now each tank uses `daFarmLIM(farm)`:
@@ -142,7 +154,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-28 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+29 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
