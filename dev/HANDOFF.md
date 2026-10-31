@@ -77,6 +77,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- Keyboard in entry tables (module `grid_keys.js`, test `e2e_keys`): ↑/↓/Enter (Shift+Enter up) = same column across rows
+  and across a sheet's group tables, skipping locked rows; ←/→ = neighbour cell in the table's visual direction (caret moves
+  first while editing text); arrows never step number inputs; reached cell is selected. Works for every td input.
 - DIGITAL TWIN phase 1 (`twin`, module `dev/modules/twin.js`, test `e2e_twin` checks the math against Python): per tank
   TGC from its own samples (≥7 d apart) × its section's measured temperature (fallback section → farm median → setting),
   mortality = section last-28-day rate, feed = getSFRAdjusted table; per section TAN = feed × protein(size band) × 0.092,
@@ -154,7 +157,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-29 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+30 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
