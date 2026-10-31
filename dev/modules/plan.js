@@ -10,6 +10,15 @@ var DA_PLAN_FKEY = 'daracqua_plan_v1_farmplan';   // synced: {farm: {stages:[{fr
 function daPlanAll(){ try{ return JSON.parse(localStorage.getItem(DA_PLAN_FKEY) || '{}') || {}; }catch(e){ return {}; } }
 function daPlanOf(farm){ var p = daPlanAll()[farm] || {}; p.stages = p.stages && p.stages.length ? p.stages : [{from:1, to:999, until:0, name:'كل السكاشن'}]; p.batches = p.batches || []; p.goal = p.goal || {}; return p; }
 function daPlanSave(farm, p){ var a = daPlanAll(); a[farm] = p; localStorage.setItem(DA_PLAN_FKEY, JSON.stringify(a)); }
+function daPlanStageIssues(st){
+  var out = []; st.forEach(function(a, i){
+    if(!(a.from >= 1) || !(a.to >= a.from)) out.push('المرحلة ' + (i + 1) + ': "من سكشن" لازم يبقى أقل من أو يساوي "لحد سكشن"');
+    if(/=/.test(a.name || '')) out.push('المرحلة ' + (i + 1) + ': الاسم فيه "=" — غالباً اتلزق على سطر قديم');
+    st.forEach(function(b, j){ if(j > i && a.from <= b.to && b.from <= a.to) out.push('المرحلة ' + (i + 1) + ' والمرحلة ' + (j + 1) + ' داخلين في نفس السكاشن'); });
+    if(i < st.length - 1 && !(a.until > 0)) out.push('المرحلة ' + (i + 1) + ': لازم وزن نقل (آخر مرحلة بس من غير وزن = لحد الحصاد)');
+    if(i > 0 && a.until > 0 && st[i - 1].until > 0 && a.until <= st[i - 1].until) out.push('المرحلة ' + (i + 1) + ': وزن النقل لازم يبقى أكبر من اللي قبلها'); });
+  return out;
+}
 function daPlanStagesText(p){ return p.stages.map(function(s){ return s.from + '-' + (s.to >= 999 ? '' : s.to) + ' = ' + (s.name || '') + (s.until ? ' | ' + s.until : ''); }).join('\n'); }
 function daPlanParseStages(t){
   var out = [], bad = [];
@@ -22,12 +31,13 @@ function daPlanParseStages(t){
 function daPlanBasis(farm){
   var cfg = daTwinCfg(farm), R = daTwinRun(farm, {days:1, feedPct:100, dT:0}), units = {}, temps = [];
   R.secs.forEach(function(S){ temps.push(S.temp); Object.assign(units, S.units); });
-  return {cfg:cfg, tgc:R.fTGC || cfg.tgc, temp:daMedian(temps) || cfg.temp, mort:daTwinMortRate(units, daToday())};
+  return {cfg:cfg, tgc:R.fTGC || cfg.tgc, tgcSrc:R.tgcSrc || 'default', temp:daMedian(temps) || cfg.temp, mort:daTwinMortRate(units, daToday())};
 }
-function daPlanStageCap(farm, st){   // biomass that fits at the density WARNING limit
-  var lim = daFarmLIM(farm), vol = 0, tanks = 0;
+function daPlanStageCap(farm, st){   // biomass that fits at the density WARNING limit; tanks below the stage's minimum volume are not part of it
+  var lim = daFarmLIM(farm), vol = 0, tanks = 0, minV = +st.minVol || 0;
   _txLiveRows().concat([]).forEach(function(r){ if((r.farm !== farm && String(r.unit).indexOf(farm + '.') !== 0) || daIsBrood(r.unit)) return; var n = daTankNo(r.unit); if(!n || n.s < st.from || n.s > st.to) return;
-    tanks++; vol += (daRawUnit(r.unit) || {}).volume || r.volume || 0; });
+    var v = (daRawUnit(r.unit) || {}).volume || r.volume || 0; if(minV && v < minV) return;
+    tanks++; vol += v; });
   return {tanks:tanks, vol:vol, kg:vol * lim.densWarn};
 }
 function daPlanSim(farm, b, B, p, days){
@@ -46,8 +56,14 @@ function daPlanRun(farm){   // cached until data or the plan changes (plan key i
   if(_plMemo.v !== _dataVer) _plMemo = {v:_dataVer, m:{}};
   return _plMemo.m[farm] || (_plMemo.m[farm] = daPlanRunCore(farm));
 }
+function daPlanSurvMort(farm, B, p){   // expected survival of the plan (%) → daily rate over a typical cycle
+  if(!(+p.surv > 0 && +p.surv <= 100)) return B.mort;
+  var probe = daPlanSim(farm, {date:daToday(), count:1000, wt:5, target:daHarvestTargetFor(farm) || 450}, Object.assign({}, B, {mort:0}), p), D = probe.harvest ? probe.harvest.d : 150;
+  return 1 - Math.pow(+p.surv / 100, 1 / Math.max(1, D));
+}
 function daPlanRunCore(farm){
-  var p = daPlanOf(farm), B = daPlanBasis(farm), sims = p.batches.map(function(b){ return daPlanSim(farm, b, B, p); });
+  var p = daPlanOf(farm), B = daPlanBasis(farm); B.recMort = B.mort; B.mort = daPlanSurvMort(farm, B, p);
+  var sims = p.batches.map(function(b){ return daPlanSim(farm, b, B, p); });
   var caps = p.stages.map(function(s){ return daPlanStageCap(farm, s); }), today = daToday(), over = [];
   // stage occupancy by week for 26 weeks
   var weeks = []; for(var k = 0; k < 26; k++){ var day = daAddDays(today, k * 7), row = {date:day, bio:p.stages.map(function(){ return 0; })};
@@ -80,12 +96,24 @@ function renderFarmPlan(){
   var st = window._pl = window._pl || {}, farms = daFarms(); if(farmFilter && farmFilter !== 'all') st.farm = farmFilter; if(!st.farm || farms.indexOf(st.farm) < 0) st.farm = farms[farms.length - 1] || '';
   var R = daPlanRun(st.farm), p = R.p, can = ['admin', 'manager', 'engineer'].indexOf(currentUserRole) >= 0, inp = 'padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:13px';
   var f0 = function(v){ return Math.round(v).toLocaleString(); }, th = 'padding:7px 6px;white-space:nowrap';
-  var h = '<div class="ph"><div><h2>🗓️ خطة المزرعة</h2><p style="font-size:11px;color:var(--muted)">اختيارية — بتقترح وتقارن وتنبّه، ومش بتمنع أي إدخال. النمو من التوأم الرقمي: TGC ' + R.B.tgc.toFixed(2) + ' · حرارة ' + R.B.temp.toFixed(1) + '° · نفوق ' + (R.B.mort * 100).toFixed(3) + '%/يوم</p></div></div>';
+  var h = '<div class="ph"><div><h2>🗓️ خطة المزرعة</h2><p style="font-size:11px;color:var(--muted)">اختيارية — بتقترح وتقارن وتنبّه، ومش بتمنع أي إدخال.</p></div></div>';
+  var src = {samples:'<b style="color:var(--green)">من عيناتكم</b>', cycle:'<b>من دورتكم المعروفة</b>', 'default':'<b style="color:var(--amber)">افتراضي — تقريبي</b>'}[R.B.tgcSrc], tc = R.B.cfg;
+  h += '<div class="card" style="margin-bottom:12px;font-size:13px;line-height:1.9' + (R.B.tgcSrc === 'default' || (!(+p.surv > 0) && !R.B.recMort) ? ';background:#fffbeb' : '') + '">📐 <b>أساس الحساب:</b> معامل النمو TGC ' + R.B.tgc.toFixed(2) + ' (' + src + ') · حرارة ' + R.B.temp.toFixed(1) + '° · '
+    + (+p.surv > 0 ? 'الحياة المتوقعة <b>' + p.surv + '%</b>' : (R.B.recMort ? 'النفوق من سجلاتكم ' + (R.B.recMort * 100).toFixed(3) + '%/يوم' : '<b style="color:var(--amber)">مفيش نفوق متسجل — الحياة 100% مش واقعية، اكتب نسبة متوقعة</b>'))
+    + (can ? '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">'
+      + [['pl-cf', 'دورتكم المعروفة: من (جم)', tc.cycFrom || ''], ['pl-ct', 'لحد (جم)', tc.cycTo || ''], ['pl-cd', 'في (يوم)', tc.cycDays || ''], ['pl-surv', 'الحياة المتوقعة للدورة %', p.surv || '']].map(function(f){ return '<div class="field" style="margin:0"><label>' + f[1] + '</label><input id="' + f[0] + '" data-nodirty="1" type="number" value="' + f[2] + '" style="' + inp + ';width:110px"/></div>'; }).join('')
+      + '<button class="savebtn" style="width:auto;padding:8px 16px" onclick="daPlanSaveBasis()">💾 حفظ</button></div><div style="font-size:11px;color:var(--muted)">لما يبقى فيه عينات كفاية (عينتين بينهم أسبوع لنفس التانك)، النمو بيتحسب منها تلقائي ويتقدم على الدورة المعروفة.</div>' : '') + '</div>';
   if(!(farmFilter && farmFilter !== 'all')) h += '<div class="card" style="margin-bottom:12px"><div class="field" style="margin:0"><label>المزرعة</label><select id="pl-farm" style="' + inp + '" onchange="window._pl.farm=this.value;show(&quot;farm-plan&quot;,true)">' + farms.map(function(f){ return '<option' + (f === st.farm ? ' selected' : '') + '>' + daEsc(f) + '</option>'; }).join('') + '</select></div></div>';
   // stages + capacity
   h += '<div class="card" style="margin-bottom:12px"><div class="card-title">🔁 مسار السمك والسعة</div><div style="display:flex;gap:8px;flex-wrap:wrap">' + p.stages.map(function(s, i){ var c = R.caps[i];
     return '<div style="border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:150px"><b>' + daEsc(s.name || ('مرحلة ' + (i + 1))) + '</b><div style="font-size:12px;color:var(--muted)">سكاشن ' + s.from + (s.to >= 999 ? '+' : '–' + s.to) + (s.until ? ' · لحد ' + s.until + 'g' : ' · لحد الحصاد') + '</div><div style="font-size:12px">' + c.tanks + ' تانك · ' + f0(c.vol) + ' م³ · سعة ~' + f0(c.kg) + ' كجم</div></div>' + (i < p.stages.length - 1 ? '<div style="align-self:center">←</div>' : ''); }).join('') + '</div>'
-    + (can ? '<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px">⚙️ تعديل المسار</summary><div style="font-size:11px;color:var(--muted);margin:6px 0">سطر لكل مرحلة: <code>السكاشن = الاسم | ينقل عند وزن (جم)</code> — آخر مرحلة من غير وزن = لحد الحصاد</div><textarea id="pl-stages" data-nodirty="1" rows="3" dir="ltr" style="width:100%;' + inp + ';font-family:monospace">' + daEsc(daPlanStagesText(p)) + '</textarea><button class="savebtn" style="width:auto;padding:7px 14px;margin-top:6px" onclick="daPlanSaveStages()">💾 حفظ المسار</button></details>' : '') + '</div>';
+    + (daPlanStageIssues(p.stages).length ? '<div style="margin-top:8px;color:var(--red);font-size:12px">⚠️ المسار المحفوظ فيه مشكلة: ' + daEsc(daPlanStageIssues(p.stages).join(' · ')) + ' — صلّحه من "تعديل المسار".</div>' : '')
+    + (can ? '<details id="pl-st-edit"' + (daPlanStageIssues(p.stages).length ? ' open' : '') + ' style="margin-top:8px"><summary style="cursor:pointer;font-size:12px">⚙️ تعديل المسار</summary><table style="border-collapse:collapse;font-size:12px;margin-top:6px"><tr style="background:#f1f5f9"><th style="padding:5px">اسم المرحلة</th><th style="padding:5px">من سكشن</th><th style="padding:5px">لحد سكشن</th><th style="padding:5px">ينقل عند وزن (جم)</th><th style="padding:5px">أقل حجم تانك (م³)</th><th></th></tr>'
+      + p.stages.concat(window._plNewStage ? [{from:'', to:'', name:'', until:'', minVol:''}] : []).map(function(sg, i){ var f = function(k, v, w, t){ return '<td style="padding:3px"><input id="pl-st-' + i + '-' + k + '" data-nodirty="1" type="' + (t || 'number') + '" value="' + daEsc(v === undefined || v === null ? '' : (k === 'to' && v >= 999 ? '' : v)) + '" style="' + inp + ';width:' + w + 'px"/></td>'; };
+        return '<tr>' + f('name', sg.name, 120, 'text') + f('from', sg.from, 70) + f('to', sg.to, 70) + f('until', sg.until || '', 90) + f('minVol', sg.minVol || '', 90) + '<td><button onclick="daPlanStageDel(' + i + ')" style="border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;padding:2px 8px">✕</button></td></tr>'; }).join('')
+      + '</table><div style="font-size:11px;color:var(--muted);margin:4px 0">"لحد سكشن" فاضي = لآخر سكشن · وزن النقل فاضي في آخر مرحلة = لحد الحصاد · أقل حجم تانك: مثلاً 100 عشان تانكات الفايبر متتحسبش في التسمين</div>'
+      + '<button onclick="window._plNewStage=1;show(&quot;farm-plan&quot;,true);setTimeout(function(){var d=document.getElementById(&quot;pl-st-edit&quot;);if(d)d.open=true;},0)" style="padding:7px 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">➕ مرحلة</button> '
+      + '<button class="savebtn" style="width:auto;padding:7px 14px" onclick="daPlanSaveStageForm()">💾 حفظ المسار</button></details>' : '') + '</div>';
   // upcoming events
   var ev = [], today = daToday(); R.sims.forEach(function(S){ S.ev.forEach(function(e){ if(e.date >= today && daDaysBetween(today, e.date) <= 60) ev.push({date:e.date, t:(e.type === 'harvest' ? '🎣 حصاد ' : '🔁 نقل ') + daEsc(S.b.name || S.b.date) + (e.type === 'harvest' ? ' — ~' + f0(e.kg) + ' كجم (' + Math.round(e.w) + 'g)' : ' إلى ' + daEsc(p.stages[e.to].name || ('مرحلة ' + (e.to + 1))) + ' (' + Math.round(e.w) + 'g)')}); }); });
   R.over.forEach(function(o){ ev.push({date:o.date, t:'⚠️ ' + daEsc(p.stages[o.st].name || ('مرحلة ' + (o.st + 1))) + ' مش هتكفي: ' + f0(o.kg) + ' كجم والسعة ~' + f0(o.cap)}); });
@@ -118,6 +146,25 @@ function renderFarmPlan(){
     + R.feed.map(function(f){ return '<tr><td style="padding:5px 10px">' + f.from + '</td>' + sz.map(function(k){ return '<td style="padding:5px 10px">' + (f[k] ? f0(f[k]) : '') + '</td>'; }).join('') + '</tr>'; }).join('') + '</table></div><div style="font-size:11px;color:var(--muted);margin-top:4px">علف دفعات الخطة بس — السمك الموجود في التانكات دلوقتي في توقع العلف والشراء.</div></div>';
   return h;
 }
+function daPlanStageDel(i){ var p = daPlanOf(window._pl.farm); if(window._plNewStage && i === p.stages.length){ window._plNewStage = 0; show('farm-plan', true); return; } p.stages.splice(i, 1); if(!p.stages.length) p.stages = [{from:1, to:999, until:0, name:'كل السكاشن'}]; daPlanSave(window._pl.farm, p); show('farm-plan', true); }
+function daPlanSaveStageForm(){
+  var p = daPlanOf(window._pl.farm), n = p.stages.length + (window._plNewStage ? 1 : 0), st = [];
+  for(var i = 0; i < n; i++){ var g = function(k){ return String((document.getElementById('pl-st-' + i + '-' + k) || {}).value || '').trim(); };
+    if(!g('from') && !g('name')) continue;
+    st.push({name:g('name'), from:+g('from'), to:g('to') === '' ? 999 : +g('to'), until:+g('until') || 0, minVol:+g('minVol') || 0}); }
+  st.sort(function(a, b){ return a.from - b.from; });
+  var iss = daPlanStageIssues(st); if(iss.length){ alert('⚠️ المسار مش هيتحفظ:\n' + iss.join('\n')); return; }
+  p.stages = st; window._plNewStage = 0; daPlanSave(window._pl.farm, p); toast('✅ اتحفظ المسار'); show('farm-plan', true);
+}
+function daPlanSaveBasis(){
+  var farm = window._pl.farm, a = {}; try{ a = JSON.parse(localStorage.getItem(DA_TWIN_KEY) || '{}') || {}; }catch(e){}
+  var c = Object.assign({}, DA_TWIN_DEF, a[farm] || {}), g = function(id){ return +((document.getElementById(id) || {}).value || 0); };
+  c.cycFrom = g('pl-cf'); c.cycTo = g('pl-ct'); c.cycDays = g('pl-cd');
+  if((c.cycFrom || c.cycTo || c.cycDays) && !(c.cycFrom > 0 && c.cycTo > c.cycFrom && c.cycDays > 0)){ toast('⚠️ الدورة: "من" أقل من "لحد"، وعدد الأيام أكبر من صفر'); return; }
+  var sv = g('pl-surv'); if(sv && !(sv > 0 && sv <= 100)){ toast('⚠️ الحياة المتوقعة بين 1 و100%'); return; }
+  a[farm] = c; localStorage.setItem(DA_TWIN_KEY, JSON.stringify(a));
+  var p = daPlanOf(farm); p.surv = sv || 0; daPlanSave(farm, p); toast('✅ اتحفظ أساس الحساب'); show('farm-plan', true);
+}
 function daPlanSaveStages(){ var r = daPlanParseStages((document.getElementById('pl-stages') || {}).value); if(r.bad.length || !r.stages.length){ toast('⚠️ السطر ' + r.bad.join('، ') + ' مش مفهوم — مثال: 1-3 = تحضين | 50'); return; }
   var p = daPlanOf(window._pl.farm); p.stages = r.stages; daPlanSave(window._pl.farm, p); toast('✅ اتحفظ المسار'); show('farm-plan', true); }
 function daPlanAdd(){
@@ -128,7 +175,7 @@ function daPlanAdd(){
 function daPlanDel(i){ var p = daPlanOf(window._pl.farm), b = p.batches[i]; if(!b || !confirm('تشيل الدفعة ' + (b.name || b.date) + ' من الخطة؟ (مش بتمس أي بيانات فعلية)')) return; p.batches.splice(i, 1); daPlanSave(window._pl.farm, p); show('farm-plan', true); }
 function daPlanSaveGoal(){ var p = daPlanOf(window._pl.farm), g = function(id){ return +((document.getElementById(id) || {}).value || 0); };
   p.goal = {kgMonth:g('pl-gkg'), wt:g('pl-gwt') || 1, target:g('pl-gtarget') || 0}; daPlanSave(window._pl.farm, p); show('farm-plan', true); }
-function daPlanAddGoal(i){ var farm = window._pl.farm, p = daPlanOf(farm), G = daPlanGoal(farm, p.goal, daPlanBasis(farm), p); if(!G) return; var x = G.list[i];
+function daPlanAddGoal(i){ var farm = window._pl.farm, p = daPlanOf(farm), G = daPlanGoal(farm, p.goal, daPlanRun(farm).B, p); if(!G) return; var x = G.list[i];
   p.batches.push({name:'هدف ' + x.stock.slice(0, 7), date:x.stock, count:x.count, wt:G.wt, target:G.target}); p.batches.sort(function(a, b){ return a.date < b.date ? -1 : 1; }); daPlanSave(farm, p); toast('✅ اتضافت للخطة'); show('farm-plan', true); }
 // advisory alerts (info only): plan events in the next 7 days, stage capacity overflow within 4 weeks
 function daPlanAlerts(){

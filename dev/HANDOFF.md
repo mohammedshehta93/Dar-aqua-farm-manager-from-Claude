@@ -77,6 +77,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- Plan/twin corrections (owner 2026-10-31): free-text stage editor let a paste land on an old line → stage "1–∞" swallowed
+  every tank (97 instead of 42). Now a form + `daPlanStageIssues` refuses overlaps, '=' in names, missing/non-increasing
+  transfer weights; per-stage minimum tank volume (grow-out = 21 concrete tanks: min 100 m³). Default TGC 1.8 gave
+  50→450 g in 79 days (owner: wrong) → TGC order: samples → the farm's KNOWN CYCLE (cycFrom/cycTo/cycDays, twin settings,
+  also on the plan page) → default 1.1; source shown everywhere. Expected survival % for the plan (no mortality on record
+  showed 100% survival).
 - FARM PLAN, OPTIONAL (owner: "متعملش حاجه اجبارى"; module `plan.js`, test `e2e_plan` vs Python): stages per farm (F2:
   "1-3 = تحضين | 50 / 4-5 = وسط | 150 / 6- = تسمين"), batches (date, count, start g, harvest g) simulated with the twin's
   farm TGC / temperature / mortality → transfer + harvest dates, harvest kg, stage occupancy vs capacity (volume × density

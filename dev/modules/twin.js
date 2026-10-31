@@ -8,7 +8,7 @@
 // that stayed within limit). Scenarios: feed %, temperature shift, horizon. Backtest: predicts past samples.
 // Stated assumptions: feeding above the table does not add growth; below it, growth falls in proportion.
 var DA_TWIN_KEY = 'daracqua_plan_v1_twin';   // synced: {farm: {...}}
-var DA_TWIN_DEF = {media:0, ssa:500, provenFeed:0, tanOk:1, prot1:40, prot2:36, prot3:36, o2PerFeed:1, tgc:1.8, temp:28};
+var DA_TWIN_DEF = {media:0, ssa:500, provenFeed:0, tanOk:1, prot1:40, prot2:36, prot3:36, o2PerFeed:1, tgc:1.1, temp:28, cycFrom:0, cycTo:0, cycDays:0};
 function daTwinCfg(farm){ var a = {}; try{ a = JSON.parse(localStorage.getItem(DA_TWIN_KEY) || '{}') || {}; }catch(e){} return Object.assign({}, DA_TWIN_DEF, a[farm] || {}); }
 function daTwinProtein(w, cfg){ var st = daFcrStages(), i = daStageOf(w, st), z = daSizeOf(st[i].label) || String(i + 1); return (parseFloat(cfg['prot' + z]) || 36) / 100; }
 // latest section reading (section record or any tank of the section) within `days`
@@ -49,6 +49,8 @@ function daTwinMortRate(units, today){
   Object.keys(units).forEach(function(u){ fish += units[u].fishNo || 0; });
   return fish > 0 ? Math.min(0.02, dead / (fish + dead) / 28) : 0;
 }
+// TGC from the farm's known cycle ("from X g to Y g in N days"), at the farm's typical temperature
+function daTwinCycleTGC(cfg, temp){ var a = +cfg.cycFrom, b = +cfg.cycTo, d = +cfg.cycDays, T = temp || cfg.temp; if(!(a > 0 && b > a && d > 0 && T > 0)) return null; return (Math.cbrt(b) - Math.cbrt(a)) / (T * d) * 1000; }
 function daMedian(a){ a = a.filter(function(v){ return v != null; }).sort(function(x, y){ return x - y; }); return a.length ? a[Math.floor(a.length / 2)] : null; }
 // observed calibration: the highest 7-day section feed under which weekly TAN stayed within limit
 function daTwinProvenObserved(sec, units, cfg){
@@ -66,7 +68,9 @@ function daTwinRun(farm, sc){
     var sec = r.section || daSecOf(r.unit); (secs[sec] = secs[sec] || {sec:sec, units:{}, tanks:[]}).units[r.unit] = r; });
   var farmTGC = [];
   Object.keys(secs).forEach(function(k){ var S = secs[k]; S.tgcs = Object.keys(S.units).map(function(u){ var g = daTwinTankTGC(u, k, cfg); farmTGC.push(g); return g; }); });
-  var fTGC = daMedian(farmTGC) || cfg.tgc;
+  var fTGC = daMedian(farmTGC), tgcSrc = 'samples';
+  if(!fTGC){ var temps0 = Object.keys(secs).map(function(k){ return daTwinTempOn(k, today, cfg); }), cyc = daTwinCycleTGC(cfg, daMedian(temps0));
+    if(cyc){ fTGC = cyc; tgcSrc = 'cycle'; } else { fTGC = cfg.tgc; tgcSrc = 'default'; } }
   Object.keys(secs).sort(function(a, b){ return daSecNo(a) - daSecNo(b); }).forEach(function(k){
     var S = secs[k], sTGC = daMedian(S.tgcs) || fTGC, T0 = daTwinTempOn(k, today, cfg), T = T0 + dT, DO = (daTwinSecRead(k, 'do', today, 14) || {}).v || 6;
     var m = daTwinMortRate(S.units, today); S.temp = T0; S.mort = m; S.series = [];
@@ -92,7 +96,7 @@ function daTwinRun(farm, sc){
     S.loadDay = null; S.series.forEach(function(z){ if(S.loadDay === null && z.load !== null && z.load > 100) S.loadDay = z.d; });
     S.tan = daTwinSecRead(k, 'ammonia', today, 21); S.no2 = daTwinSecRead(k, 'nitrite', today, 21);
   });
-  return {farm:farm, cfg:cfg, today:today, H:H, secs:Object.keys(secs).sort(function(a, b){ return daSecNo(a) - daSecNo(b); }).map(function(k){ return secs[k]; }), fTGC:fTGC};
+  return {farm:farm, cfg:cfg, today:today, H:H, secs:Object.keys(secs).sort(function(a, b){ return daSecNo(a) - daSecNo(b); }).map(function(k){ return secs[k]; }), fTGC:fTGC, tgcSrc:tgcSrc};
 }
 // backtest: TGC from samples 1→2 predicts sample 3 (each tank with ≥3 samples, gaps ≥7 days)
 function daTwinBacktest(farm){
@@ -136,7 +140,7 @@ function renderTwin(){
   if(!R.secs.length) return h + '<div class="card" style="text-align:center;padding:40px;color:var(--muted)">مفيش تانكات فيها سمك للمزرعة دي.</div>' + daTwinCfgCard(st.farm, cfg, can);
   var bt = daTwinBacktest(st.farm);
   h += '<div class="card" style="margin-bottom:12px;font-size:13px">📏 <b>دقة توقع النمو:</b> ' + (bt.n ? 'النموذج اتنبأ بـ ' + bt.n + ' عينة قديمة من اللي قبلها، والفرق المتوسط <b>' + f1(bt.med) + '%</b> من الوزن الفعلي.' : 'محتاج تانكات فيها 3 عينات على الأقل (بين كل عينة والتانية أسبوع) عشان أقيس الدقة.')
-    + ' · معامل النمو (TGC) للمزرعة: <b>' + f1(R.fTGC, 2) + '</b>' + (cfg.provenFeed || R.secs.some(function(S){ return S.obs.kg; }) ? '' : ' · <span style="color:var(--amber)">حط "أعلى علف اتجرب" تحت عشان يتحسب حمل الفلتر</span>') + '</div>';
+    + ' · معامل النمو (TGC) للمزرعة: <b>' + f1(R.fTGC, 2) + '</b> (' + ({samples:'من عيناتكم', cycle:'من دورتكم المعروفة', 'default':'<span style="color:var(--amber)">افتراضي — تقريبي، اكتب دورتكم في بيانات النموذج</span>'})[R.tgcSrc] + ')' + (cfg.provenFeed || R.secs.some(function(S){ return S.obs.kg; }) ? '' : ' · <span style="color:var(--amber)">حط "أعلى علف اتجرب" تحت عشان يتحسب حمل الفلتر</span>') + '</div>';
   // events
   var ev = []; R.secs.forEach(function(S){
     if(S.events.dens) ev.push({d:S.events.dens.d, t:'🔴 ' + (daTankNo(S.events.dens.unit) || {}).label + ' يوصل لحد الكثافة الحرج (' + daFarmLIM(st.farm).densAlarm + ' كجم/م³)'});
@@ -191,6 +195,7 @@ function daTwinCfgCard(farm, cfg, can){
   return '<details class="card"><summary style="cursor:pointer;font-weight:700">⚙️ بيانات النموذج — ' + daEsc(farm) + '</summary><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">'
     + f('provenFeed', 'أعلى علف اتجرب للسكشن (كجم/يوم)') + f('tanOk', 'والأمونيا فضلت ≤ (mg/L)') + f('media', 'ميديا الفلتر (م³)') + f('ssa', 'المساحة النوعية (م²/م³)')
     + f('prot1', 'بروتين 1مم %') + f('prot2', 'بروتين 2مم %') + f('prot3', 'بروتين 3مم %') + f('o2PerFeed', 'كجم O₂ لكل كجم علف') + f('tgc', 'TGC افتراضي') + f('temp', 'حرارة افتراضية °م')
+    + f('cycFrom', 'دورتكم: من (جم)') + f('cycTo', 'لحد (جم)') + f('cycDays', 'في (يوم)')
     + '<button class="savebtn" style="width:auto;padding:8px 16px" onclick="daTwinSaveCfg()">💾 حفظ</button></div>'
     + (cfg.media > 0 && cfg.provenFeed > 0 ? '<div style="font-size:12px;color:var(--muted);margin-top:8px">معدل إزالة الأمونيا المجرَّب: <b>' + (cfg.provenFeed * cfg.prot3 / 100 * 0.092 * 1000 / (cfg.media * cfg.ssa)).toFixed(2) + ' جم TAN/م²/يوم</b></div>' : '') + '</details>';
 }
