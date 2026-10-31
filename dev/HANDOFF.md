@@ -77,6 +77,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- TANK CYCLES + FARM ON ANY DATE (module `cycles.js`, edit `dev/tools/patch_cycles.py`, test `e2e_cycles`): cycles are
+  DERIVED (no input): open when an empty tank gets fish (stocking / transfer in / opening balance), close at 0 fish; a day
+  that empties AND restocks closes the old cycle first. Page `tank-cycles`: state of every tank on a chosen date (daStateAt)
+  + per-tank cycle history (days, start/end, feed, dead, adjustment, out kg, economic FCR). New record type `adjustment`
+  (count) = "close cycle" for a count difference — NOT mortality; added to DA_SUB_FIELD/DA_TX_PHASE (date engine) AND
+  _txLiveRows (live engine, hard-codes types). Note: daStateAt on the event day itself = start-of-day state (by design).
 - Plan/twin corrections (owner 2026-10-31): free-text stage editor let a paste land on an old line → stage "1–∞" swallowed
   every tank (97 instead of 42). Now a form + `daPlanStageIssues` refuses overlaps, '=' in names, missing/non-increasing
   transfer weights; per-stage minimum tank volume (grow-out = 21 concrete tanks: min 100 m³). Default TGC 1.8 gave
@@ -169,7 +175,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-31 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+32 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
