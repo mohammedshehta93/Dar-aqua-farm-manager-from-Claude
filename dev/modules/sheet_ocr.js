@@ -220,7 +220,7 @@ function daOcrPix(I, x, y){ if(x < 0 || y < 0 || x >= I.W - 1 || y >= I.H - 1) r
 function daOcrDark(I, H, x, y, w, h){ var s = 0, n = 0; for(var i = 1; i <= 3; i++) for(var j = 1; j <= 3; j++){ var p = daOcrMap(H, x + w * i / 4, y + h * j / 4); s += daOcrPix(I, p[0], p[1]); n++; } return 1 - s / n; }
 // try the 4 orientations; the code strip (guards + kind + hash) decides
 function daOcrRegister(I, layouts){
-  var c = daOcrFindSquares(I); if(c.length < 4) return {err:'مش لاقي المربعات السودا في أركان الشيت — صوّر الورقة كلها والأركان الأربعة باينة'};
+  var c = daOcrFindSquares(I); if(c.length < 4) return {err:'مش لاقي المربعات السودا في أركان الشيت.\n\n• لو دي الورقة القديمة: القراية بتشتغل على الشيت المطبوع من زرار 🖨️ شيت للطباعة بس (فيه مربعات في الأركان ومربع لكل رقم).\n• لو مطبوع من الأداة: صوّر الورقة كلها من فوق، والأربع مربعات السودا باينين.'};
   var big = c.slice().sort(function(a, b){ return b.a - a.a; }).slice(0, 4);
   if(big[3].a < big[0].a / 2.6) return {err:'مش لاقي الأربع أركان — قرّب أو صوّر من فوق والأركان الأربعة باينة'};
   var cx = big.reduce(function(s, q){ return s + q.x; }, 0) / 4, cy = big.reduce(function(s, q){ return s + q.y; }, 0) / 4;
