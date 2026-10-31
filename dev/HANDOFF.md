@@ -77,6 +77,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- FARM PLAN, OPTIONAL (owner: "متعملش حاجه اجبارى"; module `plan.js`, test `e2e_plan` vs Python): stages per farm (F2:
+  "1-3 = تحضين | 50 / 4-5 = وسط | 150 / 6- = تسمين"), batches (date, count, start g, harvest g) simulated with the twin's
+  farm TGC / temperature / mortality → transfer + harvest dates, harvest kg, stage occupancy vs capacity (volume × density
+  warning), weekly feed by pellet size; goal mode (kg/month → fish to stock per month, one-click add). Plan vs actual is
+  automatic: stocking records match by batch name, else date ±7 d. Advisory alerts only (info/warn). Never blocks entries.
+  Synced key `daracqua_plan_v1_farmplan`; daPlanRun cached by _dataVer.
 - Keyboard in entry tables (module `grid_keys.js`, test `e2e_keys`): ↑/↓/Enter (Shift+Enter up) = same column across rows
   and across a sheet's group tables, skipping locked rows; ←/→ = neighbour cell in the table's visual direction (caret moves
   first while editing text); arrows never step number inputs; reached cell is selected. Works for every td input.
@@ -157,7 +163,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-30 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+31 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
