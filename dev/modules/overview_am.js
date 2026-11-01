@@ -37,8 +37,9 @@ function daOverviewRows(D, farm){
     if(!c) return; var k = daCycleTo(r.unit, c, D); if(!(k.st.fish > 0)) return;
     var vol = (daRawUnit(r.unit) || {}).volume || r.volume || 0, lot = c.batch ? lotOf(c.batch) : null, farmId = r.farm || String(r.unit).split('.')[0];
     if(target[farmId] === undefined) target[farmId] = daHarvestTargetFor(farmId) || 0;
-    out.push({unit:r.unit, farm:farmId, batch:c.batch || '', cycle:c, start:c.start, fish:k.st.fish, wt0:c.wt0, wt:k.st.wt, bio:k.bio, dens:vol ? k.bio / vol : null, dead:k.dead, feed:k.feed,
-      fcr:k.fcr, lfcr:lot ? lot.fcr : k.fcr, gday:k.days > 0 ? (k.st.wt - c.wt0) / k.days : 0, stock:k.stockKg, days:k.days, ldays:lot && lot.start ? daDaysBetween(lot.start, D) : k.days, target:target[farmId]});
+    var A = typeof daAllocAt === 'function' ? daAllocAt(r.unit, D) : null;   // feed history split with fish that left / entered
+    out.push({unit:r.unit, farm:farmId, batch:c.batch || '', cycle:c, start:c.start, fish:k.st.fish, wt0:c.wt0, wt:k.st.wt, bio:k.bio, dens:vol ? k.bio / vol : null, dead:k.dead, feed:A ? A.feed : k.feed,
+      fcr:A ? A.fcr : k.fcr, lfcr:A ? A.lfcr : (lot ? lot.fcr : k.fcr), gday:k.days > 0 ? (k.st.wt - c.wt0) / k.days : 0, stock:A ? A.stock : k.stockKg, days:k.days, ldays:lot && lot.start ? daDaysBetween(lot.start, D) : k.days, target:target[farmId]});
   });
   return out;
 }

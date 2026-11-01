@@ -4642,14 +4642,12 @@ function _txLiveRows(){
              r.fishNo = Math.max(0,(r.fishNo||0)-(t.count||0));
            }
             if(t.type==='adjustment'){ r.fishNo = Math.max(0,(r.fishNo||0)-(parseInt(t.count)||0)); }
-           if(t.type==='sampling'){
+           if(t.type==='sampling' && !t.link){
              r.avgWt = t.avgWt||r.avgWt;
            }
-           if(t.type==='transfer_out'){
-             r.fishNo = Math.max(0,(r.fishNo||0)-(t.fishNo||0));
-           }
-           if(t.type==='harvesting'){
-             r.fishNo = Math.max(0,(r.fishNo||0)-(parseInt(t.fishNo)||0));
+           if(t.type==='transfer_out'||t.type==='harvesting'){
+             var _n=parseInt(t.fishNo)||0; r.avgWt = daRemainWt(r.fishNo||0, r.avgWt||0, _n, daOutWt(t));
+             r.fishNo = Math.max(0,(r.fishNo||0)-_n);
            }
            if(t.type==='transfer_in'){
              var prevBio=(r.fishNo||0)*(r.avgWt||0);
@@ -12270,10 +12268,11 @@ function daSimulateUnit(unit, list){
     ev.forEach(function(t){
       if(DA_NEEDS_FISH[t.type] && start <= 0)
         probs.push({key:'empty|' + t.id, t:t, msg:'التانك فاضي يوم ' + d + (emptiedBy ? ' (بعد ' + DA_TYPE_SHORT[emptiedBy.type] + ' يوم ' + emptiedBy.date + ')' : '') + ' — بس فيه ' + DA_TYPE_SHORT[t.type] + ' مسجل'});
-      if(t.type === 'sampling' && parseFloat(t.avgWt) > 0) wt = parseFloat(t.avgWt);
+      if(t.type === 'sampling' && parseFloat(t.avgWt) > 0 && !t.link) wt = parseFloat(t.avgWt);
     });
-    var sub = 0, subEv = null;
-    ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(f){ sub += parseInt(t[f]) || 0; subEv = t; } });
+    var sub = 0, subEv = null, cur = start;
+    ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(f){ var n = parseInt(t[f]) || 0; sub += n; subEv = t;
+      if(t.type === 'transfer_out' || t.type === 'harvesting') wt = daRemainWt(cur, wt, n, daOutWt(t)); cur = Math.max(0, cur - n); } });
     if(sub > 0 && start > 0 && sub > start)
       probs.push({key:'neg|' + d, t:subEv, msg:'يوم ' + d + ': النفوق والحصاد والنقل (' + sub + ') أكبر من السمك الموجود (' + start + ')'});
     fish = Math.max(0, start - sub);
@@ -15078,12 +15077,12 @@ function daUnitCycles(unit){
       if(fish <= 0 || !cur){ open(d, n, w, t.type === 'stocking' ? 'تخزين' : 'نقل داخل', t.batch); } else { cur.inKg += n * w / 1000; }
       wt = fish + n > 0 ? (fish * wt + n * w) / (fish + n) : w; fish += n; });
     ev.forEach(function(t){
-      if(t.type === 'sampling' && parseFloat(t.avgWt) > 0) wt = parseFloat(t.avgWt);
+      if(t.type === 'sampling' && parseFloat(t.avgWt) > 0 && !t.link) wt = parseFloat(t.avgWt);
       else if(t.type === 'feeding' && cur) cur.feed += parseFloat(t.kg) || 0; });
     var by = '';
     ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(!f || !cur) return; var n = parseInt(t[f]) || 0; if(n <= 0) return;
       if(t.type === 'mortality') cur.dead += n; else if(t.type === 'adjustment') cur.adj += n;
-      else { var kg = parseFloat(t.kg) || 0, w2 = parseFloat(t.avgWt) || (kg > 0 ? kg * 1000 / n : wt); cur.outFish += n; cur.outKg += n * w2 / 1000; if(t.type === 'harvesting') cur.harvKg += kg || n * w2 / 1000; }
+      else { var kg = parseFloat(t.kg) || 0, w2 = parseFloat(t.avgWt) || (kg > 0 ? kg * 1000 / n : wt); cur.outFish += n; cur.outKg += n * w2 / 1000; if(t.type === 'harvesting') cur.harvKg += kg || n * w2 / 1000; wt = daRemainWt(fish, wt, n, w2); }
       fish = Math.max(0, fish - n); by = t.type; });
     if(cur && fish <= 0 && by){ cur.end = d; cur.endBy = {harvesting:'حصاد', transfer_out:'نقل خارج', mortality:'نفوق', adjustment:'قفل يدوي'}[by] || by; cur.fish1 = 0; cur.wt1 = wt; cur = null; }
   });
@@ -15185,8 +15184,9 @@ function daOverviewRows(D, farm){
     if(!c) return; var k = daCycleTo(r.unit, c, D); if(!(k.st.fish > 0)) return;
     var vol = (daRawUnit(r.unit) || {}).volume || r.volume || 0, lot = c.batch ? lotOf(c.batch) : null, farmId = r.farm || String(r.unit).split('.')[0];
     if(target[farmId] === undefined) target[farmId] = daHarvestTargetFor(farmId) || 0;
-    out.push({unit:r.unit, farm:farmId, batch:c.batch || '', cycle:c, start:c.start, fish:k.st.fish, wt0:c.wt0, wt:k.st.wt, bio:k.bio, dens:vol ? k.bio / vol : null, dead:k.dead, feed:k.feed,
-      fcr:k.fcr, lfcr:lot ? lot.fcr : k.fcr, gday:k.days > 0 ? (k.st.wt - c.wt0) / k.days : 0, stock:k.stockKg, days:k.days, ldays:lot && lot.start ? daDaysBetween(lot.start, D) : k.days, target:target[farmId]});
+    var A = typeof daAllocAt === 'function' ? daAllocAt(r.unit, D) : null;   // feed history split with fish that left / entered
+    out.push({unit:r.unit, farm:farmId, batch:c.batch || '', cycle:c, start:c.start, fish:k.st.fish, wt0:c.wt0, wt:k.st.wt, bio:k.bio, dens:vol ? k.bio / vol : null, dead:k.dead, feed:A ? A.feed : k.feed,
+      fcr:A ? A.fcr : k.fcr, lfcr:A ? A.lfcr : (lot ? lot.fcr : k.fcr), gday:k.days > 0 ? (k.st.wt - c.wt0) / k.days : 0, stock:A ? A.stock : k.stockKg, days:k.days, ldays:lot && lot.start ? daDaysBetween(lot.start, D) : k.days, target:target[farmId]});
   });
   return out;
 }
@@ -15451,7 +15451,8 @@ function daRegForm(kind, r, copy){
 function daRegOptsHtml(inp, adjRec, src, what){
   var sampleOn = src.id ? getTX().some(function(t){ return t.type === 'sampling' && t.link && (t.link === src.id || t.link === src.txGroup) && !t.deleted; }) : what === 'الحصاد';   // like AquaManager: on for harvest (every fish weighed), off for transfers (often estimated)
   return '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;padding:10px;background:#f8fafc;border-radius:8px">'
-    + '<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rf-sample"' + (sampleOn ? ' checked' : '') + '/> Is Sampling <span style="font-size:11px;color:var(--muted)">(متوسط وزن ' + what + ' يتحسب عينة)</span></label>'
+    + (what === 'الحصاد' ? '<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rf-sample"' + (sampleOn ? ' checked' : '') + '/> Is Sampling <span style="font-size:11px;color:var(--muted)">(لو الحصاد فضّى التانك)</span></label>' : '')
+    + '<span style="font-size:11px;color:var(--muted);flex-basis:100%">متوسط وزن السمك اللي فاضل بيتحسب لوحده من وزن اللي طلع، والعلف اللي اتاكل بيتقسم بنسبة الكتلة.</span>'
     + '<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rf-close" onchange="daRegAvail()"/> Close Unit <span style="font-size:11px;color:var(--muted)">(اقفل الدورة والباقي يبقى تسوية)</span></label>'
     + '<div class="field" style="margin:0"><label>Adjustments (فرق عد)</label><input id="rf-adj" type="number" data-nodirty="1" value="' + (adjRec && adjRec.source !== 'close' ? adjRec.count : '') + '" style="' + inp + ';width:90px" oninput="daRegAvail()"/></div>'
     + '<div class="field" style="margin:0"><label>Adjustment Type</label><select id="rf-adjt" style="' + inp + '">' + DA_ADJ_TYPES.map(function(x){ return '<option' + (adjRec && adjRec.reason === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div>'
@@ -15504,7 +15505,7 @@ function daRegSave(kind){
     var id = 'hv-' + u + '-' + date + '-' + Date.now().toString(36), val = cs.reduce(function(s, c){ return s + (c.inv || c.kg) * c.price; }, 0), avg = +(kg * 1000 / n).toFixed(2);
     addTX({id:id, type:'harvesting', date:date, unit:u, fishNo:n, kg:+kg.toFixed(3), avgWt:avg, cats:cs.map(function(c){ return {c:c.c, n:c.n, kg:c.kg, inv:c.inv, price:c.price}; }), invKg:+cs.reduce(function(s, c){ return s + (c.inv || c.kg); }, 0).toFixed(3),
       price:cs.length === 1 ? cs[0].price : 0, value:+val.toFixed(2), buyer:g('rf-buyer'), pack:g('rf-pack'), notes:g('rf-notes'), _skipValidation:true});
-    if(sample) addTX({id:'smp-' + id, type:'sampling', date:date, unit:u, avgWt:avg, sampleN:n, link:id, source:'harvest', notes:'متوسط وزن الحصاد', _skipValidation:true});
+    if(sample && (close || n + adj >= av)) addTX({id:'smp-' + id, type:'sampling', date:date, unit:u, avgWt:avg, sampleN:n, link:id, source:'harvest', notes:'متوسط وزن الحصاد (التانك اتفضّى)', _skipValidation:true});   // a partial (graded) harvest says nothing about the fish that stay
     if(adj) addTX({id:'adj-' + id, type:'adjustment', date:date, unit:u, count:adj, reason:adjT, link:id, source:'harvest', _skipValidation:true});
     if(close){ var rest = av - n - adj; if(rest > 0) addTX({id:'cls-' + id, type:'adjustment', date:date, unit:u, count:rest, reason:'قفل الدورة مع الحصاد', link:id, source:'close', _skipValidation:true}); }
     toast('✅ حصاد ' + u + ': ' + n.toLocaleString() + ' سمكة · ' + kg.toFixed(1) + ' كجم' + (close ? ' · الدورة اتقفلت' : ''));
@@ -15521,7 +15522,6 @@ function daRegSave(kind){
     drop();
     addTX({type:'transfer_out', date:date, unit:from, fishNo:tot, avgWt:+wavg.toFixed(2), transferType:g('rf-type'), notes:g('rf-notes'), txGroup:grp, batch:cyc.batch || '', _skipValidation:true});
     dest.forEach(function(d){ addTX({type:'transfer_in', date:date, unit:d.u, fishNo:d.n, avgWt:d.w, transferType:g('rf-type'), txGroup:grp, batch:cyc.batch || '', _skipValidation:true}); });
-    if(sample && dest.some(function(d){ return d.w !== srcW; })) addTX({id:'smp-' + grp, type:'sampling', date:date, unit:from, avgWt:+wavg.toFixed(2), sampleN:tot, link:grp, source:'transfer', notes:'متوسط وزن النقل', _skipValidation:true});
     if(adj) addTX({id:'adj-' + grp, type:'adjustment', date:date, unit:from, count:adj, reason:adjT, link:grp, source:'transfer', _skipValidation:true});
     if(close){ var rest2 = avl - tot - adj; if(rest2 > 0) addTX({id:'cls-' + grp, type:'adjustment', date:date, unit:from, count:rest2, reason:'قفل الدورة مع النقل', link:grp, source:'close', _skipValidation:true}); }
     toast('✅ نقل من ' + from + ' لـ ' + dest.length + ' تانك · ' + tot.toLocaleString() + ' سمكة' + (close ? ' · الدورة اتقفلت' : ''));
@@ -15548,6 +15548,62 @@ function daRegExcel(kind){
   XLSX.writeFile(wb, (kind === 'harv' ? 'Harvest_' : 'Transfer_') + st.from + '_' + (st.to || daToday()) + '.xlsx');
 }
 VIEWS['tx-harvesting'] = renderHarvReg; VIEWS['tx-transfer'] = renderTransReg;
+
+// ══════════════════════════════════════════════════════════
+//  FEED HISTORY FOLLOWS THE FISH (partial transfers / harvests)
+// ══════════════════════════════════════════════════════════
+// When part of a tank leaves (graded, weighed), the tank's history — feed eaten, starting biomass, dead biomass — is
+// split by BIOMASS share: the fish that leave take their share (and carry it into the tank they enter), the fish that
+// stay keep the rest. Nothing is lost or counted twice. UTD = the fish now in this tank, since they entered it;
+// LTD = the same fish since they were first stocked (whatever tanks they passed through).
+function daOutWt(t){ var w = parseFloat(t.avgWt) || 0, n = parseInt(t.fishNo) || 0, kg = parseFloat(t.kg) || 0; return w > 0 ? w : (kg > 0 && n > 0 ? kg * 1000 / n : 0); }
+function daRemainWt(fish, wt, n, w){   // average of the fish that stay after n fish of weight w leave
+  if(!(w > 0) || !(wt > 0) || fish - n <= 0) return wt;
+  var nw = (fish * wt - n * w) / (fish - n); return nw >= 0.3 * wt && nw <= 3 * wt ? +nw.toFixed(3) : wt;
+}
+var _allocMemo = {v:-1};
+function daAlloc(){
+  if(_allocMemo.v === _dataVer) return _allocMemo;
+  var U = {}, series = {}, byDate = {}, packets = {};
+  var fresh = function(){ return {fish:0, wt:0, F:0, S:0, Dk:0, Fi:0, S0:0, Di:0}; };
+  _txLiveRows().forEach(function(r){ var raw = daRawUnit(r.unit) || {}, base = raw.open ? raw.open.date : (raw.startDate || ''), u = U[r.unit] = fresh(); u.base = base;
+    if((raw.fishNo || 0) > 0){ var o = raw.open || {}, bio = raw.fishNo * (raw.avgWt || 0) / 1000; u.fish = raw.fishNo; u.wt = raw.avgWt || 0; u.F = +o.feed || 0;
+      u.S = o.gain > 0 ? bio - o.gain : (raw.stockBio || (raw.stockFish || raw.fishNo) * (raw.startWt || u.wt) / 1000); u.S0 = u.S;
+      (series[r.unit] = []).push(Object.assign({date:base || '0000'}, u)); } });
+  getTX().forEach(function(t){ if(t.deleted || !U[t.unit]) return; var d = String(t.date || ''); if(U[t.unit].base && d < U[t.unit].base) return; ((byDate[d] = byDate[d] || {})[t.unit] = byDate[d][t.unit] || []).push(t); });
+  var snap = function(unit, d){ (series[unit] = series[unit] || []).push(Object.assign({date:d}, U[unit])); };
+  Object.keys(byDate).sort().forEach(function(d){
+    var day = byDate[d], deferred = [];
+    Object.keys(day).forEach(function(unit){
+      var u = U[unit], ev = day[unit].slice().sort(daTxOrder), adds = 0, subs = 0;
+      ev.forEach(function(t){ if(t.type === 'stocking' || t.type === 'transfer_in') adds += parseInt(t.fishNo) || 0; var f = DA_SUB_FIELD[t.type]; if(f) subs += parseInt(t[f]) || 0; });
+      var addIn = function(){ ev.forEach(function(t){ if(t.type !== 'stocking' && t.type !== 'transfer_in') return; var n = parseInt(t.fishNo) || 0, w = parseFloat(t.avgWt) || u.wt; if(n <= 0) return;
+        if(u.fish <= 0){ var keep = u.base; U[unit] = u = fresh(); u.base = keep; }
+        u.wt = u.fish + n > 0 ? (u.fish * u.wt + n * w) / (u.fish + n) : w; u.fish += n; u.S += n * w / 1000;
+        if(t.type === 'transfer_in' && t.txGroup) deferred.push({unit:unit, g:t.txGroup, kg:n * w / 1000}); else u.S0 += n * w / 1000; }); };
+      var out = function(){ ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(!f) return; var n = parseInt(t[f]) || 0; if(n <= 0 || u.fish <= 0) return; n = Math.min(n, u.fish);
+        if(t.type === 'mortality' || t.type === 'adjustment'){ u.Dk += n * u.wt / 1000; u.fish -= n; return; }
+        var w = daOutWt(t) || u.wt, bio = u.fish * u.wt / 1000, kg = n * w / 1000, sh = bio > 0 ? Math.min(1, kg / bio) : 1;
+        if(t.type === 'transfer_out' && t.txGroup){ var P = packets[t.txGroup] = packets[t.txGroup] || {F:0, S0:0, D:0}; P.F += (u.F + u.Fi) * sh; P.S0 += u.S0 * sh; P.D += (u.Dk + u.Di) * sh; }
+        ['F', 'S', 'Dk', 'Fi', 'S0', 'Di'].forEach(function(k){ u[k] *= (1 - sh); });
+        u.wt = daRemainWt(u.fish, u.wt, n, w); u.fish -= n; }); };
+      var mid = function(){ ev.forEach(function(t){ if(t.type === 'feeding') u.F += parseFloat(t.kg) || 0; else if(t.type === 'sampling' && parseFloat(t.avgWt) > 0 && !t.link) u.wt = parseFloat(t.avgWt); }); };
+      if(u.fish > 0 && adds > 0 && subs >= u.fish){ out(); addIn(); mid(); } else { addIn(); mid(); out(); }   // emptied and restocked the same day: old fish leave first
+      if(u.fish <= 0){ var b = u.base; U[unit] = fresh(); U[unit].base = b; }
+    });
+    // fish that entered other tanks today carry their share of the history, split by the biomass each tank received
+    var tot = {}; deferred.forEach(function(x){ tot[x.g] = (tot[x.g] || 0) + x.kg; });
+    deferred.forEach(function(x){ var P = packets[x.g]; if(!P) { U[x.unit].S0 += x.kg; return; } var r = tot[x.g] > 0 ? x.kg / tot[x.g] : 0, u = U[x.unit]; u.Fi += P.F * r; u.S0 += P.S0 * r; u.Di += P.D * r; });
+    Object.keys(day).forEach(function(unit){ snap(unit, d); });
+  });
+  _allocMemo = {v:_dataVer, series:series}; return _allocMemo;
+}
+function daAllocAt(unit, D){
+  var s = (daAlloc().series[unit] || []), z = null; for(var i = s.length - 1; i >= 0; i--) if(s[i].date <= D){ z = s[i]; break; }
+  if(!z || !(z.fish > 0)) return null;
+  var bio = z.fish * z.wt / 1000, g = bio - z.S + z.Dk, gl = bio - z.S0 + z.Dk + z.Di;
+  return {fish:z.fish, wt:z.wt, bio:bio, feed:z.F, stock:z.S, fcr:z.F > 0 && g > 0 ? z.F / g : null, lfcr:z.F + z.Fi > 0 && gl > 0 ? (z.F + z.Fi) / gl : null, lfeed:z.F + z.Fi};
+}
 
 // ── Init ──────────────────────────────────────
 (function(){

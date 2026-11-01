@@ -54,7 +54,7 @@ with sync_playwright() as p:
     hr = pg.evaluate("window._rgharv.rows")
     check('R8 harvest listed with sizes, adjustment and sale value; totals row', len(hr) == 1 and hr[0]['fish'] == 100 and hr[0]['kg'] == 48 and hr[0]['adj'] == 3 and hr[0]['value'] == 83.5 and 'صغير 50' in hr[0]['cats'] and 'AVG=480.00' in pg.inner_text('#rg-t tfoot'), hr)
     smp = pg.evaluate(f"getTX().filter(t=>t.type==='sampling'&&t.unit==='{u}'&&t.date==='{d}'&&!t.deleted).map(t=>[t.avgWt,t.link])")
-    check('R8 Is Sampling: the harvest average (480 g) becomes a weight sample, linked to the harvest', len(smp) == 1 and smp[0][0] == 480 and smp[0][1] == hr[0]['id'], smp)
+    check('R8 a PARTIAL harvest saves no sample (graded fish are not the tank; the remaining weight is computed instead)', smp == [], smp)
     check('R8 adjustment stored as its own type (not mortality)', pg.evaluate(f"getTX().some(t=>t.type==='adjustment'&&t.unit==='{u}'&&t.count===3)") and not pg.evaluate(f"getTX().some(t=>t.type==='mortality'&&t.unit==='{u}'&&t.date==='{d}')"))
     # date range
     pg.evaluate(f"window._rgharv.from=daAddDays('{d}',1); show('tx-harvesting',true)"); pg.wait_for_timeout(200)
@@ -63,12 +63,13 @@ with sync_playwright() as p:
     # delete via menu
     ctx_pick(pg, '#rg-t tbody tr[data-i="0"]', 'تعديل'); pg.fill(f'#rf-c{n_}-n', '60'); pg.fill(f'#rf-c{n_}-kg', '30'); pg.click('#rf-save'); pg.wait_for_timeout(400)
     linked = pg.evaluate(f"getTX().filter(t=>t.unit==='{u}'&&t.date==='{d}'&&!t.deleted&&(t.type==='sampling'||t.type==='adjustment'||t.type==='harvesting')).map(t=>t.type).sort()")
-    check('R9b edit replaces the harvest AND its sample/adjustment (no orphans)', linked == ['adjustment', 'harvesting', 'sampling'], linked)
+    check('R9b edit replaces the harvest AND its adjustment (no orphans)', linked == ['adjustment', 'harvesting'], linked)
     pg.once('dialog', lambda dl: dl.accept()); ctx_pick(pg, '#rg-t tbody tr[data-i="0"]', 'حذف')
     check('R10 delete from the right-click menu removes the linked sample and adjustment too', pg.evaluate("window._rgharv.rows.length") == 0 and pg.evaluate(f"!getTX().some(t=>t.unit==='{u}'&&t.date==='{d}'&&!t.deleted&&(t.type==='sampling'||t.type==='adjustment'))"))
     # close unit with the harvest
     pg.click('#rg-new'); pg.fill('#rf-date', d); pg.select_option('#rf-unit', 'F1.S02T02'); pg.fill('#rf-c0-n', '690'); pg.fill('#rf-c0-kg', '270'); pg.check('#rf-close'); pg.wait_for_timeout(100)
     info = pg.inner_text('#rf-closeinfo'); pg.click('#rf-save'); pg.wait_for_timeout(400)
+    check('R10c a harvest that empties the tank saves the harvest average as a sample (Is Sampling)', pg.evaluate("getTX().some(t=>t.type==='sampling'&&t.unit==='F1.S02T02'&&t.link&&!t.deleted)"))
     check('R10b Close Unit: the remainder (704 − 690 = 14) is saved as an adjustment and the tank is empty', '14' in info and pg.evaluate("(_txLiveRows().find(r=>r.unit==='F1.S02T02')||{}).fishNo") == 0 and pg.evaluate("getTX().some(t=>t.type==='adjustment'&&t.unit==='F1.S02T02'&&t.count===14&&t.source==='close')"), info)
     with pg.expect_download() as dl:
         pg.evaluate("window._rgtrans={from:'" + d + "'}; show('tx-transfer'); daRegExcel('trans')")

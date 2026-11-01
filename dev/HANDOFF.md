@@ -135,6 +135,14 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- PARTIAL / GRADED TRANSFERS & HARVESTS (owner 2026-11-01; module `alloc.js`, edit `dev/tools/patch_partial_out.py`,
+  test `e2e_alloc` = the worked example): (1) remaining weight = (biomass before − n × measured out weight) ÷ remaining,
+  in BOTH engines (+ cycles), `daRemainWt` (kept if outside 0.3×–3× old). Samples carrying `link` (made with a
+  harvest/transfer) never set the tank weight. (2) `daAlloc` global replay splits feed / start biomass / dead biomass by
+  BIOMASS share at every partial out; transfer_out packets (by txGroup) go to destinations by their received biomass.
+  UTD = fish now in the tank since entering; LTD adds the inherited history. Imported tanks: S = bio − open.gain (keeps
+  AquaManager's FCR). Site Overview feed / UTD FCR / LTD FCR / stocking biomass come from it. Harvest Is Sampling only
+  when the tank is emptied; transfers save no sample.
 - Feed sheet DAILY-TOTAL mode is the default (owner 2026-11-01, like AquaManager's Feeding screen): per tank one
   "Quantity" (g for gram groups) + size + dead; saved with meals {} (no breakdown). Per-meal mode one click away;
   mode per farm in synced `daracqua_plan_v1_fsmode` (NOT in DA_SHEET_KEY — saving meal times rewrote it). "📋 نسخ من يوم"
@@ -208,7 +216,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-37 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+38 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

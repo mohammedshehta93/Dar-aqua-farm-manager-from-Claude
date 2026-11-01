@@ -127,7 +127,8 @@ var DA_ADJ_TYPES = ['فرق عد', 'هروب', 'سرقة / فقد', 'أخرى'];
 function daRegOptsHtml(inp, adjRec, src, what){
   var sampleOn = src.id ? getTX().some(function(t){ return t.type === 'sampling' && t.link && (t.link === src.id || t.link === src.txGroup) && !t.deleted; }) : what === 'الحصاد';   // like AquaManager: on for harvest (every fish weighed), off for transfers (often estimated)
   return '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;padding:10px;background:#f8fafc;border-radius:8px">'
-    + '<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rf-sample"' + (sampleOn ? ' checked' : '') + '/> Is Sampling <span style="font-size:11px;color:var(--muted)">(متوسط وزن ' + what + ' يتحسب عينة)</span></label>'
+    + (what === 'الحصاد' ? '<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rf-sample"' + (sampleOn ? ' checked' : '') + '/> Is Sampling <span style="font-size:11px;color:var(--muted)">(لو الحصاد فضّى التانك)</span></label>' : '')
+    + '<span style="font-size:11px;color:var(--muted);flex-basis:100%">متوسط وزن السمك اللي فاضل بيتحسب لوحده من وزن اللي طلع، والعلف اللي اتاكل بيتقسم بنسبة الكتلة.</span>'
     + '<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rf-close" onchange="daRegAvail()"/> Close Unit <span style="font-size:11px;color:var(--muted)">(اقفل الدورة والباقي يبقى تسوية)</span></label>'
     + '<div class="field" style="margin:0"><label>Adjustments (فرق عد)</label><input id="rf-adj" type="number" data-nodirty="1" value="' + (adjRec && adjRec.source !== 'close' ? adjRec.count : '') + '" style="' + inp + ';width:90px" oninput="daRegAvail()"/></div>'
     + '<div class="field" style="margin:0"><label>Adjustment Type</label><select id="rf-adjt" style="' + inp + '">' + DA_ADJ_TYPES.map(function(x){ return '<option' + (adjRec && adjRec.reason === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div>'
@@ -180,7 +181,7 @@ function daRegSave(kind){
     var id = 'hv-' + u + '-' + date + '-' + Date.now().toString(36), val = cs.reduce(function(s, c){ return s + (c.inv || c.kg) * c.price; }, 0), avg = +(kg * 1000 / n).toFixed(2);
     addTX({id:id, type:'harvesting', date:date, unit:u, fishNo:n, kg:+kg.toFixed(3), avgWt:avg, cats:cs.map(function(c){ return {c:c.c, n:c.n, kg:c.kg, inv:c.inv, price:c.price}; }), invKg:+cs.reduce(function(s, c){ return s + (c.inv || c.kg); }, 0).toFixed(3),
       price:cs.length === 1 ? cs[0].price : 0, value:+val.toFixed(2), buyer:g('rf-buyer'), pack:g('rf-pack'), notes:g('rf-notes'), _skipValidation:true});
-    if(sample) addTX({id:'smp-' + id, type:'sampling', date:date, unit:u, avgWt:avg, sampleN:n, link:id, source:'harvest', notes:'متوسط وزن الحصاد', _skipValidation:true});
+    if(sample && (close || n + adj >= av)) addTX({id:'smp-' + id, type:'sampling', date:date, unit:u, avgWt:avg, sampleN:n, link:id, source:'harvest', notes:'متوسط وزن الحصاد (التانك اتفضّى)', _skipValidation:true});   // a partial (graded) harvest says nothing about the fish that stay
     if(adj) addTX({id:'adj-' + id, type:'adjustment', date:date, unit:u, count:adj, reason:adjT, link:id, source:'harvest', _skipValidation:true});
     if(close){ var rest = av - n - adj; if(rest > 0) addTX({id:'cls-' + id, type:'adjustment', date:date, unit:u, count:rest, reason:'قفل الدورة مع الحصاد', link:id, source:'close', _skipValidation:true}); }
     toast('✅ حصاد ' + u + ': ' + n.toLocaleString() + ' سمكة · ' + kg.toFixed(1) + ' كجم' + (close ? ' · الدورة اتقفلت' : ''));
@@ -197,7 +198,6 @@ function daRegSave(kind){
     drop();
     addTX({type:'transfer_out', date:date, unit:from, fishNo:tot, avgWt:+wavg.toFixed(2), transferType:g('rf-type'), notes:g('rf-notes'), txGroup:grp, batch:cyc.batch || '', _skipValidation:true});
     dest.forEach(function(d){ addTX({type:'transfer_in', date:date, unit:d.u, fishNo:d.n, avgWt:d.w, transferType:g('rf-type'), txGroup:grp, batch:cyc.batch || '', _skipValidation:true}); });
-    if(sample && dest.some(function(d){ return d.w !== srcW; })) addTX({id:'smp-' + grp, type:'sampling', date:date, unit:from, avgWt:+wavg.toFixed(2), sampleN:tot, link:grp, source:'transfer', notes:'متوسط وزن النقل', _skipValidation:true});
     if(adj) addTX({id:'adj-' + grp, type:'adjustment', date:date, unit:from, count:adj, reason:adjT, link:grp, source:'transfer', _skipValidation:true});
     if(close){ var rest2 = avl - tot - adj; if(rest2 > 0) addTX({id:'cls-' + grp, type:'adjustment', date:date, unit:from, count:rest2, reason:'قفل الدورة مع النقل', link:grp, source:'close', _skipValidation:true}); }
     toast('✅ نقل من ' + from + ' لـ ' + dest.length + ' تانك · ' + tot.toLocaleString() + ' سمكة' + (close ? ' · الدورة اتقفلت' : ''));
