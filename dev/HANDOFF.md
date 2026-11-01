@@ -135,6 +135,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- Density ALERTS by COUNT (fish/m³) are OFF (owner 2026-11-01: the farm alerts on kg/m³ only; count stays DISPLAYED).
+  `daFarmLIM` sets cntAlarm/cntWarn = Infinity unless `cntOn` (farm → global) is true; optional switch + limits on the
+  alert-settings page; density page hides the count chip while off (`dev/tools/patch_count_density.py`).
 - ALERT LIMITS PER FARM (module `alert_scope.js`, edits `dev/tools/patch_alert_scope.py`): settings live per farm
   (…_F1/_F2) + global (…_global); getSettings() picks a HIDDEN farm (`_settingsFarm`, set by the settings page) and a farm
   object without a key never falls back to global → saved limits silently ignored. Now each tank uses `daFarmLIM(farm)`:
