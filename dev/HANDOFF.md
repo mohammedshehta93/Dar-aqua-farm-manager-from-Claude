@@ -77,6 +77,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- HARVEST & TRANSFER REGISTERS (module `records.js`, test `e2e_records`): VIEWS tx-harvesting / tx-transfer = registers:
+  From/To (default last 30 days; saving a record dated before From widens it — on the 1st of a month a back-dated record
+  "vanished"), filter, totals, Excel, right-click / ⋮ menu (new, edit, copy, delete; edit/delete engineer+). Transfer = one
+  txGroup: 1 transfer_out + N transfer_in, destinations carry the source cycle's batch (LTD continuity). Harvest: avg wt
+  computed, optional `adjustment` saved alongside (source 'harvest'). Never more out than `daRegFishAt` (fish that day,
+  excluding the record being edited). Generic `daCtxMenu(ev, items)` for right-click menus.
 - Site Overview header right-click menu (`daOvMenu`, test `e2e_ovmenu`): sort asc/desc, clear sort (natural tank order),
   hide column, column chooser; hidden columns per device in `daov_hidden_cols` (not synced); Unit always shown.
 - DAILY OVERVIEW FROM RECORDS (module `daily_am.js`, test `e2e_daily`): the old page showed frozen snapshots taken when
@@ -187,7 +193,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-35 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+36 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
