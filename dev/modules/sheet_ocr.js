@@ -382,6 +382,10 @@ async function daOcrRun(files, kind){
     var byUnit = {}; window._fs.rows.forEach(function(r){ byUnit[r.unit] = r; });
     res.pages.forEach(function(p){ p.rows.forEach(function(rr){ var r = byUnit[rr.unit]; if(!r || r.i === undefined) return;
       if(rr.fast){ r.meals.forEach(function(m, k){ daOcrMark(document.getElementById('fs-' + r.i + '-m' + k), 'X', 0.99); }); }
+      else if(r.meals[0] === 'اليوم'){   // screen in "daily total" mode: the paper still has meals → their sum
+        var got = rr.meals.filter(Boolean); if(got.length){ got.forEach(cnt);
+          var sum = got.reduce(function(a, f){ return a + (+f.text || 0); }, 0);
+          daOcrMark(document.getElementById('fs-' + r.i + '-m0'), String(+sum.toFixed(3)), Math.min.apply(null, got.map(function(f){ return f.conf; }))); } }
       else rr.meals.forEach(function(f, k){ if(f){ cnt(f); daOcrMark(document.getElementById('fs-' + r.i + '-m' + k), f.text, f.conf); } });
       if(rr.size){ cnt(rr.size); daOcrMark(document.getElementById('fs-' + r.i + '-sz'), rr.size.v, rr.size.conf); }
       var d = rr.dead.filter(Boolean); if(d.length){ d.forEach(cnt); daOcrMark(document.getElementById('fs-' + r.i + '-d'), d.map(function(x){ return x.text; }).join('+'), Math.min.apply(null, d.map(function(x){ return x.conf; }))); }

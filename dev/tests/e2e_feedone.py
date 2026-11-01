@@ -7,6 +7,7 @@ with sync_playwright() as p:
     sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin'); sb.add_user('worker@example.com', 'work123', role='worker')
     ctx, pg = new_page(p, sb)
     login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pg.evaluate("localStorage.setItem(DA_FS_MODE_KEY, JSON.stringify({F1:'meals',F2:'meals'}))")   # these tests cover the per-meal entry mode
     items = pg.evaluate("() => DA_NAV.reduce((a,g)=>a.concat(g.items.map(i=>i[0])),[])")
     check('O1 old feeding screens removed from the menu', not any(v in items for v in ['quick-feed', 'tx-feeding', 'feed-week', 'photo-entry']) and 'feed-sheet' in items, items)
     for v in ['quick-feed', 'tx-feeding', 'feed-week', 'photo-entry']:

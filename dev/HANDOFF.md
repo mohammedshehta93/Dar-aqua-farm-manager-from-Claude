@@ -135,6 +135,11 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- Feed sheet DAILY-TOTAL mode is the default (owner 2026-11-01, like AquaManager's Feeding screen): per tank one
+  "Quantity" (g for gram groups) + size + dead; saved with meals {} (no breakdown). Per-meal mode one click away;
+  mode per farm in synced `daracqua_plan_v1_fsmode` (NOT in DA_SHEET_KEY — saving meal times rewrote it). "📋 نسخ من يوم"
+  fills quantities + sizes (+X) from any day, never dead; screen only, asks before overwriting. The printed sheet keeps
+  meals; photo reading SUMS them into the total. Per-meal suites set fsmode=meals; `e2e_fstotal` covers total mode.
 - Density ALERTS by COUNT (fish/m³) are OFF (owner 2026-11-01: the farm alerts on kg/m³ only; count stays DISPLAYED).
   `daFarmLIM` sets cntAlarm/cntWarn = Infinity unless `cntOn` (farm → global) is true; optional switch + limits on the
   alert-settings page; density page hides the count chip while off (`dev/tools/patch_count_density.py`).
@@ -203,7 +208,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-36 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+37 suites (+6 needing 2510.xls and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

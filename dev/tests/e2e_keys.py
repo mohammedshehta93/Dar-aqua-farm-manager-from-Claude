@@ -8,6 +8,7 @@ with sync_playwright() as p:
     sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin')
     ctx, pg = new_page(p, sb)
     login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pg.evaluate("localStorage.setItem(DA_FS_MODE_KEY, JSON.stringify({F1:'meals',F2:'meals'}))")   # these tests cover the per-meal entry mode
     pg.evaluate("""() => { addTX({id:'hv',type:'harvesting',unit:'F1.S02T01',date:daAddDays(daToday(),-1),fishNo:881,kg:100,_skipValidation:true});
       localStorage.setItem(DA_SHEET_KEY, JSON.stringify({F1:[{from:1,to:1,meals:['7','10','1']},{from:2,to:9,meals:['8','12']}]})); window._fs={farm:'F1'}; show('feed-sheet'); }""")
     pg.wait_for_timeout(400)

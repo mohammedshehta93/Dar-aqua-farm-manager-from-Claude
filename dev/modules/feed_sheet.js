@@ -64,6 +64,10 @@ function daFsLoad(rows, date){
     else if(t.type === 'mortality'){ if(mine) r.mortTx = t; else { r.otherDead += parseInt(t.count) || 0; r.otherSrc[daTxSourceLabel(t)] = 1; if(t.byName || t.by) r.otherWho[t.byName || t.by] = 1; } }
   });
 }
+var DA_FS_MODE_KEY = 'daracqua_plan_v1_fsmode';   // synced: {farm: 'total' | 'meals'}; default total (owner 2026-11-01)
+function daFsModes(){ try{ return JSON.parse(localStorage.getItem(DA_FS_MODE_KEY) || '{}') || {}; }catch(e){ return {}; } }
+function daFsTotalMode(farm){ return daFsModes()[farm] !== 'meals'; }
+function daFsSetMode(m){ var a = daFsModes(); a[window._fs.farm] = m; localStorage.setItem(DA_FS_MODE_KEY, JSON.stringify(a)); show('feed-sheet', true); }
 function daFsNum(v){ return v === undefined || v === null || v === '' ? '' : String(+(+v).toFixed(3)); }
 function daFsCell(v, unit){ if(v === 'x') return 'X'; if(v === undefined || v === null || v === '') return ''; return unit === 'g' ? String(Math.round(v * 1000)) : daFsNum(v); }
 function daFsFast(i){
@@ -80,13 +84,15 @@ function renderFeedSheet(){
   if(st.prodFarm !== st.farm){ st.prod = {}; st.prodFarm = st.farm; }
   ['1', '2', '3'].forEach(function(z){ if(!st.prod[z]) st.prod[z] = daSheetDefaultProduct(st.farm, z); });
   var rows = st.rows = daFsRows(st.farm, st.date); daFsLoad(rows, st.date);
-  var groups = daSheetGroups(st.farm), canMort = currentUserRole === 'admin' || hasPerm('input_mortality'), canFeed = currentUserRole === 'admin' || hasPerm('input_feeding');
+  var tot = daFsTotalMode(st.farm), groups = daSheetGroups(st.farm).map(function(g){ return tot ? Object.assign({}, g, {meals:['اليوم']}) : g; }), canMort = currentUserRole === 'admin' || hasPerm('input_mortality'), canFeed = currentUserRole === 'admin' || hasPerm('input_feeding');
   var canCfg = ['admin', 'manager', 'engineer'].indexOf(currentUserRole) >= 0;
   var inp = 'padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:13px';
   var h = '<div class="ph"><div><h2>📋 شيت العلف اليومي</h2><p style="font-size:11px;color:var(--muted)">نفس ترتيب الشيت الورق — الكميات بالكيلو لكل وجبة، والأداة بتجمعها</p></div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="fs-print" onclick="daOcrPrint(&quot;feed&quot;)" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">🖨️ شيت للطباعة</button>'
     + '<button id="fs-photo" onclick="daOcrPick(&quot;feed&quot;)" style="padding:9px 14px;border:1.5px solid var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer;font-weight:700">📷 من صورة</button>'
-    + '<button id="fs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daFsSave()">💾 حفظ الشيت</button></div></div>';
+    + '<button id="fs-copy" onclick="daFsCopyAsk()" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">📋 نسخ من يوم</button>'
+    + '<button id="fs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daFsSave()">💾 حفظ الشيت</button></div></div>'
+    + '<div id="fs-copybox"></div>';
   h += '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
     + '<div class="field" style="margin:0"><label>التاريخ</label><input type="date" id="fs-date" value="' + st.date + '" max="' + daToday() + '" style="' + inp + '" onchange="daFsSwitch(&quot;date&quot;,this.value)"/></div>';
   if(!(farmFilter && farmFilter !== 'all')) h += '<div class="field" style="margin:0"><label>المزرعة</label><select id="fs-farm" style="' + inp + '" onchange="daFsSwitch(&quot;farm&quot;,this.value)">'
@@ -115,13 +121,14 @@ function renderFeedSheet(){
     gr.forEach(function(r){ used[r.unit] = 1; });
     var secs = gr.map(function(r){ return r.no.s; }), lo = Math.min.apply(null, secs), hi = Math.max.apply(null, secs);
     h += '<div class="card fs-group" style="margin-bottom:12px;padding:10px"><div class="card-title">' + (lo === hi ? 'سكشن ' + lo : 'سكاشن ' + lo + ' – ' + hi) + ' <span style="font-weight:400;color:var(--muted);font-size:12px">(' + g.meals.length + ' وجبات' + (g.unit === 'g' ? ' — <b style="color:var(--teal)">بالجرام</b>' : ' — بالكيلو') + ')</span></div>'
-      + '<div style="overflow-x:auto" dir="ltr"><table class="fs-t" dir="ltr"><thead><tr><th class="fs-tank">Tank</th>' + g.meals.map(function(m){ return '<th>' + daEsc(m) + '</th>'; }).join('')
+      + '<div style="overflow-x:auto" dir="ltr"><table class="fs-t" dir="ltr"><thead><tr><th class="fs-tank">Tank</th>' + (tot ? '<th>Quantity (' + (g.unit === 'g' ? 'g' : 'kg') + ')</th>' : g.meals.map(function(m){ return '<th>' + daEsc(m) + '</th>'; }).join(''))
       + '<th>Size</th><th>dead</th><th class="fs-sumh">الإجمالي</th><th></th></tr></thead><tbody>';
     gr.forEach(function(r){
       var i = idx++, ft = r.feedTx, mt = r.mortTx, meals = (ft && ft.meals) || {}, off = !(r.fish > 0) && !ft && !mt;
       r.i = i; r.meals = g.meals; r.gunit = g.unit || '';
       var size = ft ? (ft.size || daSizeOf(ft.feed)) : daSizeOf(daFwDefaultFeed({unit:r.unit, avgWt:(daStateAt(r.unit, st.date) || {}).wt || 0}));
-      if(ft && !Object.keys(meals).length && ft.kg) meals[g.meals[0]] = ft.kg;   // old record without breakdown
+      if(tot && ft){ meals = {}; meals[g.meals[0]] = ft.fasted ? 'x' : ft.kg; }   // daily total of whatever was recorded
+      else if(ft && !Object.keys(meals).length && ft.kg) meals[g.meals[0]] = ft.kg;   // old record without breakdown
       h += '<tr' + (off ? ' class="fs-off" title="التانك فاضي في التاريخ ده"' : '') + '><td class="fs-tank">' + r.no.label + '</td>'
         + g.meals.map(function(m, k){ return '<td><input type="text" inputmode="decimal" autocomplete="off" class="fs-m" id="fs-' + i + '-m' + k + '" value="' + daFsCell(meals[m], r.gunit) + '"' + (off || !canFeed ? ' disabled' : '') + '/></td>'; }).join('')
         + '<td><input type="number" inputmode="numeric" min="1" max="3" step="1" class="fs-sz" id="fs-' + i + '-sz" value="' + daEsc(size || '') + '"' + (off || !canFeed ? ' disabled' : '') + '/></td>'
@@ -134,7 +141,8 @@ function renderFeedSheet(){
   });
   var left = rows.filter(function(r){ return !used[r.unit]; });
   if(left.length) h += '<div class="card" style="margin-bottom:12px;color:var(--amber);font-size:12px">⚠️ ' + left.length + ' تانك مش داخلين في أي مجموعة وجبات (' + left.slice(0, 8).map(function(r){ return r.no.label; }).join('، ') + ') — عدّل المواعيد تحت.</div>';
-  h += '<div class="card" style="margin-bottom:12px;display:flex;gap:24px;flex-wrap:wrap;font-size:14px"><div>🌾 إجمالي العلف: <b id="fs-tot-kg">0</b> كجم</div><div>💀 إجمالي النفوق: <b id="fs-tot-dead">0</b></div></div>';
+  h += '<div class="card" style="margin-bottom:12px;display:flex;gap:24px;flex-wrap:wrap;font-size:14px;align-items:center"><div>🌾 إجمالي العلف: <b id="fs-tot-kg">0</b> كجم</div><div>💀 إجمالي النفوق: <b id="fs-tot-dead">0</b></div><span style="flex:1"></span>'
+    + '<span style="font-size:12px;color:var(--muted)">الإدخال: <a href="#" id="fs-mode" onclick="daFsSetMode(&quot;' + (tot ? 'meals' : 'total') + '&quot;);return false">' + (tot ? 'إجمالي اليوم ← اعرض بالوجبات' : 'بالوجبات ← خليه إجمالي اليوم') + '</a></span></div>';
   if(canCfg) h += '<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">⚙️ مواعيد الوجبات لكل مجموعة سكاشن — ' + daEsc(st.farm) + '</summary>'
     + '<div style="font-size:12px;color:var(--muted);margin:8px 0">سطر لكل مجموعة: <code>السكاشن = المواعيد</code> — مثال: <code>1-3 = 8, 10, 12, 2, 4</code></div>'
     + '<textarea id="fs-groups" data-nodirty="1" rows="4" dir="ltr" style="width:100%;' + inp + ';font-family:monospace">' + daEsc(daSheetGroupsText(st.farm)) + '</textarea>'
@@ -210,7 +218,7 @@ async function daFsAdopt(){
     var b = by[u], r = b.r, kg = 0, perFeed = {}, meals = {}, first = r.meals[0], pending = false, flagged = [];
     b.list.forEach(function(t){
       var k = parseFloat(t.kg) || 0; kg += k; if(t.feed) perFeed[t.feed] = (perFeed[t.feed] || 0) + k;
-      var m = r.meals.indexOf(String(t.meal)) >= 0 ? String(t.meal) : first; meals[m] = +((meals[m] || 0) + k).toFixed(3);
+      var m = r.meals.indexOf(String(t.meal)) >= 0 ? String(t.meal) : first; if(first !== 'اليوم') meals[m] = +((meals[m] || 0) + k).toFixed(3);
       if(t.status === 'pending') pending = true; if(t.flagged) flagged.push(t.flagMsg || '');
       dels.push(t.id);
     });
@@ -239,6 +247,31 @@ async function daFsAdopt(){
   toast('📥 اتنقل للشيت: ' + (units.length ? units.length + ' تانك علف (' + daFsNum(kgAll) + ' كجم)' : '') + (munits.length ? (units.length ? ' · ' : '') + munits.length + ' تانك نافق (' + deadAll + ')' : ''));
   show('feed-sheet', true);
 }
+function daFsCopyAsk(){
+  var b = document.getElementById('fs-copybox'); if(!b) return; var inp = 'padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:13px';
+  b.innerHTML = '<div class="card" style="margin-bottom:12px;border:2px solid var(--teal);display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end"><div class="field" style="margin:0"><label>انسخ كميات وأحجام يوم</label><input type="date" id="fs-copy-date" data-nodirty="1" value="' + daAddDays(window._fs.date, -1) + '" max="' + daToday() + '" style="' + inp + '"/></div>'
+    + '<button id="fs-copy-go" class="savebtn" style="width:auto;padding:8px 16px" onclick="daFsCopyFrom(document.getElementById(&quot;fs-copy-date&quot;).value)">📋 نسخ</button><button onclick="document.getElementById(&quot;fs-copybox&quot;).innerHTML=&quot;&quot;" style="' + inp + ';background:#fff;cursor:pointer">إلغاء</button>'
+    + '<span style="font-size:11px;color:var(--muted)">بيملا الشاشة بس — راجع وعدّل وبعدين حفظ. النافق مش بيتنسخ.</span></div>';
+}
+function daFsCopyFrom(src){
+  var st = window._fs; if(!st || !st.rows || !src) return;
+  if(src === st.date){ toast('⚠️ اختار يوم غير اليوم اللي بتسجله'); return; }
+  var by = {}; getTX().forEach(function(t){ if(t.type !== 'feeding' || t.deleted || t.date !== src) return; var b = by[t.unit] = by[t.unit] || {kg:0, fasted:false, size:'', meals:{}};
+    b.kg += parseFloat(t.kg) || 0; if(t.fasted) b.fasted = true; if(!b.size) b.size = t.size || daSizeOf(t.feed); Object.keys(t.meals || {}).forEach(function(m){ b.meals[m] = t.meals[m]; }); });
+  var has = st.rows.some(function(r){ return r.i !== undefined && r.meals.some(function(m, k){ var e = document.getElementById('fs-' + r.i + '-m' + k); return e && !e.disabled && e.value.trim(); }); });
+  if(has && !confirm('فيه كميات مكتوبة في الشيت — هتتبدل بكميات يوم ' + src + '. تكمل؟')) return;
+  var n = 0;
+  st.rows.forEach(function(r){ if(r.i === undefined) return; var b = by[r.unit], e0 = document.getElementById('fs-' + r.i + '-m0'); if(!e0 || e0.disabled) return;
+    r.meals.forEach(function(m, k){ var e = document.getElementById('fs-' + r.i + '-m' + k); if(e) e.value = ''; });
+    if(!b) return; n++;
+    if(b.fasted && !b.kg){ r.meals.forEach(function(m, k){ var e = document.getElementById('fs-' + r.i + '-m' + k); if(e) e.value = 'X'; }); }
+    else if(r.meals[0] === 'اليوم' || !Object.keys(b.meals).length){ e0.value = daFsCell(b.kg, r.gunit); }
+    else r.meals.forEach(function(m, k){ var e = document.getElementById('fs-' + r.i + '-m' + k), v = b.meals[m]; if(e && v !== undefined) e.value = daFsCell(v, r.gunit); });
+    var sz = document.getElementById('fs-' + r.i + '-sz'); if(sz && b.size && !sz.disabled) sz.value = b.size;
+    e0.dispatchEvent(new Event('input', {bubbles:true})); });
+  document.getElementById('fs-copybox').innerHTML = ''; daFsTotals();
+  toast(n ? '📋 اتنسخ علف ' + n + ' تانك من ' + src + ' — راجع وعدّل واحفظ' : 'مفيش علف متسجل يوم ' + src);
+}
 async function daFsSave(){
   var st = window._fs; if(!st || !st.rows) return;
   var who = currentUser ? {by:currentUser.email, byName:(getSession() || {}).name || '', byRole:currentUserRole} : {};
@@ -255,9 +288,11 @@ async function daFsSave(){
       if(r.otherKg > 0 && !r.feedTx) dup.push(r.no.label);
       if(r.feedTx){
         var ft = r.feedTx;
-        if(ft.kg !== v.kg || ft.fasted || ft.feed !== feed || JSON.stringify(ft.meals || {}) !== JSON.stringify(v.meals) || String(ft.size || '') !== v.size)
+        if(r.meals[0] === 'اليوم') v.meals = {};
+        if(ft.kg !== v.kg || ft.fasted || ft.feed !== feed || (r.meals[0] !== 'اليوم' && JSON.stringify(ft.meals || {}) !== JSON.stringify(v.meals)) || String(ft.size || '') !== v.size)
           edits.push({id:fid, ch:{kg:v.kg, feed:feed, meals:v.meals, size:v.size, fasted:false, tech:st.tech || ft.tech || ''}});
       } else {
+        if(r.meals[0] === 'اليوم') v.meals = {};
         var t = Object.assign({id:fid, type:'feeding', date:st.date, unit:r.unit, kg:v.kg, feed:feed, meal:'شيت', meals:v.meals, size:v.size,
           tech:st.tech || '', source:'sheet', at:now, ts:now}, who);
         if(t.byRole === 'worker') t.status = 'pending';

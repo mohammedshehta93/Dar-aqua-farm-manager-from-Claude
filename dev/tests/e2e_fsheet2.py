@@ -10,6 +10,7 @@ with sync_playwright() as p:
     sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin')
     ctx, pg = new_page(p, sb)
     login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pg.evaluate("localStorage.setItem(DA_FS_MODE_KEY, JSON.stringify({F1:'meals',F2:'meals'}))")   # these tests cover the per-meal entry mode
     pg.evaluate("window._fs={farm:'F1'}; show('feed-sheet')"); pg.wait_for_timeout(300)
     pg.evaluate("document.querySelector('details.card').open=true")
     pg.fill('#fs-groups', '1 = 7, 9:30, 12:30 | g\n2- = 7, 9:30, 12:30, 3:30'); pg.evaluate("daFsSaveGroups()"); pg.wait_for_timeout(300)

@@ -17,6 +17,7 @@ with sync_playwright() as p:
     sb.add_user('worker@example.com', 'work123', role='worker')
     ctx, pg = new_page(p, sb)
     login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pg.evaluate("localStorage.setItem(DA_FS_MODE_KEY, JSON.stringify({F1:'meals',F2:'meals'}))")   # these tests cover the per-meal entry mode
     # brand history: 2mm was "Maram 36% 2mm" on F1; empty tank F1.S02T02 (harvested out yesterday)
     pg.evaluate("""() => { addTX({id:'old-f',type:'feeding',unit:'F1.S01T01',date:daAddDays(daToday(),-3),kg:3,feed:'Maram 36% 2mm',_skipValidation:true});
                          addTX({id:'hv',type:'harvesting',unit:'F1.S02T02',date:daAddDays(daToday(),-1),fishNo:704,kg:280,_skipValidation:true});
