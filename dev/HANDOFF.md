@@ -77,6 +77,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   first meal), originals deleted. `window.DA_SINGLE_FEED=false` = legacy mode, used ONLY by e2e_tabs/e2e_week that test
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
+- Register forms like AquaManager's detail windows (owner 2026-11-01): harvest by SIZE categories (synced
+  `daracqua_plan_v1_sizes`, default owner's: صغير <400, طبيعي 450–550, كبير 550–750, كبير جداً ≥750 — note the 400–450 gap;
+  editable on the page) with fish / kg / invoiced kg / price → avg, %, sale value; avg outside its size range shown red.
+  Options on both forms: Is Sampling (harvest default ON, transfer OFF) → a sampling record; Close Unit → remainder as
+  adjustment (source 'close'); Adjustments + type. Every companion record carries `link` = harvest id / transfer txGroup
+  and is deleted/replaced with it (`daLinked`). Transfer destinations show Fish/Av.Wt before → New fish / New Av.Wt
+  (weighted), ⚠️ when the incoming size differs > 30 %.
 - HARVEST & TRANSFER REGISTERS (module `records.js`, test `e2e_records`): VIEWS tx-harvesting / tx-transfer = registers:
   From/To (default last 30 days; saving a record dated before From widens it — on the 1st of a month a back-dated record
   "vanished"), filter, totals, Excel, right-click / ⋮ menu (new, edit, copy, delete; edit/delete engineer+). Transfer = one

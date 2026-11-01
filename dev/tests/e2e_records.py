@@ -16,7 +16,9 @@ with sync_playwright() as p:
     check('R1 right-click on the table → new record form', pg.evaluate("!!document.getElementById('rf-from')"))
     pg.fill('#rf-date', d); pg.select_option('#rf-from', 'F1.S02T01'); pg.wait_for_timeout(100)
     check('R2 form shows how many fish the source has that day', '881' in pg.inner_text('#rf-avail'), pg.inner_text('#rf-avail'))
-    pg.select_option('#rf-d0-u', 'F1.S01T01'); pg.fill('#rf-d0-n', '300'); pg.fill('#rf-d0-w', '80')
+    pg.select_option('#rf-d0-u', 'F1.S01T01'); pg.fill('#rf-d0-n', '300'); pg.fill('#rf-d0-w', '80'); pg.wait_for_timeout(100)
+    ba = [pg.inner_text(f'#rf-d0-{k}') for k in ('fb', 'wb', 'fa', 'wa')]
+    check('R2b destination before / after: 791 fish @275 g + 300 @80 g → 1,091 fish @221.38 g, flagged as a big size mix', ba[0] == '791' and ba[1] == '275.00' and ba[2] == '1,091' and ba[3].startswith('221.38') and '⚠️' in ba[3], ba)
     pg.click('text=➕ تانك تاني'); pg.select_option('#rf-d1-u', 'F1.S01T02'); pg.fill('#rf-d1-n', '200'); pg.fill('#rf-d1-w', '70')
     pg.click('#rf-save'); pg.wait_for_timeout(500)
     rows = pg.evaluate("window._rgtrans.rows.map(r=>({from:r.from,to:r.to,fish:r.fish,batch:r.batch,n:r.ids.length}))")
@@ -40,20 +42,34 @@ with sync_playwright() as p:
     check('R6 edit replaces the record (no duplicate), 550 fish now', rows == [550] and pg.evaluate("getTX().filter(t=>t.type==='transfer_out'&&!t.deleted).length") == 1, rows)
     # harvest with adjustment
     pg.evaluate("window._rgharv={}; show('tx-harvesting')"); pg.wait_for_timeout(300)
-    pg.click('#rg-new'); pg.fill('#rf-date', d); pg.select_option('#rf-unit', 'F1.S01T04') if pg.evaluate("[...document.querySelectorAll('#rf-unit option')].some(o=>o.value==='F1.S01T04')") else pg.select_option('#rf-unit', 'F1.S02T02')
-    u = pg.input_value('#rf-unit'); pg.fill('#rf-fish', '100'); pg.fill('#rf-kg', '39.5'); pg.fill('#rf-adj', '3'); pg.wait_for_timeout(100)
-    check('R7 average weight computed from total ÷ count', pg.inner_text('#rf-avg') == '395.00 g', pg.inner_text('#rf-avg'))
+    pg.click('#rg-new'); pg.fill('#rf-date', d); pg.select_option('#rf-unit', 'F1.S02T02'); u = 'F1.S02T02'
+    idx = pg.evaluate("Object.fromEntries(daSizes().map((c,i)=>[c.n,i]))")
+    s_, n_ = idx['صغير'], idx['طبيعي']
+    pg.fill(f'#rf-c{s_}-n', '50'); pg.fill(f'#rf-c{s_}-kg', '21'); pg.fill(f'#rf-c{s_}-price', '1.5')
+    pg.fill(f'#rf-c{n_}-n', '50'); pg.fill(f'#rf-c{n_}-kg', '25'); pg.fill(f'#rf-c{n_}-inv', '24.5'); pg.fill(f'#rf-c{n_}-price', '2'); pg.fill('#rf-adj', '3'); pg.wait_for_timeout(100)
+    check('R7 sizes: totals 100 fish · 46 kg · avg 460 g · sale value (21×1.5 + 24.5 invoiced×2 = 80.5)', pg.inner_text('#rf-tn') == '100' and pg.inner_text('#rf-tkg') == '46.00' and pg.inner_text('#rf-tavg') == '460.00' and pg.inner_text('#rf-tval') == '80.50',
+          [pg.inner_text(s) for s in ('#rf-tn', '#rf-tkg', '#rf-tavg', '#rf-tval')])
+    check('R7 a size whose average is outside its range is marked (small at 420 g)', pg.evaluate(f"document.querySelector('#rf-c{s_}-avg span').style.color") in ('var(--red)',), pg.evaluate(f"document.querySelector('#rf-c{s_}-avg').innerHTML"))
     pg.click('#rf-save'); pg.wait_for_timeout(400)
     hr = pg.evaluate("window._rgharv.rows")
-    check('R8 harvest listed with adjustment; totals row', len(hr) == 1 and hr[0]['fish'] == 100 and hr[0]['kg'] == 39.5 and hr[0]['adj'] == 3 and 'AVG=395.00' in pg.inner_text('#rg-t tfoot'), hr)
+    check('R8 harvest listed with sizes, adjustment and sale value; totals row', len(hr) == 1 and hr[0]['fish'] == 100 and hr[0]['kg'] == 46 and hr[0]['adj'] == 3 and hr[0]['value'] == 80.5 and 'صغير 50' in hr[0]['cats'] and 'AVG=460.00' in pg.inner_text('#rg-t tfoot'), hr)
+    smp = pg.evaluate(f"getTX().filter(t=>t.type==='sampling'&&t.unit==='{u}'&&t.date==='{d}'&&!t.deleted).map(t=>[t.avgWt,t.link])")
+    check('R8 Is Sampling: the harvest average (460 g) becomes a weight sample, linked to the harvest', len(smp) == 1 and smp[0][0] == 460 and smp[0][1] == hr[0]['id'], smp)
     check('R8 adjustment stored as its own type (not mortality)', pg.evaluate(f"getTX().some(t=>t.type==='adjustment'&&t.unit==='{u}'&&t.count===3)") and not pg.evaluate(f"getTX().some(t=>t.type==='mortality'&&t.unit==='{u}'&&t.date==='{d}')"))
     # date range
     pg.evaluate(f"window._rgharv.from=daAddDays('{d}',1); show('tx-harvesting',true)"); pg.wait_for_timeout(200)
     check('R9 date range filters (record before From hidden)', pg.evaluate("window._rgharv.rows.length") == 0)
     pg.evaluate(f"window._rgharv.from='{d}'; show('tx-harvesting',true)"); pg.wait_for_timeout(200)
     # delete via menu
+    ctx_pick(pg, '#rg-t tbody tr[data-i="0"]', 'تعديل'); pg.fill(f'#rf-c{n_}-n', '60'); pg.fill(f'#rf-c{n_}-kg', '30'); pg.click('#rf-save'); pg.wait_for_timeout(400)
+    linked = pg.evaluate(f"getTX().filter(t=>t.unit==='{u}'&&t.date==='{d}'&&!t.deleted&&(t.type==='sampling'||t.type==='adjustment'||t.type==='harvesting')).map(t=>t.type).sort()")
+    check('R9b edit replaces the harvest AND its sample/adjustment (no orphans)', linked == ['adjustment', 'harvesting', 'sampling'], linked)
     pg.once('dialog', lambda dl: dl.accept()); ctx_pick(pg, '#rg-t tbody tr[data-i="0"]', 'حذف')
-    check('R10 delete from the right-click menu', pg.evaluate("window._rgharv.rows.length") == 0)
+    check('R10 delete from the right-click menu removes the linked sample and adjustment too', pg.evaluate("window._rgharv.rows.length") == 0 and pg.evaluate(f"!getTX().some(t=>t.unit==='{u}'&&t.date==='{d}'&&!t.deleted&&(t.type==='sampling'||t.type==='adjustment'))"))
+    # close unit with the harvest
+    pg.click('#rg-new'); pg.fill('#rf-date', d); pg.select_option('#rf-unit', 'F1.S02T02'); pg.fill('#rf-c0-n', '690'); pg.fill('#rf-c0-kg', '270'); pg.check('#rf-close'); pg.wait_for_timeout(100)
+    info = pg.inner_text('#rf-closeinfo'); pg.click('#rf-save'); pg.wait_for_timeout(400)
+    check('R10b Close Unit: the remainder (704 − 690 = 14) is saved as an adjustment and the tank is empty', '14' in info and pg.evaluate("(_txLiveRows().find(r=>r.unit==='F1.S02T02')||{}).fishNo") == 0 and pg.evaluate("getTX().some(t=>t.type==='adjustment'&&t.unit==='F1.S02T02'&&t.count===14&&t.source==='close')"), info)
     with pg.expect_download() as dl:
         pg.evaluate("window._rgtrans={from:'" + d + "'}; show('tx-transfer'); daRegExcel('trans')")
     check('R11 Excel export of the list', dl.value.suggested_filename.startswith('Transfer_'), dl.value.suggested_filename)
