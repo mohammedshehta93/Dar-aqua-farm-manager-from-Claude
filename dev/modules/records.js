@@ -87,7 +87,7 @@ function daRegCtx(ev, kind, i){
 }
 // ── size categories (synced, editable) ──
 var DA_SIZE_KEY = 'daracqua_plan_v1_sizes';
-var DA_SIZE_DEF = [{n:'غير مصنف', from:0, to:0}, {n:'صغير', from:0, to:400}, {n:'طبيعي', from:450, to:550}, {n:'كبير', from:550, to:750}, {n:'كبير جداً', from:750, to:0}];
+var DA_SIZE_DEF = [{n:'غير مصنف', from:0, to:0}, {n:'صغير', from:0, to:450}, {n:'طبيعي', from:450, to:550}, {n:'كبير', from:550, to:750}, {n:'كبير جداً', from:750, to:0}];
 function daSizes(){ try{ var a = JSON.parse(localStorage.getItem(DA_SIZE_KEY) || 'null'); if(Array.isArray(a) && a.length) return a; }catch(e){} return DA_SIZE_DEF; }
 function daSizeOk(c, avg){ if(!(avg > 0) || (!c.from && !c.to)) return true; return (!c.from || avg >= c.from) && (!c.to || avg < c.to); }
 function daLinked(ids){ return getTX().filter(function(t){ return t.link && ids.indexOf(t.link) >= 0 && !t.deleted; }).map(function(t){ return t.id; }); }   // sample / adjustment saved with a record

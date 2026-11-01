@@ -45,16 +45,16 @@ with sync_playwright() as p:
     pg.click('#rg-new'); pg.fill('#rf-date', d); pg.select_option('#rf-unit', 'F1.S02T02'); u = 'F1.S02T02'
     idx = pg.evaluate("Object.fromEntries(daSizes().map((c,i)=>[c.n,i]))")
     s_, n_ = idx['صغير'], idx['طبيعي']
-    pg.fill(f'#rf-c{s_}-n', '50'); pg.fill(f'#rf-c{s_}-kg', '21'); pg.fill(f'#rf-c{s_}-price', '1.5')
+    pg.fill(f'#rf-c{s_}-n', '50'); pg.fill(f'#rf-c{s_}-kg', '23'); pg.fill(f'#rf-c{s_}-price', '1.5')
     pg.fill(f'#rf-c{n_}-n', '50'); pg.fill(f'#rf-c{n_}-kg', '25'); pg.fill(f'#rf-c{n_}-inv', '24.5'); pg.fill(f'#rf-c{n_}-price', '2'); pg.fill('#rf-adj', '3'); pg.wait_for_timeout(100)
-    check('R7 sizes: totals 100 fish · 46 kg · avg 460 g · sale value (21×1.5 + 24.5 invoiced×2 = 80.5)', pg.inner_text('#rf-tn') == '100' and pg.inner_text('#rf-tkg') == '46.00' and pg.inner_text('#rf-tavg') == '460.00' and pg.inner_text('#rf-tval') == '80.50',
+    check('R7 sizes: totals 100 fish · 48 kg · avg 480 g · sale value (23×1.5 + 24.5 invoiced×2 = 83.5)', pg.inner_text('#rf-tn') == '100' and pg.inner_text('#rf-tkg') == '48.00' and pg.inner_text('#rf-tavg') == '480.00' and pg.inner_text('#rf-tval') == '83.50',
           [pg.inner_text(s) for s in ('#rf-tn', '#rf-tkg', '#rf-tavg', '#rf-tval')])
-    check('R7 a size whose average is outside its range is marked (small at 420 g)', pg.evaluate(f"document.querySelector('#rf-c{s_}-avg span').style.color") in ('var(--red)',), pg.evaluate(f"document.querySelector('#rf-c{s_}-avg').innerHTML"))
+    check('R7 a size whose average is outside its range is marked (small at 460 g, limit 450)', pg.evaluate(f"document.querySelector('#rf-c{s_}-avg span').style.color") in ('var(--red)',), pg.evaluate(f"document.querySelector('#rf-c{s_}-avg').innerHTML"))
     pg.click('#rf-save'); pg.wait_for_timeout(400)
     hr = pg.evaluate("window._rgharv.rows")
-    check('R8 harvest listed with sizes, adjustment and sale value; totals row', len(hr) == 1 and hr[0]['fish'] == 100 and hr[0]['kg'] == 46 and hr[0]['adj'] == 3 and hr[0]['value'] == 80.5 and 'صغير 50' in hr[0]['cats'] and 'AVG=460.00' in pg.inner_text('#rg-t tfoot'), hr)
+    check('R8 harvest listed with sizes, adjustment and sale value; totals row', len(hr) == 1 and hr[0]['fish'] == 100 and hr[0]['kg'] == 48 and hr[0]['adj'] == 3 and hr[0]['value'] == 83.5 and 'صغير 50' in hr[0]['cats'] and 'AVG=480.00' in pg.inner_text('#rg-t tfoot'), hr)
     smp = pg.evaluate(f"getTX().filter(t=>t.type==='sampling'&&t.unit==='{u}'&&t.date==='{d}'&&!t.deleted).map(t=>[t.avgWt,t.link])")
-    check('R8 Is Sampling: the harvest average (460 g) becomes a weight sample, linked to the harvest', len(smp) == 1 and smp[0][0] == 460 and smp[0][1] == hr[0]['id'], smp)
+    check('R8 Is Sampling: the harvest average (480 g) becomes a weight sample, linked to the harvest', len(smp) == 1 and smp[0][0] == 480 and smp[0][1] == hr[0]['id'], smp)
     check('R8 adjustment stored as its own type (not mortality)', pg.evaluate(f"getTX().some(t=>t.type==='adjustment'&&t.unit==='{u}'&&t.count===3)") and not pg.evaluate(f"getTX().some(t=>t.type==='mortality'&&t.unit==='{u}'&&t.date==='{d}')"))
     # date range
     pg.evaluate(f"window._rgharv.from=daAddDays('{d}',1); show('tx-harvesting',true)"); pg.wait_for_timeout(200)

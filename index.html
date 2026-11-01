@@ -15369,7 +15369,7 @@ function daSizeOk(c, avg){ if(!(avg > 0) || (!c.from && !c.to)) return true; ret
 function daSizes(){ try{ var a = JSON.parse(localStorage.getItem(DA_SIZE_KEY) || 'null'); if(Array.isArray(a) && a.length) return a; }catch(e){} return DA_SIZE_DEF; }
 // ── new / edit form (one panel for both kinds) ──
 var DA_SIZE_KEY = 'daracqua_plan_v1_sizes';
-var DA_SIZE_DEF = [{n:'غير مصنف', from:0, to:0}, {n:'صغير', from:0, to:400}, {n:'طبيعي', from:450, to:550}, {n:'كبير', from:550, to:750}, {n:'كبير جداً', from:750, to:0}];
+var DA_SIZE_DEF = [{n:'غير مصنف', from:0, to:0}, {n:'صغير', from:0, to:450}, {n:'طبيعي', from:450, to:550}, {n:'كبير', from:550, to:750}, {n:'كبير جداً', from:750, to:0}];
 var DA_ADJ_TYPES = ['فرق عد', 'هروب', 'سرقة / فقد', 'أخرى'];
 function daRegForm(kind, r, copy){
   var el = document.getElementById('rg-form'); if(!el) return; var units = daRegUnits(), inp = 'padding:7px 9px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px', cin = 'padding:5px 6px;border:1.5px solid var(--line);border-radius:6px;font:inherit;font-size:12px;width:80px;text-align:right';

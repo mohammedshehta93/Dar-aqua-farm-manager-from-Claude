@@ -78,7 +78,7 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   the retired screens' code. Tests that check validation via addTX send feeding with source:'sheet'.
   Next asked by owner: photo entry as an option INSIDE the feed / water / sampling sheets (not a separate tab).
 - Register forms like AquaManager's detail windows (owner 2026-11-01): harvest by SIZE categories (synced
-  `daracqua_plan_v1_sizes`, default owner's: صغير <400, طبيعي 450–550, كبير 550–750, كبير جداً ≥750 — note the 400–450 gap;
+  `daracqua_plan_v1_sizes`, default owner's: صغير <450, طبيعي 450–550, كبير 550–750, كبير جداً ≥750;
   editable on the page) with fish / kg / invoiced kg / price → avg, %, sale value; avg outside its size range shown red.
   Options on both forms: Is Sampling (harvest default ON, transfer OFF) → a sampling record; Close Unit → remainder as
   adjustment (source 'close'); Adjustments + type. Every companion record carries `link` = harvest id / transfer txGroup
