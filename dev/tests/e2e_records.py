@@ -17,8 +17,8 @@ with sync_playwright() as p:
     pg.fill('#rf-date', d); pg.select_option('#rf-from', 'F1.S02T01'); pg.wait_for_timeout(100)
     check('R2 form shows how many fish the source has that day', '881' in pg.inner_text('#rf-avail'), pg.inner_text('#rf-avail'))
     pg.select_option('#rf-d0-u', 'F1.S01T01'); pg.fill('#rf-d0-n', '300'); pg.fill('#rf-d0-w', '80'); pg.wait_for_timeout(100)
-    ba = [pg.inner_text(f'#rf-d0-{k}') for k in ('fb', 'wb', 'fa', 'wa')]
-    check('R2b destination before / after: 791 fish @275 g + 300 @80 g → 1,091 fish @221.38 g, flagged as a big size mix', ba[0] == '791' and ba[1] == '275.00' and ba[2] == '1,091' and ba[3].startswith('221.38') and '⚠️' in ba[3], ba)
+    ba = [pg.inner_text(f'#rf-d0-{k}') for k in ('fb', 'wb', 'fa')] + [pg.get_attribute('#rf-d0-nw', 'placeholder'), pg.inner_text('#rf-d0-wa')]
+    check('R2b destination before / after: 791 fish @275 g + 300 @80 g → 1,091 fish @221.38 g (suggested, editable), flagged as a big size mix', ba[:4] == ['791', '275.00', '1,091', '221.38'] and '⚠️' in ba[4], ba)
     pg.click('text=➕ تانك تاني'); pg.select_option('#rf-d1-u', 'F1.S01T02'); pg.fill('#rf-d1-n', '200'); pg.fill('#rf-d1-w', '70')
     pg.click('#rf-save'); pg.wait_for_timeout(500)
     rows = pg.evaluate("window._rgtrans.rows.map(r=>({from:r.from,to:r.to,fish:r.fish,batch:r.batch,n:r.ids.length}))")

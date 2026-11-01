@@ -28,14 +28,15 @@ function daAlloc(){
       ev.forEach(function(t){ if(t.type === 'stocking' || t.type === 'transfer_in') adds += parseInt(t.fishNo) || 0; var f = DA_SUB_FIELD[t.type]; if(f) subs += parseInt(t[f]) || 0; });
       var addIn = function(){ ev.forEach(function(t){ if(t.type !== 'stocking' && t.type !== 'transfer_in') return; var n = parseInt(t.fishNo) || 0, w = parseFloat(t.avgWt) || u.wt; if(n <= 0) return;
         if(u.fish <= 0){ var keep = u.base; U[unit] = u = fresh(); u.base = keep; }
-        u.wt = u.fish + n > 0 ? (u.fish * u.wt + n * w) / (u.fish + n) : w; u.fish += n; u.S += n * w / 1000;
+        u.wt = u.fish + n > 0 ? (u.fish * u.wt + n * w) / (u.fish + n) : w; if(parseFloat(t.newWt) > 0) u.wt = parseFloat(t.newWt); u.fish += n; u.S += n * w / 1000;
         if(t.type === 'transfer_in' && t.txGroup) deferred.push({unit:unit, g:t.txGroup, kg:n * w / 1000}); else u.S0 += n * w / 1000; }); };
       var out = function(){ ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(!f) return; var n = parseInt(t[f]) || 0; if(n <= 0 || u.fish <= 0) return; n = Math.min(n, u.fish);
         if(t.type === 'mortality' || t.type === 'adjustment'){ u.Dk += n * u.wt / 1000; u.fish -= n; return; }
-        var w = daOutWt(t) || u.wt, bio = u.fish * u.wt / 1000, kg = n * w / 1000, sh = bio > 0 ? Math.min(1, kg / bio) : 1;
+        var w = daOutWt(t) || u.wt, rw = parseFloat(t.remainWt) > 0 && u.fish - n > 0 ? parseFloat(t.remainWt) : 0, kg = n * w / 1000,
+          bio = rw ? kg + (u.fish - n) * rw / 1000 : u.fish * u.wt / 1000, sh = bio > 0 ? Math.min(1, kg / bio) : 1;   // both parts weighed → split on what was measured
         if(t.type === 'transfer_out' && t.txGroup){ var P = packets[t.txGroup] = packets[t.txGroup] || {F:0, S0:0, D:0}; P.F += (u.F + u.Fi) * sh; P.S0 += u.S0 * sh; P.D += (u.Dk + u.Di) * sh; }
         ['F', 'S', 'Dk', 'Fi', 'S0', 'Di'].forEach(function(k){ u[k] *= (1 - sh); });
-        u.wt = daRemainWt(u.fish, u.wt, n, w); u.fish -= n; }); };
+        u.wt = rw || daRemainWt(u.fish, u.wt, n, w); u.fish -= n; }); };
       var mid = function(){ ev.forEach(function(t){ if(t.type === 'feeding') u.F += parseFloat(t.kg) || 0; else if(t.type === 'sampling' && parseFloat(t.avgWt) > 0 && !t.link) u.wt = parseFloat(t.avgWt); }); };
       if(u.fish > 0 && adds > 0 && subs >= u.fish){ out(); addIn(); mid(); } else { addIn(); mid(); out(); }   // emptied and restocked the same day: old fish leave first
       if(u.fish <= 0){ var b = u.base; U[unit] = fresh(); U[unit].base = b; }

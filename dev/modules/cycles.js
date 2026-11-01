@@ -29,14 +29,14 @@ function daUnitCycles(unit){
     }
     ev.forEach(function(t){ if(t.type !== 'stocking' && t.type !== 'transfer_in') return; var n = parseInt(t.fishNo) || 0, w = parseFloat(t.avgWt) || wt; if(n <= 0) return;
       if(fish <= 0 || !cur){ open(d, n, w, t.type === 'stocking' ? 'تخزين' : 'نقل داخل', t.batch); } else { cur.inKg += n * w / 1000; }
-      wt = fish + n > 0 ? (fish * wt + n * w) / (fish + n) : w; fish += n; });
+      wt = fish + n > 0 ? (fish * wt + n * w) / (fish + n) : w; if(parseFloat(t.newWt) > 0) wt = parseFloat(t.newWt); fish += n; });
     ev.forEach(function(t){
       if(t.type === 'sampling' && parseFloat(t.avgWt) > 0 && !t.link) wt = parseFloat(t.avgWt);
       else if(t.type === 'feeding' && cur) cur.feed += parseFloat(t.kg) || 0; });
     var by = '';
     ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(!f || !cur) return; var n = parseInt(t[f]) || 0; if(n <= 0) return;
       if(t.type === 'mortality') cur.dead += n; else if(t.type === 'adjustment') cur.adj += n;
-      else { var kg = parseFloat(t.kg) || 0, w2 = parseFloat(t.avgWt) || (kg > 0 ? kg * 1000 / n : wt); cur.outFish += n; cur.outKg += n * w2 / 1000; if(t.type === 'harvesting') cur.harvKg += kg || n * w2 / 1000; wt = daRemainWt(fish, wt, n, w2); }
+      else { var kg = parseFloat(t.kg) || 0, w2 = parseFloat(t.avgWt) || (kg > 0 ? kg * 1000 / n : wt); cur.outFish += n; cur.outKg += n * w2 / 1000; if(t.type === 'harvesting') cur.harvKg += kg || n * w2 / 1000; wt = parseFloat(t.remainWt) > 0 && fish - n > 0 ? parseFloat(t.remainWt) : daRemainWt(fish, wt, n, w2); }
       fish = Math.max(0, fish - n); by = t.type; });
     if(cur && fish <= 0 && by){ cur.end = d; cur.endBy = {harvesting:'حصاد', transfer_out:'نقل خارج', mortality:'نفوق', adjustment:'قفل يدوي'}[by] || by; cur.fish1 = 0; cur.wt1 = wt; cur = null; }
   });

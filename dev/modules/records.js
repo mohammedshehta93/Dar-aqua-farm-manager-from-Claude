@@ -111,8 +111,9 @@ function daRegForm(kind, r, copy){
       + '<tr style="background:#f1f5f9;font-weight:700"><td style="padding:5px 6px">Totals</td><td id="rf-tn" style="padding:5px 6px;text-align:right"></td><td id="rf-tkg" style="padding:5px 6px;text-align:right"></td><td id="rf-tinv" style="padding:5px 6px;text-align:right"></td><td></td><td id="rf-tavg" style="padding:5px 6px;text-align:right"></td><td></td><td></td><td id="rf-tval" style="padding:5px 6px;text-align:right"></td></tr></table></div>';
     h += daRegOptsHtml(inp, adjRec, src, 'الحصاد');
   } else {
-    var ins = r ? r.ins.map(function(t){ return {u:t.unit, n:t.fishNo, w:t.avgWt}; }) : [{u:'', n:'', w:''}];
+    var ins = r ? r.ins.map(function(t){ return {u:t.unit, n:t.fishNo, w:t.avgWt, nw:t.newWt}; }) : [{u:'', n:'', w:''}];
     h += '<div class="field" style="margin:0"><label>من تانك</label><select id="rf-from" style="' + inp + '" onchange="daRegAvail()">' + opt(r && r.out ? r.out.unit : '') + '</select><div id="rf-avail" style="font-size:11px;color:var(--muted)"></div></div>'
+      + '<div class="field" style="margin:0"><label>وزن الباقي بعد النقل (جم)</label><input id="rf-remw" type="number" data-nodirty="1" value="' + (r && r.out && r.out.remainWt ? r.out.remainWt : '') + '" style="' + inp + ';width:120px" oninput="daRegAvail()"/><div style="font-size:10px;color:var(--muted)">فاضي = محسوب</div></div>'
       + '<div class="field" style="margin:0"><label>Transfer Type</label><input id="rf-type" data-nodirty="1" value="' + daEsc(r ? r.type : '') + '" placeholder="نقل / فرز" style="' + inp + ';width:110px"/></div><div class="field" style="margin:0"><label>Comments</label><input id="rf-notes" data-nodirty="1" value="' + daEsc(src.notes || '') + '" style="' + inp + ';width:160px"/></div></div>'
       + '<div style="overflow-x:auto;margin-top:10px" dir="ltr"><table id="rf-dest" style="border-collapse:collapse;font-size:12px"><tr style="background:#f1f5f9">' + ['Unit', 'Fish Before', 'Av. Wt. Before', 'Transferred Fish', 'Transfer Av.Wt.', 'New Fish', 'New Av.Wt.'].map(function(x){ return '<th style="padding:5px 6px;white-space:nowrap">' + x + '</th>'; }).join('') + '</tr>'
       + ins.map(function(d, i){ return daRegDestRow(i, d, opt); }).join('') + '</table></div>'
@@ -137,7 +138,7 @@ function daRegOptsHtml(inp, adjRec, src, what){
 function daRegDestRow(i, d, opt){ var inp = 'padding:5px 6px;border:1.5px solid var(--line);border-radius:6px;font:inherit;font-size:12px';
   return '<tr><td style="padding:2px"><select id="rf-d' + i + '-u" style="' + inp + '" onchange="daRegAvail()">' + opt(d.u) + '</select></td><td id="rf-d' + i + '-fb" style="padding:3px 6px;text-align:right;color:var(--muted)"></td><td id="rf-d' + i + '-wb" style="padding:3px 6px;text-align:right;color:var(--muted)"></td>'
     + '<td style="padding:2px"><input id="rf-d' + i + '-n" type="number" placeholder="العدد" value="' + (d.n || '') + '" data-nodirty="1" style="' + inp + ';width:90px" oninput="daRegAvail()"/></td><td style="padding:2px"><input id="rf-d' + i + '-w" type="number" placeholder="جم" value="' + (d.w || '') + '" data-nodirty="1" style="' + inp + ';width:90px" oninput="daRegAvail()"/></td>'
-    + '<td id="rf-d' + i + '-fa" style="padding:3px 6px;text-align:right"></td><td id="rf-d' + i + '-wa" style="padding:3px 6px;text-align:right;font-weight:700"></td></tr>'; }
+    + '<td id="rf-d' + i + '-fa" style="padding:3px 6px;text-align:right"></td><td style="padding:2px;white-space:nowrap"><input id="rf-d' + i + '-nw" type="number" title="فاضي = محسوب" value="' + (d.nw || '') + '" data-nodirty="1" style="' + inp + ';width:90px;font-weight:700"/><span id="rf-d' + i + '-wa"></span></td></tr>'; }
 function daRegAddDest(){ var t = document.getElementById('rf-dest'); if(!t) return; var i = t.rows.length - 1; t.insertAdjacentHTML('beforeend', daRegDestRow(i, {u:'', n:'', w:(document.getElementById('rf-d0-w') || {}).value || ''}, window._rgOpt)); }
 function daRegFishAt(unit, date){   // fish available on that date, adding back what the record being edited took out
   var s = daStateEnd(unit, daAddDays(date, -1)).fish || 0, ed = (window._rgEdit || []).concat(daLinked(window._rgEdit || []));
@@ -146,9 +147,13 @@ function daRegFishAt(unit, date){   // fish available on that date, adding back 
 }
 function daRegCats(){ var out = []; daSizes().forEach(function(c, i){ var g = function(k){ return parseFloat((document.getElementById('rf-c' + i + '-' + k) || {}).value) || 0; };
   var n = Math.round(g('n')), kg = g('kg'); if(n || kg) out.push({c:c.n, n:n, kg:kg, inv:g('inv') || 0, price:g('price') || 0, i:i, def:c}); }); return out; }
+function daRegWtAt(unit, date){   // weight on that date after the day's OTHER records (not the one being edited)
+  var ed = (window._rgEdit || []).concat(daLinked(window._rgEdit || [])), s = daSimulateUnit(unit, (daTxByUnit()[unit] || []).filter(function(t){ return String(t.date || '') <= date && !t.deleted && ed.indexOf(t.id) < 0; }));
+  var ds = Object.keys(s.states).filter(function(x){ return x <= date; }).sort(); if(!ds.length) return (s.raw || {}).avgWt || 0; return s.states[ds[ds.length - 1]].endWt || 0;
+}
 function daRegAvail(){
   var d = (document.getElementById('rf-date') || {}).value, u = (document.getElementById('rf-unit') || document.getElementById('rf-from') || {}).value, a = document.getElementById('rf-avail'), avail = u && d ? daRegFishAt(u, d) : 0;
-  if(a) a.textContent = u && d ? 'متاح يومها: ' + avail.toLocaleString('en-US') + ' سمكة · ' + Math.round(daStateEnd(u, daAddDays(d, -1)).wt || 0) + 'g' : '';
+  if(a) a.textContent = u && d ? 'متاح يومها: ' + avail.toLocaleString('en-US') + ' سمكة · ' + Math.round(daRegWtAt(u, d) || 0) + 'g' : '';
   var f2 = function(v, k){ return (+v || 0).toLocaleString('en-US', {minimumFractionDigits:k, maximumFractionDigits:k}); }, setT = function(id, v){ var e = document.getElementById(id); if(e) e.innerHTML = v; }, out = 0;
   if(document.getElementById('rf-cats')){
     var cs = daRegCats(), tn = cs.reduce(function(s, c){ return s + c.n; }, 0), tk = cs.reduce(function(s, c){ return s + c.kg; }, 0), ti = cs.reduce(function(s, c){ return s + (c.inv || c.kg); }, 0), tv = 0;
@@ -161,9 +166,14 @@ function daRegAvail(){
   var t = document.getElementById('rf-dest');
   if(t){ for(var i = 0; i < t.rows.length - 1; i++){ var du = (document.getElementById('rf-d' + i + '-u') || {}).value, n = +(document.getElementById('rf-d' + i + '-n') || {}).value || 0, w = +(document.getElementById('rf-d' + i + '-w') || {}).value || 0; out += n;
       if(!du || !d){ ['fb', 'wb', 'fa', 'wa'].forEach(function(k){ setT('rf-d' + i + '-' + k, ''); }); continue; }
-      var fb = daRegFishAt(du, d), wb = daStateEnd(du, daAddDays(d, -1)).wt || 0, wn = w || (u ? daStateEnd(u, daAddDays(d, -1)).wt : 0), fa = fb + n, wa = fa ? (fb * wb + n * wn) / fa : 0, mix = fb > 0 && wb > 0 && wn > 0 && Math.abs(wn - wb) / wb > 0.3;
-      setT('rf-d' + i + '-fb', f2(fb, 0)); setT('rf-d' + i + '-wb', fb ? f2(wb, 2) : ''); setT('rf-d' + i + '-fa', n ? f2(fa, 0) : ''); setT('rf-d' + i + '-wa', n ? '<span style="color:' + (mix ? 'var(--amber)' : 'inherit') + '" title="' + (mix ? 'فرق كبير في الحجم بين السمك اللي في التانك واللي داخل' : '') + '">' + f2(wa, 2) + (mix ? ' ⚠️' : '') + '</span>' : ''); }
-    setT('rf-sum', out.toLocaleString('en-US')); }
+      var fb = daRegFishAt(du, d), wb = daRegWtAt(du, d), wn = w || (u ? daRegWtAt(u, d) : 0), fa = fb + n, wa = fa ? (fb * wb + n * wn) / fa : 0, mix = fb > 0 && wb > 0 && wn > 0 && Math.abs(wn - wb) / wb > 0.3;
+      setT('rf-d' + i + '-fb', f2(fb, 0)); setT('rf-d' + i + '-wb', fb ? f2(wb, 2) : ''); setT('rf-d' + i + '-fa', n ? f2(fa, 0) : '');
+      var nwi = document.getElementById('rf-d' + i + '-nw'); if(nwi) nwi.placeholder = n ? wa.toFixed(2) : '';
+      setT('rf-d' + i + '-wa', n && mix ? ' <span title="فرق كبير في الحجم بين السمك اللي في التانك واللي داخل" style="color:var(--amber)">⚠️</span>' : ''); }
+    setT('rf-sum', out.toLocaleString('en-US'));
+    var rw = document.getElementById('rf-remw'); if(rw && u && d){ var fbS = daRegFishAt(u, d), wbS = daRegWtAt(u, d), outKg = 0;
+      for(var i2 = 0; i2 < t.rows.length - 1; i2++){ var n2 = +(document.getElementById('rf-d' + i2 + '-n') || {}).value || 0, w2 = +(document.getElementById('rf-d' + i2 + '-w') || {}).value || wbS; outKg += n2 * w2; }
+      var rem = fbS - out; rw.placeholder = rem > 0 ? daRemainWt(fbS, wbS, out, out ? outKg / out : 0).toFixed(2) : '—'; rw.disabled = !(rem > 0); } }
   var cl = document.getElementById('rf-close'), ci = document.getElementById('rf-closeinfo'), adj = parseInt((document.getElementById('rf-adj') || {}).value) || 0;
   if(ci) ci.textContent = cl && cl.checked && u && d ? 'هيتقفل والباقي (' + Math.max(0, avail - out - adj).toLocaleString('en-US') + ' سمكة) يتسجل تسوية' : '';
 }
@@ -187,17 +197,18 @@ function daRegSave(kind){
     toast('✅ حصاد ' + u + ': ' + n.toLocaleString() + ' سمكة · ' + kg.toFixed(1) + ' كجم' + (close ? ' · الدورة اتقفلت' : ''));
   } else {
     var from = g('rf-from'), t = document.getElementById('rf-dest'), dest = [];
-    for(var i = 0; i < t.rows.length - 1; i++){ var du = g('rf-d' + i + '-u'), dn = parseInt(g('rf-d' + i + '-n')) || 0, dw = parseFloat(g('rf-d' + i + '-w')) || 0; if(!du && !dn) continue; dest.push({u:du, n:dn, w:dw}); }
+    for(var i = 0; i < t.rows.length - 1; i++){ var du = g('rf-d' + i + '-u'), dn = parseInt(g('rf-d' + i + '-n')) || 0, dw = parseFloat(g('rf-d' + i + '-w')) || 0; if(!du && !dn) continue; dest.push({u:du, n:dn, w:dw, nw:parseFloat(g('rf-d' + i + '-nw')) || 0}); }
     if(!from || !dest.length){ toast('⚠️ اختار تانك المصدر والتانكات اللي رايحلها'); return; }
     if(dest.some(function(d){ return !d.u || !(d.n > 0) || d.u === from; })){ toast('⚠️ كل سطر محتاج تانك (غير المصدر) وعدد'); return; }
     var tot = dest.reduce(function(s, d){ return s + d.n; }, 0), avl = daRegFishAt(from, date);
     if(tot + Math.max(0, adj) > avl){ alert('⛔ ' + from + ' يومها فيه ' + avl.toLocaleString() + ' سمكة بس — مينفعش تنقل ' + tot.toLocaleString()); return; }
-    var srcW = daStateEnd(from, daAddDays(date, -1)).wt || 0, cyc = daCycleOn(from, date) || {}, grp = 'tx_' + Date.now();
+    var srcW = daRegWtAt(from, date), cyc = daCycleOn(from, date) || {}, grp = 'tx_' + Date.now();
     dest.forEach(function(d){ if(!(d.w > 0)) d.w = srcW; });
     var wavg = dest.reduce(function(s, d){ return s + d.n * d.w; }, 0) / tot;
     drop();
-    addTX({type:'transfer_out', date:date, unit:from, fishNo:tot, avgWt:+wavg.toFixed(2), transferType:g('rf-type'), notes:g('rf-notes'), txGroup:grp, batch:cyc.batch || '', _skipValidation:true});
-    dest.forEach(function(d){ addTX({type:'transfer_in', date:date, unit:d.u, fishNo:d.n, avgWt:d.w, transferType:g('rf-type'), txGroup:grp, batch:cyc.batch || '', _skipValidation:true}); });
+    var remw = parseFloat(g('rf-remw')) || 0;
+    addTX(Object.assign({type:'transfer_out', date:date, unit:from, fishNo:tot, avgWt:+wavg.toFixed(2), transferType:g('rf-type'), notes:g('rf-notes'), txGroup:grp, batch:cyc.batch || '', _skipValidation:true}, remw > 0 && avl - tot - adj > 0 ? {remainWt:remw} : {}));
+    dest.forEach(function(d){ var rec = {type:'transfer_in', date:date, unit:d.u, fishNo:d.n, avgWt:d.w, transferType:g('rf-type'), txGroup:grp, batch:cyc.batch || '', _skipValidation:true}; if(d.nw > 0) rec.newWt = d.nw; addTX(rec); });
     if(adj) addTX({id:'adj-' + grp, type:'adjustment', date:date, unit:from, count:adj, reason:adjT, link:grp, source:'transfer', _skipValidation:true});
     if(close){ var rest2 = avl - tot - adj; if(rest2 > 0) addTX({id:'cls-' + grp, type:'adjustment', date:date, unit:from, count:rest2, reason:'قفل الدورة مع النقل', link:grp, source:'close', _skipValidation:true}); }
     toast('✅ نقل من ' + from + ' لـ ' + dest.length + ' تانك · ' + tot.toLocaleString() + ' سمكة' + (close ? ' · الدورة اتقفلت' : ''));

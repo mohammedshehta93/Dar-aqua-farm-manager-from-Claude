@@ -135,6 +135,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- WEIGHED weights after a transfer (owner 2026-11-01, `dev/tools/patch_set_weights.py`): transfer form has "وزن الباقي بعد
+  النقل" (→ transfer_out.remainWt) and an editable New Av.Wt per destination (→ transfer_in.newWt); blank = computed
+  (shown as placeholder, from `daRegWtAt` = weight after the day's OTHER records). Engines, cycles and daAlloc use them;
+  with both parts weighed the feed split uses out kg ÷ (out kg + remaining kg).
 - PARTIAL / GRADED TRANSFERS & HARVESTS (owner 2026-11-01; module `alloc.js`, edit `dev/tools/patch_partial_out.py`,
   test `e2e_alloc` = the worked example): (1) remaining weight = (biomass before − n × measured out weight) ÷ remaining,
   in BOTH engines (+ cycles), `daRemainWt` (kept if outside 0.3×–3× old). Samples carrying `link` (made with a
