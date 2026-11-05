@@ -135,6 +135,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- BACKUPS (owner chose 2026-11-02): separate PRIVATE repo `Dar-aqua-backups` (the app repo is public — never put
+  data there). GitHub Actions nightly 23:00 UTC: backup.py dumps farms, profiles, farm_units, farm_settings,
+  feed_inventory, transactions, snapshots, daily_logs, platform_admins (paged, service key from repo secrets
+  SUPABASE_URL / SUPABASE_SERVICE_KEY) → backups/<date>/*.json.gz + manifest; keeps 90 days + 1st of each month; exits 1
+  (email) when a table shrinks > 50 %; daily request also keeps the free project from pausing. restore.yml = manual
+  merge-restore (type RESTORE). Auth accounts are not included. Source kept in /home/claude/backups-repo during the
+  session; the token used for the app repo cannot create repos — owner creates the repo + secrets.
 - WEIGHED weights after a transfer (owner 2026-11-01, `dev/tools/patch_set_weights.py`): transfer form has "وزن الباقي بعد
   النقل" (→ transfer_out.remainWt) and an editable New Av.Wt per destination (→ transfer_in.newWt); blank = computed
   (shown as placeholder, from `daRegWtAt` = weight after the day's OTHER records). Engines, cycles and daAlloc use them;
