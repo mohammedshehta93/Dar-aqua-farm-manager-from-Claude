@@ -135,6 +135,11 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- COMPARE WITH AQUAMANAGER (parallel run; module `aqm_compare.js`, e2e_aqm A13–A15 on 2510.xls): Site Overview button
+  "⚖️ قارن بالأكوامانجر" → AquaManager Site Overview export (parsed by daAqmHeader) vs daOverviewRows on the page date.
+  Rules: fish & mortality exact; wt & biomass > 1 %; feed > 0.5 kg and > 1 %; FCR > 0.05; tanks stocked in one only.
+  Each run logged in synced `daracqua_plan_v1_aqmcmp` (last 60) — shown as the trend line. BACKUPS: live and verified by
+  the owner 2026-11-05 (first run green, manifest counts checked).
 - BACKUPS (owner chose 2026-11-02): separate PRIVATE repo `Dar-aqua-backups` (the app repo is public — never put
   data there). GitHub Actions nightly 23:00 UTC: backup.py dumps farms, profiles, farm_units, farm_settings,
   feed_inventory, transactions, snapshots, daily_logs, platform_admins (paged, service key from repo secrets

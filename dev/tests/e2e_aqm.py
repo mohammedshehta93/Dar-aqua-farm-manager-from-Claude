@@ -54,6 +54,18 @@ with sync_playwright() as p:
     r2 = pg.evaluate("(() => { const tr=document.querySelector('#ov-t tr[data-u=\"F1.S01T02\"]'); return tr && [...tr.cells].map(c=>c.textContent); })()")
     check('A12 Site Overview = AquaManager for an imported tank (start 2026-09-05, 835 fish, 90→160 g, feed 89.6, mortality 5, UTD FCR 1.51)',
           r2 and r2[1] == '2026-09-05' and r2[2] == '835' and r2[3] == '90.00' and r2[4] == '160.00' and r2[7] == '5' and r2[8] == '89.60' and r2[9] == '1.51', r2)
+    # parallel run: compare AquaManager's own export with the tool on the same day
+    pg.evaluate("window._ov={date:daToday()}; farmFilter='all'; window._cmp=null; localStorage.removeItem(DA_CMP_KEY); show('site-overview',true)"); pg.wait_for_timeout(300)
+    with pg.expect_file_chooser() as fc: pg.click('#ov-cmp')
+    fc.value.set_files(FILE); pg.wait_for_timeout(1500)
+    C = pg.evaluate("({same:window._cmp.same, diff:window._cmp.diff, onlyA:window._cmp.onlyA, onlyT:window._cmp.onlyT, units:window._cmp.res.map(r=>r.unit)})")
+    touched = pg.evaluate("[...new Set(getTX().filter(t=>!t.deleted&&t.source!=='import'&&!/^imp/.test(t.id||'')).map(t=>t.unit))]")
+    check('A13 compare with AquaManager: every tank matches except the ones this test changed after the import', C['same'] > 100 and not C['onlyA'] and not C['onlyT'] and set(C['units']) <= set(touched), (C['same'], C['diff'], C['units'], touched, C['onlyA'][:3], C['onlyT'][:3]))
+    u = pg.evaluate("_txLiveRows().find(r=>r.fishNo>50 && !getTX().some(t=>t.unit===r.unit&&t.source!=='import'&&!t.deleted)).unit")
+    pg.evaluate(f"addTX({{id:'cmpm',type:'mortality',unit:'{u}',date:daToday(),count:5,source:'sheet',_skipValidation:true}}); daCmpRun(true)"); pg.wait_for_timeout(400)
+    r = pg.evaluate(f"(window._cmp.res.find(x=>x.unit==='{u}')||{{ds:[]}}).ds.map(d=>[d.k,d.d])")
+    check('A14 5 dead entered only in the tool → that tank flagged: Fish No −5, Mortality +5 (with the likely cause)', ['fish', -5] in r and ['dead', 5] in r and 'نفوق' in content(pg), r)
+    check('A15 each comparison is logged (to see the weeks without differences)', pg.evaluate("daCmpLog().length") == 1 and '⚖️ المقارنة مع الأكوامانجر' in content(pg))
     pg._errs.clear()
     bad = pg.evaluate("() => { const o=[]; Object.keys(VIEWS).forEach(v=>{ try{ show(v); }catch(e){ o.push(v+': '+e.message); } }); return o; }"); pg.wait_for_timeout(800)
     check('A11 every page works with real farm data + empty tanks', not bad and not pg._errs, (bad + pg._errs)[:5])

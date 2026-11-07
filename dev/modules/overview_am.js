@@ -94,9 +94,11 @@ function renderOverviewAM(){
     + (past ? '<button onclick="window._ov.date=daToday();show(&quot;site-overview&quot;,true)" style="' + inp + ';background:#fff;cursor:pointer">Today</button>' : '')
     + '<div class="field" style="margin:0"><label>Filter</label><input id="ov-q" data-nodirty="1" value="' + daEsc(st.q || '') + '" placeholder="Unit / batch" style="' + inp + ';width:150px" onchange="window._ov.q=this.value;show(&quot;site-overview&quot;,true)"/></div>'
     + '<button onclick="window.print()" style="' + inp + ';background:#fff;cursor:pointer">🖨️ Print</button>'
+    + '<button id="ov-cmp" onclick="daCmpPick()" title="ارفع تصدير Site Overview من الأكوامانجر لنفس التاريخ" style="' + inp + ';background:#fff;cursor:pointer">⚖️ قارن بالأكوامانجر</button>'
     + (hid.length ? '<button onclick="daOvSetHidden([])" style="' + inp + ';background:#fff;cursor:pointer" title="' + hid.length + ' عمود مخفي">↺ Show all columns (' + hid.length + ')</button>' : '')
     + '<span style="flex:1"></span><b style="font-size:18px">' + rows.length + ' units</b>'
     + (past ? '<span style="color:var(--amber);font-weight:700;font-size:12px" dir="rtl">⏪ المزرعة يوم ' + D + '</span>' : '') + '</div>';
+  if(typeof daCmpCard === 'function') h += daCmpCard();
   if(window._tc && window._tc.unit) h += daCyclesCard(window._tc.unit, ['admin', 'manager', 'engineer'].indexOf(currentUserRole) >= 0);
   var th = 'padding:6px 7px;white-space:nowrap;cursor:pointer;border-right:1px solid #cbd5e1;font-weight:600;font-size:11px';
   h += '<div class="card" style="padding:0;overflow:hidden"><div style="overflow:auto;max-height:72vh" dir="ltr"><table id="ov-t" style="border-collapse:collapse;font-size:12px;width:100%"><thead><tr style="background:#e2e8f0;position:sticky;top:0;z-index:1">'
