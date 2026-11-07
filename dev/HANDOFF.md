@@ -143,7 +143,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   CONFIRMED by the owner 2026-11-07: 119/124 rows pasted with blank Batch. Rejected 5 ("<unit>/ is not a valid
   Unit/Batch": F1.S09T01, F2.S04T01/T07/T10/T14) — blank Batch works only when the tank has exactly ONE batch on that date
   (test file was 31-10 data pasted on another day → likely empty then; else mixed batches → would need AquaManager's
-  batch name). Waiting for the owner's check.
+  batch name). Waiting for the owner's check. MORTALITY too (same panel, from the feed sheet's dead column): AquaManager
+  Mortality paste = Unit / Batch / Mortality No / Cause; Cause left blank (AquaManager has its own cause names — map later
+  if wanted). Harvest / transfer export not wanted (owner).
 - READING THE FARM'S OWN PAPER (owner 2026-11-07: "make the tool rely on my paper"; module `paper_ocr.js`, test
   `e2e_paper` on the owner's real photo + `dev/tests/paper_truth.py` = values read by eye). Only FH1 feed log so far
   (DA_PAPER_TPL.F1 from FH1_Feed_Log docx: 14 cols, header + 26 rows). Grid: lines are LIGHT GREY (separate sensitive

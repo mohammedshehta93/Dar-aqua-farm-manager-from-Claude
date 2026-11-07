@@ -39,14 +39,37 @@ function daAqxRows(farm, date){
       out.push([(c.units || {})[r.unit] || r.unit, '', (c.store || {})[farm] || '', feed, '', +kg.toFixed(3), '', '']); });
   return {rows:out, miss:Object.keys(miss)};
 }
-function daAqxTSV(rows){ return [DA_AQX_COLS].concat(rows).map(function(r){ return r.join('\t'); }).join('\r\n'); }
+function daAqxTSV(rows, cols){ return [cols || DA_AQX_COLS].concat(rows).map(function(r){ return r.join('\t'); }).join('\r\n'); }
+// mortality: AquaManager's Mortality paste wants Unit / Batch / Mortality No / Cause (its own message, 2026-11-07)
+var DA_AQX_MCOLS = ['Unit', 'Batch', 'Mortality No', 'Cause'];
+function daAqxMortRows(farm, date){
+  var c = daAqxCfg(), out = [];
+  _txLiveRows().filter(function(r){ return (r.farm === farm || String(r.unit).indexOf(farm + '.') === 0) && daTankNo(r.unit); })
+    .sort(function(a, b){ var x = daTankNo(a.unit), y = daTankNo(b.unit); return x.s - y.s || x.t - y.t; })
+    .forEach(function(r){ var n = 0; (daTxByUnit()[r.unit] || []).forEach(function(t){ if(t.type === 'mortality' && !t.deleted && t.date === date) n += parseInt(t.count) || 0; });
+      if(n > 0) out.push([(c.units || {})[r.unit] || r.unit, '', n, '']); });   // Cause left blank: AquaManager accepts only its own cause names
+  return out;
+}
+async function daAqxCopyMort(){
+  var st = window._fs, rows = daAqxMortRows(st.farm, st.date), txt = daAqxTSV(rows, DA_AQX_MCOLS); window._aqxLast = txt;
+  if(!rows.length){ toast('مفيش نفوق متسجل في اليوم ده'); return; }
+  try{ await navigator.clipboard.writeText(txt); toast('📋 اتنسخ نفوق ' + rows.length + ' تانك — الزق في الأكوامانجر (Mortality ← ' + st.date + ' ← Paste From Clipboard)'); }
+  catch(e){ toast('⚠️ المتصفح منعني أنسخ — استخدم ⬇️ Excel وانسخ منه'); }
+}
+function daAqxExcelMort(){
+  if(typeof XLSX === 'undefined'){ toast('مكتبة Excel مش جاهزة — جرّب تاني'); return; }
+  var st = window._fs, wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([DA_AQX_MCOLS].concat(daAqxMortRows(st.farm, st.date))), 'Mortality');
+  XLSX.writeFile(wb, 'AquaManager_Mortality_' + st.farm + '_' + st.date + '.xlsx');
+}
 function daAqxOpen(){
   var st = window._fs; if(!st) return; var box = document.getElementById('fs-copybox'); if(!box) return;
   var c = daAqxCfg(), farm = st.farm, R = daAqxRows(farm, st.date), inp = 'padding:6px 9px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px', tot = R.rows.reduce(function(a, r){ return a + r[5]; }, 0);
   var h = '<div class="card" id="aqx-card" style="margin-bottom:12px;border:2px solid var(--teal)"><div class="card-title">📋 علف يوم ' + st.date + ' للأكوامانجر <button onclick="document.getElementById(&quot;fs-copybox&quot;).innerHTML=&quot;&quot;" style="border:0;background:none;cursor:pointer;color:var(--muted)">✕</button></div>';
   if(!c.units) h += '<div style="font-size:13px;margin-bottom:8px">أول مرة: ارفع ملف علف الأكوامانجر (زي اللي بتلزقوا منه — فيه Unit و Store و Feed) عشان الأداة تتعلم أسماء التانكات والمخازن والعلف زي ما هي في الأكوامانجر.</div>';
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button id="aqx-learn" onclick="daAqxPickLearn()" style="' + inp + ';background:#fff;cursor:pointer">📥 ' + (c.units ? 'حدّث الأسماء من ملف الأكوامانجر' : 'ارفع ملف الأكوامانجر') + '</button>';
-  if(c.units) h += '<button id="aqx-copy" class="savebtn" style="width:auto;padding:8px 16px" onclick="daAqxCopy()">📋 انسخ (' + R.rows.length + ' تانك · ' + tot.toFixed(1) + ' كجم)</button><button onclick="daAqxExcel()" style="' + inp + ';background:#fff;cursor:pointer">⬇️ Excel</button>';
+  var M = c.units ? daAqxMortRows(farm, st.date) : [], md = M.reduce(function(a, r){ return a + r[2]; }, 0);
+  if(c.units) h += '<button id="aqx-copy" class="savebtn" style="width:auto;padding:8px 16px" onclick="daAqxCopy()">📋 انسخ العلف (' + R.rows.length + ' تانك · ' + tot.toFixed(1) + ' كجم)</button><button onclick="daAqxExcel()" style="' + inp + ';background:#fff;cursor:pointer">⬇️ Excel</button>'
+    + '<span style="width:12px"></span><button id="aqx-copy-m" class="savebtn" style="width:auto;padding:8px 16px;background:#7c2d12"' + (M.length ? '' : ' disabled') + ' onclick="daAqxCopyMort()">📋 انسخ النفوق (' + M.length + ' تانك · ' + md + ' سمكة)</button><button onclick="daAqxExcelMort()" style="' + inp + ';background:#fff;cursor:pointer"' + (M.length ? '' : ' disabled') + '>⬇️ Excel</button>';
   h += '</div>';
   if(c.units){
     h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;font-size:12px;margin-bottom:8px"><div class="field" style="margin:0"><label>Store لـ ' + daEsc(farm) + '</label><input id="aqx-store" data-nodirty="1" value="' + daEsc((c.store || {})[farm] || '') + '" style="' + inp + ';width:130px"/></div>'
@@ -56,7 +79,7 @@ function daAqxOpen(){
     if(!R.rows.length) h += '<div style="color:var(--muted);font-size:13px">مفيش علف متسجل في اليوم ده — احفظ الشيت الأول.</div>';
     else h += '<div style="overflow:auto;max-height:30vh" dir="ltr"><table id="aqx-t" style="border-collapse:collapse;font-size:11px"><tr style="background:#f1f5f9">' + DA_AQX_COLS.map(function(x){ return '<th style="padding:3px 6px;text-align:left">' + x + '</th>'; }).join('') + '</tr>'
       + R.rows.map(function(r){ return '<tr>' + r.map(function(v){ return '<td style="padding:2px 6px;border-top:1px solid #e2e8f0">' + daEsc(String(v)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table></div>'
-      + '<div style="font-size:11px;color:var(--muted);margin-top:6px">في الأكوامانجر: Feeding ← نفس التاريخ (' + st.date + ') ← Paste From Clipboard. التانكات اللي متأكلتش مش في القايمة.</div>';
+      + '<div style="font-size:11px;color:var(--muted);margin-top:6px">في الأكوامانجر على نفس التاريخ (' + st.date + '): العلف ← شاشة <b>Feeding</b>، والنفوق ← شاشة <b>Mortality</b> ← Paste From Clipboard. التانكات اللي متأكلتش مش في القايمة. سبب النفوق مش بيتنقل (الأكوامانجر عنده أسماؤه الخاصة).</div>';
   }
   box.innerHTML = h + '</div>';
 }
