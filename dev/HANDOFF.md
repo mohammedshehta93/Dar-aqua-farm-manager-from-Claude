@@ -140,7 +140,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   message, 2026-11-07). Feed sheet button "📤 للأكوامانجر": names learned once from the farm's AquaManager feeding Excel
   (unit names e.g. F2.S16.T01, store per farm, feed name per pellet size; list sheet = all feeds) → synced
   `daracqua_plan_v1_aqmexport`; copies header + one row per tank fed that day (Batch / Feeder / Method blank) or Excel.
-  NOT YET CONFIRMED that AquaManager accepts blank Batch — owner to test with AquaManager_Feeding_test_8cols.xlsx.
+  CONFIRMED by the owner 2026-11-07: 119/124 rows pasted with blank Batch. Rejected 5 ("<unit>/ is not a valid
+  Unit/Batch": F1.S09T01, F2.S04T01/T07/T10/T14) — blank Batch works only when the tank has exactly ONE batch on that date
+  (test file was 31-10 data pasted on another day → likely empty then; else mixed batches → would need AquaManager's
+  batch name). Waiting for the owner's check.
 - READING THE FARM'S OWN PAPER (owner 2026-11-07: "make the tool rely on my paper"; module `paper_ocr.js`, test
   `e2e_paper` on the owner's real photo + `dev/tests/paper_truth.py` = values read by eye). Only FH1 feed log so far
   (DA_PAPER_TPL.F1 from FH1_Feed_Log docx: 14 cols, header + 26 rows). Grid: lines are LIGHT GREY (separate sensitive
