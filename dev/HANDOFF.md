@@ -145,7 +145,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   (test file was 31-10 data pasted on another day → likely empty then; else mixed batches → would need AquaManager's
   batch name). Waiting for the owner's check. MORTALITY too (same panel, from the feed sheet's dead column): AquaManager
   Mortality paste = Unit / Batch / Mortality No / Cause; Cause left blank (AquaManager has its own cause names — map later
-  if wanted). Harvest / transfer export not wanted (owner).
+  if wanted). Harvest / transfer export not wanted (owner). Panel UX (owner confused, 2026-11-07): numbered steps
+  (save → copy → paste + Save in AquaManager; the tool sends nothing by itself), copy disabled with a plain reason when
+  nothing is saved that day, "save first" when the sheet is dirty, per-day copy log on this device (`daaqx_copied`) →
+  "✅ copied at hh:mm" or "⚠️ changed after copying — copy and paste again".
 - READING THE FARM'S OWN PAPER (owner 2026-11-07: "make the tool rely on my paper"; module `paper_ocr.js`, test
   `e2e_paper` on the owner's real photo + `dev/tests/paper_truth.py` = values read by eye). Only FH1 feed log so far
   (DA_PAPER_TPL.F1 from FH1_Feed_Log docx: 14 cols, header + 26 rows). Grid: lines are LIGHT GREY (separate sensitive

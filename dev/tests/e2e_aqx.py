@@ -36,6 +36,13 @@ with sync_playwright() as p:
     with pg.expect_download() as dl: pg.evaluate("daAqxExcel()")
     check('X5 or as an Excel file', dl.value.suggested_filename.startswith('AquaManager_Feeding_F1_'), dl.value.suggested_filename)
     check('X6 names are stored in a synced key (learned once for every device)', pg.evaluate("daIsSyncedKey(DA_AQX_KEY)"))
+    check('X8 after copying, the panel says so and names the next step in AquaManager', 'العلف اتنسخ الساعة' in content(pg) and 'Feeding' in content(pg))
+    pg.fill(f"#fs-{ix['F1.S01T01']}-m0", '5'); pg.wait_for_timeout(100); pg.evaluate("daAqxOpen()"); pg.wait_for_timeout(100)
+    check('X9 typed but not saved → told to save first (copy takes the saved day only)', 'متحفظتش' in content(pg))
+    pg.click('#fs-save'); pg.wait_for_timeout(500); pg.evaluate("daAqxOpen()"); pg.wait_for_timeout(100)
+    check('X10 the day changed after it was copied → warned to copy and paste again', 'اتعدّل بعد ما اتنسخ' in content(pg))
+    pg.evaluate("window._fs.date=daAddDays(daToday(),-3); show('feed-sheet',true); daAqxOpen()"); pg.wait_for_timeout(300)
+    check('X11 a day with nothing saved: copy disabled, the reason said plainly', pg.evaluate("document.getElementById('aqx-copy').disabled") and 'مفيش علف محفوظ' in content(pg))
     check('X7 no page errors', not pg._errs, pg._errs)
     ctx.close()
     fails = [r for r in RESULTS if not r[1]]
