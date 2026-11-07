@@ -91,6 +91,7 @@ function renderFeedSheet(){
     + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="fs-print" onclick="daOcrPrint(&quot;feed&quot;)" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">🖨️ شيت للطباعة</button>'
     + '<button id="fs-photo" onclick="daOcrPick(&quot;feed&quot;)" style="padding:9px 14px;border:1.5px solid var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer;font-weight:700">📷 من صورة</button>'
     + '<button id="fs-copy" onclick="daFsCopyAsk()" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">📋 نسخ من يوم</button>'
+    + '<button id="fs-aqx" onclick="daAqxOpen()" title="انسخ علف اليوم بشكل الأكوامانجر (Paste From Clipboard)" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">📤 للأكوامانجر</button>'
     + '<button id="fs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daFsSave()">💾 حفظ الشيت</button></div></div>'
     + '<div id="fs-copybox"></div>';
   h += '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
