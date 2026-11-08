@@ -16311,6 +16311,155 @@ if(!window._daMobileWrapped){
   setTimeout(daOutClass, 0); setTimeout(daStaleCheck, 4000);
 }
 
+// ══════════════════════════════════════════════════════════
+//  WORKERS SEE ONLY WHAT THEY WERE GIVEN (owner, 2026-11-08)
+// ══════════════════════════════════════════════════════════
+// Several planning pages share an entry permission (feeding regime / schedule / print are under input_feeding), so a
+// worker with "feeding" saw them too. For the worker role each entry permission now opens exactly its entry page;
+// view / manage / export permissions open their pages as before; the guide is always there (worker part only).
+// Office-only buttons (AquaManager copy, print, photo, feed-type and entry-mode settings) are hidden from workers.
+var DA_WORKER_PAGES = {input_feeding:['feed-sheet'], input_mortality:['feed-sheet'], input_wq:['wq-sheet'], input_sampling:['tx-sampling'],
+  input_harvest:['tx-harvesting', 'tx-transfer'], approve_data:['review-queue']};
+var DA_WORKER_ALWAYS = ['help', 'account', 'login-page', 'legal'];
+function daWorkerAllows(v){
+  if(DA_WORKER_ALWAYS.indexOf(v) >= 0) return true;
+  if(Object.keys(DA_WORKER_PAGES).some(function(p){ return DA_WORKER_PAGES[p].indexOf(v) >= 0 && hasPerm(p); })) return true;
+  var need = VIEW_PERMS[v]; if(need === 'input_health') return hasPerm(need);   // treatments: the health pages themselves
+  return !!need && /^(view_|manage_|export_)/.test(need) && hasPerm(need);
+}
+(function(){ var st = document.createElement('style'); st.id = 'da-worker-css';
+  st.textContent = 'body.da-worker #fs-aqx,body.da-worker #fs-print,body.da-worker #fs-photo,body.da-worker #fs-mode,body.da-worker #wqs-aqx,body.da-worker #wqs-print,body.da-worker #wqs-photo,body.da-worker #sp-print,body.da-worker #sp-photo,'
+    + 'body.da-worker .field:has(> [id^="fs-prod-"]){display:none!important}'; document.head.appendChild(st); })();
+function daWorkerClass(){ document.body.classList.toggle('da-worker', !!currentUser && currentUserRole === 'worker'); }
+if(!window._daWorkerWrapped){
+  window._daWorkerWrapped = true;
+  var _canPreWorker = canAccessView;
+  canAccessView = function(v){ if(currentUser && currentUserRole === 'worker' && !daWorkerAllows(v)) return false; return _canPreWorker.apply(this, arguments); };
+  var _homePreWorker = homeView;
+  homeView = function(){ if(currentUser && currentUserRole === 'worker'){ var order = ['feed-sheet', 'wq-sheet', 'tx-sampling', 'tx-harvesting', 'review-queue', 'help'];
+      for(var i = 0; i < order.length; i++) if(canAccessView(order[i])) return order[i]; } return _homePreWorker.apply(this, arguments); };
+  var _uuiPreWorker = updateUserUI;
+  updateUserUI = function(){ var r = _uuiPreWorker.apply(this, arguments); daWorkerClass(); return r; };
+  var _tabsPreWorker = daTabs;   // the guide shows each role its own part (worker: worker; engineer: + engineer)
+  daTabs = function(t, tabs, varName){
+    if(varName === 'window._helpTab' && currentUser){ if(currentUserRole === 'worker') return ''; if(currentUserRole === 'engineer') tabs = tabs.filter(function(x){ return x[0] !== 'admin'; }); }
+    return _tabsPreWorker.call(this, t, tabs, varName);
+  };
+  var _helpPreWorker = renderHelp;
+  renderHelp = function(){ if(currentUser && currentUserRole === 'worker') window._helpTab = 'worker'; else if(currentUser && currentUserRole === 'engineer' && window._helpTab === 'admin') window._helpTab = 'engineer';
+    return _helpPreWorker.apply(this, arguments); };
+  if(VIEWS.help && !VIEWS.help._daW){ var _vh = VIEWS.help; VIEWS.help = function(){ if(currentUser && currentUserRole === 'worker') window._helpTab = 'worker'; return _vh.apply(this, arguments); }; VIEWS.help._daW = true; }
+  var _toastPreWorker = toast;   // alert pop-ups about the farm are for the office, not for a worker without the alerts page
+  toast = function(m){ if(currentUser && currentUserRole === 'worker' && /التنبيهات الذكية|تنبيه حرج/.test(String(m)) && !canAccessView('smart')) return; return _toastPreWorker.apply(this, arguments); };
+  setTimeout(daWorkerClass, 0);
+}
+
+// ══════════════════════════════════════════════════════════
+//  ENGLISH FOR THE WORKERS' SCREENS (owner, 2026-11-08)
+// ══════════════════════════════════════════════════════════
+// Most screens are written in Arabic. When the language is English, a translation layer rewrites what is on screen
+// (text, placeholders, titles, toasts, alert / confirm) from a phrase list covering everything a worker sees: login,
+// header, menus, tabs, daily feed sheet, testing log (daily + weekly), their messages. The worker guide has its own
+// English text. The language choice is remembered on the device. Office pages may still show Arabic.
+var DA_LANG_KEY = 'da_lang';
+var DA_EN_RULES = [
+  [/✅ اتحفظ شيت القياسات (\S+)/g, '✅ Testing log $1 saved'], [/· ✗ (\d+) سكشن برّه الحدود/g, '· ✗ $1 section(s) out of range'],
+  [/✅ اتحفظ شيت (\S+) — ([\d.]+) كجم علف/g, '✅ Sheet $1 saved — $2 kg feed'], [/· (\d+) نافق/g, '· $1 dead'], [/· (\d+) للمراجعة/g, '· $1 for review'],
+  [/✅ اتحفظت القياسات الأسبوعية لـ (\d+) سكشن/g, '✅ Weekly readings saved for $1 section(s)'], [/✅ أهلاً (.+)/g, '✅ Welcome $1'],
+  [/سكاشن (\d+) – (\d+)/g, 'Sections $1 – $2'], [/سكشن (\d+)/g, 'Section $1'], [/\((\d+) وجبات — بالكيلو\)/g, '($1 meals — kg)'], [/\((\d+) وجبات — بالجرام\)/g, '($1 meals — grams)'],
+  [/نوع العلف — حجم (\d) مم/g, 'Feed type — size $1 mm'], [/الحرارة أعلى من ([\d.]+)/g, 'Temperature above $1'], [/الحرارة أقل من ([\d.]+)/g, 'Temperature below $1'],
+  [/الأكسجين ([\d.]+) \(لازم أكبر من ([\d.]+)\)/g, 'DO $1 (must be above $2)'], [/pH أعلى من ([\d.]+)/g, 'pH above $1'], [/pH أقل من ([\d.]+)/g, 'pH below $1'],
+  [/قرايات برّه الحدود من غير إجراء تصحيحي مكتوب: (.+?)\.\s*الشيت بيطلب الإجراء يتكتب\. تحفظ من غيره؟/g, 'Readings out of range without a written corrective action: $1.\nThe log asks for the action to be written. Save without it?'],
+  [/مفيش علف متسجل يوم (\S+)/g, 'No feed recorded on $1'], [/فيه كميات مكتوبة في الشيت — هتتبدل بكميات يوم (\S+)\. تكمل؟/g, 'There are amounts typed in the sheet — they will be replaced with $1. Continue?'],
+  [/📋 اتنسخ علف (\d+) تانك من (\S+) — راجع وعدّل واحفظ/g, '📋 Copied feed of $1 tanks from $2 — check, edit and save'], [/⚠️ أرقام مش منطقية: (.+)/g, '⚠️ Impossible numbers: $1'],
+  [/⚠️ اكتب الحجم \(1 أو 2 أو 3\) للتانكات: (.+)/g, '⚠️ Write the size (1, 2 or 3) for tanks: $1'], [/⚠️ أرقام مش صحيحة في: (.+)/g, '⚠️ Wrong numbers in: $1'],
+  [/فيه بيانات اتكتبت في "(.+?)" ومتحفظتش\. (.+)/g, 'Unsaved input in "$1". $2'], [/(\d+) تاب فيهم بيانات متحفظتش\. تقفلهم برضه؟/g, '$1 tabs have unsaved input. Close them anyway?'],
+  [/فيه أرقام اتكتبت ومتحفظتش في الشيت ده\. تغيّر (.+?)؟/g, 'Numbers typed in this sheet are not saved. Change $1?'], [/فيه قرايات اتكتبت ومتحفظتش\. تغيّر (.+?)؟/g, 'Readings typed are not saved. Change $1?']];
+var DA_EN = [
+  ['نفس ترتيب الشيت الورق — الكميات بالكيلو لكل وجبة، والأداة بتجمعها', 'Same order as the paper sheet — amounts in kg per meal; the app adds them up'],
+  ['الحجم بيتكتب في كل سطر (1 أو 2 أو 3)، والشركة بتتاخد من هنا. الأصناف من مخزون العلف.', 'Write the size on every line (1, 2 or 3).'],
+  ['= متأكلش الوجبة (أو ✕ آخر السطر لليوم كله) · النافق يتكتب زي الورق', '= not fed this meal (or ✕ at the end of the line for the whole day) · dead written like on paper'],
+  ['وبيتجمع · المجموعات المكتوب جنبها "بالجرام" بتتكتب جرام.', 'and is added up · groups marked "grams" are written in grams.'],
+  ['بيملا الشاشة بس — راجع وعدّل وبعدين حفظ. النافق مش بيتنسخ.', 'Fills the screen only — check, edit, then Save. Dead is not copied.'],
+  ['سيب الخانة فاضية لو القياس ده متعملش النهارده. الأرقام بتتحفظ مع قراية السكشن الأسبوعية لنفس اليوم.', 'Leave a box empty if that test was not done today.'],
+  ['قراية واحدة لكل سكشن — الأمونيا بتتسجل مع علف الأسبوع في التوأم الرقمي لوحدها', 'One reading per section'],
+  ['قراية واحدة لكل سكشن — نفس الشيت الورق', 'One reading per section — same as the paper log'],
+  ['أي قراية برّه الحدود ← لازم إجراء تصحيحي مكتوب', 'Any reading out of range → a corrective action must be written'],
+  ['✅ الشيت ده متسجل قبل كده — أي تعديل وحفظ بيعدّل نفس السجلات، مش بيكررها.', '✅ This sheet is already saved — editing and saving updates the same records, never duplicates them.'],
+  ['✅ الشيت ده متسجل قبل كده — أي تعديل وحفظ بيعدّل نفس السجلات.', '✅ This sheet is already saved — editing and saving updates the same records.'],
+  ['📋 عدد النافق بيتسجل من شيت العلف بس (عمود dead)', '📋 Dead counts are entered in the feed sheet only (dead column)'],
+  ['فيه أرقام اتكتبت في الشيت ومتحفظتش وهتضيع. تكمل؟', 'Numbers typed in the sheet are not saved and will be lost. Continue?'],
+  ['🔄 فيه نسخة جديدة — احفظ شغلك وبعدين اضغط', '🔄 A new version is ready — save your work, then press'],
+  ['⚠️ اختار يوم غير اليوم اللي بتسجله', '⚠️ Choose a day other than the one you are entering'],
+  ['❌ اسم المستخدم / الإيميل أو كلمة السر غلط', '❌ Wrong username / email or password'],
+  ['🔑 حسابات العمال من غير إيميل — كلّم المدير يغيّر كلمة السر', '🔑 Worker accounts have no email — ask your manager to change the password'],
+  ['⚠️ اسم المستخدم حروف إنجليزي وأرقام بس', '⚠️ Username: English letters and numbers only'],
+  ['تحديث الصفحة — يجيب آخر بيانات ويعرضها', 'Refresh — get the latest data'],
+  ['🧪 أسبوعي — أمونيا · نيتريت · نترات · قلوية', '🧪 Weekly — ammonia · nitrite · nitrate · alkalinity'],
+  ['📅 يومي — حرارة · pH · أكسجين', '📅 Daily — temperature · pH · DO'],
+  ['🔴 1 تنبيه حرج — افتح التنبيهات الذكية', ''], ['تسجيل العلف بقى من مكان واحد', 'Feed is entered in one place'],
+  ['إجمالي اليوم ← اعرض بالوجبات', 'Daily total → show meals'], ['بالوجبات ← خليه إجمالي اليوم', 'By meal → daily total'],
+  ['متأكلش النهارده (صايم)', 'Not fed today'], ['اسم المستخدم أو الإيميل', 'Username or email'], ['الحسابات بيضيفها الأدمن فقط', 'Accounts are added by the admin only'],
+  ['بالدخول أنت موافق على', 'By logging in you agree to the'], ['الشروط وسياسة الخصوصية', 'Terms & Privacy'], ['إدارة مزارع الأسماك', 'Fish farm management'],
+  ['🧪 شيت القياسات الأسبوعي', '🧪 Weekly testing log'], ['🧪 شيت القياسات اليومي', '🧪 Daily testing log'], ['📋 شيت العلف اليومي', '📋 Daily feed sheet'],
+  ['شيت القياسات اليومي', 'Daily testing log'], ['شيت العلف اليومي', 'Daily feed sheet'], ['قفل كل التابات التانية', 'Close all other tabs'],
+  ['انسخ كميات وأحجام يوم', 'Copy amounts and sizes of day'], ['🔑 تسجيل الدخول', '🔑 Login'], ['نسيت كلمة السر؟', 'Forgot password?'], ['👋 تم تسجيل الخروج', '👋 Logged out'],
+  ['🔄 بيتحدث لآخر نسخة...', '🔄 Updating to the latest version...'], ['🌾 إجمالي العلف:', '🌾 Total feed:'], ['💀 إجمالي النفوق:', '💀 Total dead:'],
+  ['اسم اللي ملا الشيت', 'Who filled the sheet'], ['اسم اللي قاس', 'Who tested'], ['تسجيل خروج؟', 'Log out?'], ['📋 نسخ من يوم', '📋 Copy from a day'], ['💾 حفظ الشيت', '💾 Save sheet'],
+  ['✏️ الإدخال اليومي', '✏️ Daily entry'], ['الإنتاج والعلف', 'Production & feed'], ['التقارير والتتبع', 'Reports'], ['🔄 اتحدثت', '🔄 Refreshed'], ['مفيش تغيير', 'No change'],
+  ['وقت القياس', 'Test time'], ['كلمة السر', 'Password'], ['🔑 دخول', '🔑 Login'], ['🔄 تحديث', '🔄 Refresh'], ['💾 حفظ', '💾 Save'], ['📋 نسخ', '📋 Copy'],
+  ['الإجمالي', 'Total'], ['الإدخال:', 'Entry:'], ['الإدخال', 'Entry'], ['الإعداد', 'Setup'], ['الرئيسية', 'Home'], ['التاريخ', 'Date'], ['المزرعة', 'Farm'], ['الفني', 'Technician'],
+  ['دليل الاستخدام', 'Guide'], ['المزيد', 'More'], ['الكل', 'All'], ['بعدين', 'Later'], ['تحديث', 'Update'], ['إلغاء', 'Cancel'], ['رجوع', 'Back'], ['قفل', 'Close'], ['ملاحظات', 'Notes'],
+  ['🟢 متصل', '🟢 Online'], ['☁️ متصل', '☁️ Online'], ['متصل', 'Online'], ['أدمن', 'Admin'], ['عامل', 'Worker'], ['مهندس', 'Engineer'], ['مدير', 'Manager'], ['كجم', 'kg'],
+  ['سكشن برّه الحدود', 'section(s) out of range'], ['تانك', 'tanks']];
+DA_EN.sort(function(a, b){ return b[0].length - a[0].length; });
+var _daArRe = /[\u0600-\u06FF]/;
+function daEn(s){
+  if(isAr || !s || !_daArRe.test(s)) return s; var t = String(s);
+  DA_EN_RULES.forEach(function(r){ t = t.replace(r[0], r[1]); });
+  if(!_daArRe.test(t)) return t; var trimmed = t.trim();
+  for(var i = 0; i < DA_EN.length; i++){ if(trimmed === DA_EN[i][0]) return t.replace(trimmed, DA_EN[i][1]); }
+  for(var j = 0; j < DA_EN.length; j++) if(DA_EN[j][0].length >= 3 && t.indexOf(DA_EN[j][0]) >= 0) t = t.split(DA_EN[j][0]).join(DA_EN[j][1]);
+  return t;
+}
+function daEnNode(root){
+  if(isAr || !root) return;
+  if(root.nodeType === 3){ var v = daEn(root.nodeValue); if(v !== root.nodeValue) root.nodeValue = v; return; }
+  if(root.nodeType !== 1) return;
+  var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), n, list = []; while((n = w.nextNode())) if(_daArRe.test(n.nodeValue)) list.push(n);
+  list.forEach(function(t){ var v = daEn(t.nodeValue); if(v !== t.nodeValue) t.nodeValue = v; });
+  var els = root.querySelectorAll ? [root].concat(Array.prototype.slice.call(root.querySelectorAll('[placeholder],[title]'))) : [];
+  els.forEach(function(e){ ['placeholder', 'title'].forEach(function(a){ var x = e.getAttribute && e.getAttribute(a); if(x && _daArRe.test(x)) e.setAttribute(a, daEn(x)); }); });
+}
+// the worker guide in English
+function daWorkerGuideEn(){
+  return '<div class="ph"><div><h2>❓ Guide</h2><p style="font-size:11px;color:var(--muted)">What you need every day</p></div></div><div class="card da-doc" style="line-height:1.8;font-size:14px" dir="ltr">'
+    + '<h3>1. Login</h3><p>Open the link your manager sent you, type your <b>username</b> and <b>password</b>, press <b>Login</b>. From the browser menu choose <b>Add to Home Screen</b> to open it like an app. Never give your account to anyone.</p>'
+    + '<h3>2. Daily feed sheet</h3><ul><li>For each tank write the <b>quantity</b> fed today (kg — or grams where the group says grams) and the pellet <b>size</b> (1, 2 or 3).</li>'
+    + '<li><b>dead</b>: the dead fish, like on paper — <b>2+1</b> is added up to 3.</li><li><b>X</b> = not fed. Empty tanks are locked.</li>'
+    + '<li><b>📋 Copy from a day</b> fills the amounts and sizes of another day; change what is different and press <b>💾 Save sheet</b>.</li></ul>'
+    + '<h3>3. Testing log</h3><ul><li><b>📅 Daily</b>: temperature, pH and DO for each section, then <b>Save</b>. A reading out of range turns red — write the corrective action in Notes.</li>'
+    + '<li><b>🧪 Weekly</b>: ammonia, nitrite, nitrate, alkalinity for each section. Leave a box empty if that test was not done.</li></ul>'
+    + '<h3>4. Moving around</h3><p>Use the arrow keys or <b>Enter</b> to go to the next box. Each page opens as a tab; an orange dot ● means something is typed and not saved yet.</p>'
+    + '<h3>5. If you made a mistake</h3><p>Do not enter the number again (it would count twice). Fix it in the same sheet and save again, or tell your engineer.</p>'
+    + '<h3>6. No internet</h3><p>Keep working — it is kept on the phone and sent when the internet is back. <b>Do not log out</b> while it says something is waiting to sync.</p>'
+    + '<h3>7. Updates</h3><p>The app updates itself. If it asks you to save first, press Save, and it updates.</p></div>';
+}
+if(!window._daEnWrapped){
+  window._daEnWrapped = true;
+  try{ if(localStorage.getItem(DA_LANG_KEY) === 'en' && isAr) setTimeout(function(){ toggleLang(); }, 0); }catch(e){}
+  var _tlPreEn = toggleLang;
+  toggleLang = function(){ var r = _tlPreEn.apply(this, arguments); try{ localStorage.setItem(DA_LANG_KEY, isAr ? 'ar' : 'en'); }catch(e){}
+    if(typeof renderNav === 'function') try{ renderNav(); }catch(e){} daEnNode(document.body); return r; };
+  new MutationObserver(function(ms){ if(isAr) return; ms.forEach(function(m){
+    if(m.type === 'characterData') daEnNode(m.target); else m.addedNodes.forEach(function(n){ daEnNode(n); }); }); })
+    .observe(document.documentElement, {childList:true, subtree:true, characterData:true});
+  var _al = window.alert, _cf = window.confirm;
+  window.alert = function(m){ return _al.call(window, daEn(String(m))); };
+  window.confirm = function(m){ return _cf.call(window, daEn(String(m))); };
+  if(VIEWS.help){ var _vhEn = VIEWS.help; VIEWS.help = function(){ if(!isAr && (window._helpTab === 'worker' || (currentUser && currentUserRole === 'worker'))) return daWorkerGuideEn(); return _vhEn.apply(this, arguments); }; }
+}
+
 // ── Init ──────────────────────────────────────
 (function(){
   var _bc = getSettings();

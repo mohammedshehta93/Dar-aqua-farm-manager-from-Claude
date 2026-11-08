@@ -1,0 +1,46 @@
+# A worker sees only the pages of the permissions given; office buttons hidden; English covers the worker's screens.
+import os, re; os.environ['E2E_PORT'] = '8832'
+from harness import *
+AR = re.compile(r'[\u0600-\u06FF]+')
+def arabic(pg): return AR.findall(pg.evaluate("(() => { const ok=e=>e.offsetParent!==null||e===document.body; let t=''; const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT); let n; while((n=w.nextNode())) if(n.parentElement && ok(n.parentElement)) t+=' '+n.nodeValue; document.querySelectorAll('input[placeholder]').forEach(i=>{ if(i.offsetParent!==null) t+=' '+i.placeholder; }); return t; })()"))
+with sync_playwright() as p:
+    BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
+    sb = MockSB(); sb.add_user('w@example.com', 'work123', role='worker', perms=['input_feeding', 'input_mortality', 'input_wq'])
+    sb.add_user('w2@example.com', 'work123', role='worker', perms=['input_feeding', 'view_growth']); sb.add_user('e@example.com', 'eng123', role='engineer')
+    ctx, pg = new_page(p, sb); pg.set_viewport_size({'width': 390, 'height': 844})
+    login(pg, 'w@example.com', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.wait_for_timeout(300)
+    pages = pg.evaluate("DA_NAV.reduce((a,g)=>a.concat(g.items.filter(i=>canAccessView(i[0])).map(i=>i[0])),[])")
+    check('V1 feeding + mortality + water quality → exactly the feed sheet, the testing log and the guide', sorted(pages) == ['feed-sheet', 'help', 'wq-sheet'], pages)
+    check('V2 opens straight on the feed sheet', pg.evaluate("homeView()") == 'feed-sheet' and pg.evaluate("currentView") == 'feed-sheet', (pg.evaluate("homeView()"), pg.evaluate("currentView")))
+    check('V3 planning pages are closed to the worker even by address', not pg.evaluate("canAccessView('feeding-regime') || canAccessView('feeding-schedule') || canAccessView('tx-water-quality') || canAccessView('tx-mortality')"))
+    pg.evaluate("window._fs={farm:'F1'}; show('feed-sheet',true)"); pg.wait_for_timeout(300)
+    hid = pg.evaluate("['fs-aqx','fs-print','fs-photo','fs-mode','fs-prod-1'].map(id=>{const e=document.getElementById(id); return !e || e.offsetParent===null;})")
+    check('V4 office buttons hidden on the feed sheet (AquaManager, print, photo, entry mode, feed types)', all(hid) and pg.evaluate("document.getElementById('fs-save').offsetParent!==null && document.getElementById('fs-copy').offsetParent!==null"), hid)
+    pg.evaluate("show('help')"); pg.wait_for_timeout(300)
+    check('V5 the guide shows the worker part only (no engineer / admin tabs)', '🧑‍🔬 المهندس' not in content(pg) and '🛠️ الأدمن والمدير' not in content(pg) and 'شيت العلف' in content(pg))
+    # English
+    pg.click('#lang-btn'); pg.wait_for_timeout(400)
+    for v, setup in [('feed-sheet', "window._fs={farm:'F1'}"), ('wq-sheet', "window._wqs={farm:'F1',mode:'daily'}"), ('wq-sheet', "window._wqs={farm:'F1',mode:'weekly'}"), ('help', "0")]:
+        pg.evaluate(f"{setup}; show('{v}',true)"); pg.wait_for_timeout(400); left = arabic(pg)
+        print('   left:', v, left); check(f'V6 English: {v} {setup[-10:]} has no Arabic left ({len(left)})', len(left) <= 2, left[:12])
+    i = pg.evaluate("window._fs={farm:'F1'}; show('feed-sheet',true); window._fs.rows.find(r=>r.i!==undefined).i"); pg.wait_for_timeout(300)
+    pg.fill(f'#fs-{i}-m0', '2'); pg.fill(f'#fs-{i}-sz', '2'); pg.fill(f'#fs-{i}-d', '2+1'); pg.click('#fs-save'); pg.wait_for_timeout(500)
+    t = pg.evaluate("(document.querySelector('.toast')||{}).textContent || (window.__toasts||[]).slice(-1)[0]")
+    check('V7 English: the save message too', not AR.search(pg.evaluate("[...document.querySelectorAll('.toast,#toast')].map(e=>e.textContent).join(' ')") or '') and 'saved' in pg.evaluate("[...document.querySelectorAll('.toast,#toast')].map(e=>e.textContent).join(' ')"), pg.evaluate("[...document.querySelectorAll('.toast,#toast')].map(e=>e.textContent).join(' ')"))
+    pg.reload(); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.wait_for_timeout(500)
+    check('V8 the language choice is remembered on the phone', pg.evaluate("isAr") is False)
+    pg.evaluate("doLogout(true)"); pg.wait_for_timeout(500)
+    check('V8b English login page', len(arabic(pg)) <= 2, arabic(pg)[:10])
+    pg.click('#lang-btn'); pg.wait_for_timeout(300)
+    login(pg, 'w2@example.com', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    check('V9 a view permission given to a worker opens its pages (growth / plan)', pg.evaluate("canAccessView('farm-plan') && canAccessView('twin') && !canAccessView('wq-sheet')"))
+    pg.evaluate("doLogout(true)"); pg.wait_for_timeout(500)
+    login(pg, 'e@example.com', 'eng123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pg.evaluate("window._helpTab=null; show('help')"); pg.wait_for_timeout(300)
+    check('V10 an engineer\'s guide: worker + engineer parts, not the admin part', 'العامل' in content(pg) and 'المهندس' in content(pg) and 'الأدمن والمدير' not in content(pg))
+    check('V11 engineers keep their pages', pg.evaluate("canAccessView('feeding-regime')"))
+    check('V12 no page errors', not pg._errs, pg._errs)
+    ctx.close()
+    fails = [r for r in RESULTS if not r[1]]
+    for nm, ok, dt in RESULTS: print(('✅ ' if ok else '❌ ') + nm + ('' if ok else f'  → {str(dt)[:400]}'))
+    print(f'\n{len(RESULTS)-len(fails)}/{len(RESULTS)} passed')

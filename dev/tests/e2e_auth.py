@@ -22,7 +22,7 @@ with sync_playwright() as p:
     login(pg, 'worker@example.com', 'work123')
     pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
     vv = visible_views(pg)
-    check('T3 worker sees feeding', 'tx-feeding' in vv and 'quick-feed' in vv, vv)
+    check('T3 worker can enter feed (the daily feed sheet; the old feeding screens are retired)', pg.evaluate("canAccessView('feed-sheet')") and 'tx-feeding' not in vv, vv)
     check('T3 worker cannot see finance/settings/users', not any(x in vv for x in ['cost-dashboard', 'settings', 'user-management', 'feed-inventory']), vv)
     pg.evaluate("show('cost-dashboard')"); check('T3 direct URL to finance blocked', 'مش مسموحلك' in content(pg))
     pg.evaluate("show('user-management')"); check('T3 user-management blocked', 'مش مسموحلك' in content(pg))
