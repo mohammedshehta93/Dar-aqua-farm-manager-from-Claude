@@ -1,0 +1,35 @@
+# Workers log in with a username + password (no email): internal address hidden, admins keep email login.
+import os; os.environ['E2E_PORT'] = '8826'
+from harness import *
+with sync_playwright() as p:
+    BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
+    sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin')
+    ctx, pg = new_page(p, sb)
+    pg.wait_for_timeout(300)
+    check('U1 login page asks for "username or email" (plain text field)', pg.evaluate("(document.getElementById('auth-email')||{}).type") == 'text' and 'اسم المستخدم أو الإيميل' in content(pg))
+    login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pg.evaluate("show('user-management')"); pg.wait_for_timeout(400)
+    check('U2 add-user form takes a username for workers', 'اسم المستخدم (للعمال) أو الإيميل' in content(pg))
+    pg.fill('#um-name', 'Irfan Ali'); pg.fill('#um-email', 'عرفان'); pg.fill('#um-pass', 'farm2026'); pg.click('#um-add-btn'); pg.wait_for_timeout(300)
+    check('U3 a username that is not latin letters/digits is refused with an example', 'irfan' in pg.evaluate("(window.__toasts||[]).slice(-1)[0]||''") and 'irfan@workers.dar-aqua.app' not in sb.users)
+    pg.fill('#um-email', 'irfan'); pg.click('#um-add-btn'); pg.wait_for_timeout(800)
+    check('U4 worker account created with a hidden internal address', 'irfan@workers.dar-aqua.app' in sb.users)
+    pg.evaluate("show('user-management', true)"); pg.wait_for_timeout(800)
+    check('U5 the list shows "👤 irfan", never the internal address', '👤 irfan' in content(pg) and 'workers.dar-aqua.app' not in content(pg))
+    pg.fill('#um-name', 'X'); pg.fill('#um-email', 'irfan'); pg.fill('#um-pass', 'other123'); pg.click('#um-add-btn'); pg.wait_for_timeout(500)
+    check('U6 a username already taken → "choose another name"', 'اختار اسم تاني' in pg.evaluate("(window.__toasts||[]).join(' ')"))
+    pg.evaluate("doLogout(true)"); pg.wait_for_timeout(600)
+    pg.fill('#auth-email', 'Irfan'); pg.fill('#auth-pass', 'farm2026'); pg.click('#auth-btn'); pg.wait_for_timeout(1200)
+    check('U7 the worker logs in with just the name and password (capitals ignored)', pg.evaluate("!!currentUser") and pg.evaluate("currentUser.email") == 'irfan@workers.dar-aqua.app', pg.evaluate("(window.__toasts||[]).slice(-2)"))
+    pg.evaluate("doLogout(true)"); pg.wait_for_timeout(600)
+    pg.fill('#auth-email', 'irfan'); pg.fill('#auth-pass', 'wrong'); pg.click('#auth-btn'); pg.wait_for_timeout(800)
+    check('U8 wrong password: clear message, the field still shows the username', 'كلمة السر غلط' in pg.evaluate("(window.__toasts||[]).slice(-1)[0]||''") and pg.input_value('#auth-email') == 'irfan')
+    pg.evaluate("sendRecoveryEmail('irfan')"); pg.wait_for_timeout(200)
+    check('U9 "forgot password" for a worker: no email sent, told to ask the admin', 'كلّم المدير' in pg.evaluate("(window.__toasts||[]).slice(-1)[0]||''"))
+    pg.fill('#auth-email', 'admin@example.com'); pg.fill('#auth-pass', 'admin123'); pg.click('#auth-btn'); pg.wait_for_timeout(1200)
+    check('U10 admins still log in with their email', pg.evaluate("!!currentUser && currentUserRole==='admin'"))
+    check('U11 no page errors', not pg._errs, pg._errs)
+    ctx.close()
+    fails = [r for r in RESULTS if not r[1]]
+    for nm, ok, dt in RESULTS: print(('✅ ' if ok else '❌ ') + nm + ('' if ok else f'  → {str(dt)[:300]}'))
+    print(f'\n{len(RESULTS)-len(fails)}/{len(RESULTS)} passed')

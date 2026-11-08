@@ -135,6 +135,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- WORKER USERNAMES (owner 2026-11-08; module `username_login.js`, edits `dev/tools/patch_username_login.py`, test
+  `e2e_userlogin`): Supabase Auth needs an email → username "irfan" = irfan@workers.dar-aqua.app (never shown: list shows
+  "👤 irfan", via text-node rewrite after adminLoadUsers). Login field "username or email"; latin [a-z0-9._-]{3,30};
+  recovery blocked for them (admin changes the password). VIEWS['user-management'] re-pointed (the views table held the
+  original function). REQUIRES Supabase Auth → Email → "Confirm email" OFF, otherwise signup returns no session and the
+  account waits for a confirmation that can never arrive (alert explains it). Admin password reset for workers still TODO
+  (needs a server-side admin call — e.g. the Cloudflare Worker with the service key, admin-checked).
 - TESTING LOG → AQUAMANAGER (module `aqm_wq_export.js`, test `e2e_aqw` on the owner's 588.xls): Site Measurements =
   Parameter / Site / Time / Zone / Value; the SECTION is inside the parameter name, spelled inconsistently ("Oxygen FH2. S01",
   "PH F1.S01", "TOTAL AMMONIA FH2 .S16") → `daAqwParse` + names learned per farm/section/kind (do, ph, tan, no2, no3);
@@ -262,7 +269,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-41 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+42 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
