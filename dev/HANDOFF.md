@@ -135,6 +135,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- TESTING LOG → AQUAMANAGER (module `aqm_wq_export.js`, test `e2e_aqw` on the owner's 588.xls): Site Measurements =
+  Parameter / Site / Time / Zone / Value; the SECTION is inside the parameter name, spelled inconsistently ("Oxygen FH2. S01",
+  "PH F1.S01", "TOTAL AMMONIA FH2 .S16") → `daAqwParse` + names learned per farm/section/kind (do, ph, tan, no2, no3);
+  temperature is ONE per house ("Temperature FH1") → average of the sections that day, shown before copying. Date M/D/YYYY
+  in the clipboard, real date in the Excel. Button "📤 للأكوامانجر" on the testing log. NOT YET CONFIRMED that the paste
+  accepts these 5 columns (the feeding export had 5 but the paste wanted 8) — owner testing.
 - FEEDING → AQUAMANAGER (module `aqm_export.js`, test `e2e_aqx` on the owner's 2.xls): AquaManager's Feeding "Paste From
   Clipboard" demands the columns Unit / Batch / Store / Feed / Feed Batch Code / Qty / Feeder / Feeding Method (its own error
   message, 2026-11-07). Feed sheet button "📤 للأكوامانجر": names learned once from the farm's AquaManager feeding Excel
@@ -256,7 +262,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-40 suites (+8 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+41 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

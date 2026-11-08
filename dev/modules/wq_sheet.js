@@ -42,7 +42,8 @@ function renderWqSheet(){
   var h = '<div class="ph"><div><h2>🧪 شيت القياسات اليومي</h2><p style="font-size:11px;color:var(--muted)">قراية واحدة لكل سكشن — نفس الشيت الورق</p></div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="wqs-print" onclick="daOcrPrint(&quot;wq&quot;)" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">🖨️ شيت للطباعة</button>'
     + '<button id="wqs-photo" onclick="daOcrPick(&quot;wq&quot;)" style="padding:9px 14px;border:1.5px solid var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer;font-weight:700">📷 من صورة</button>'
-    + '<button id="wqs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daWqsSave()">💾 حفظ الشيت</button></div></div>';
+    + '<button id="wqs-aqx" onclick="daAqwOpen()" title="انسخ قياسات اليوم بشكل الأكوامانجر (Site Measurements)" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">📤 للأكوامانجر</button>'
+    + '<button id="wqs-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daWqsSave()">💾 حفظ الشيت</button></div></div><div id="wqs-aqbox"></div>';
   h += '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
     + '<div class="field" style="margin:0"><label>التاريخ</label><input type="date" id="wqs-date" value="' + st.date + '" max="' + daToday() + '" style="' + inp + '" onchange="daWqsSwitch(&quot;date&quot;,this.value)"/></div>';
   if(!(farmFilter && farmFilter !== 'all')) h += '<div class="field" style="margin:0"><label>المزرعة</label><select id="wqs-farm" style="' + inp + '" onchange="daWqsSwitch(&quot;farm&quot;,this.value)">'
