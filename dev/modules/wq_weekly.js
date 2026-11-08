@@ -5,7 +5,7 @@
 // section, on the same screen (toggle at the top). Saved as the section's weekly record of that date (id wn-<sec>-<date>,
 // the same record the digital twin reads), so the AquaManager copy of a day carries whatever was measured that day.
 var DA_WQW_FIELDS = [['ammonia', 'TAN / NH₃', 'mg/L', 0, 50], ['nitrite', 'NO₂', 'mg/L', 0, 50], ['nitrate', 'NO₃', 'mg/L', 0, 500], ['alkalinity', 'Alkalinity', 'mg/L CaCO₃', 0, 1000]];
-function daWqwSecs(farm){ var o = {}; _txLiveRows().forEach(function(r){ if(String(r.unit).indexOf(farm + '.') === 0 && daSecOf(r.unit)) o[daSecOf(r.unit)] = 1; });
+function daWqwSecs(farm){ var o = {}; _txLiveRows().forEach(function(r){ if(r.farm !== farm && String(r.unit).indexOf(farm + '.') !== 0) return; var k = r.section || daSecOf(r.unit); if(k && daSecNo(k) !== null) o[k] = 1; });   // same as the daily log: the tank's own farm and section
   return Object.keys(o).sort(function(a, b){ return daSecNo(a) - daSecNo(b); }); }
 function daWqwModeBar(mode){
   var b = function(m, t){ var on = m === mode; return '<button id="wqs-mode-' + m + '" onclick="window._wqs.mode=&quot;' + m + '&quot;;show(&quot;wq-sheet&quot;,true)" style="padding:9px 16px;border-radius:8px;font:inherit;cursor:pointer;font-weight:' + (on ? '800' : '500') + ';border:2px solid ' + (on ? 'var(--teal)' : 'var(--line)') + ';background:' + (on ? 'var(--teal)' : '#fff') + ';color:' + (on ? '#fff' : 'inherit') + '">' + t + '</button>'; };

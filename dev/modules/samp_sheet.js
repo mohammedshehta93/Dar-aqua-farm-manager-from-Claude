@@ -11,7 +11,7 @@ function renderSampSheet(){
   if(farmFilter && farmFilter !== 'all') st.farm = farmFilter; if(!st.farm || farms.indexOf(st.farm) < 0) st.farm = farms[0] || '';
   _sampSheetDate = st.date;
   var inp = 'padding:7px 9px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px', cin = inp + ';width:84px;text-align:center';
-  var units = _txLiveRows().filter(function(r){ return String(r.unit).indexOf(st.farm + '.') === 0 && daTankNo(r.unit); }).map(function(r){ return r.unit; })
+  var units = _txLiveRows().filter(function(r){ return (r.farm === st.farm || String(r.unit).indexOf(st.farm + '.') === 0) && daTankNo(r.unit); }).map(function(r){ return r.unit; })
     .filter(function(u){ return (daStateEnd(u, st.date).fish || 0) > 0; }).sort(function(a, b){ var x = daTankNo(a), y = daTankNo(b); return x.s - y.s || x.t - y.t; });
   var bySec = {}; units.forEach(function(u){ var s = daTankNo(u).s; (bySec[s] = bySec[s] || []).push(u); });
   var h = '<div class="ph"><div><h2>🔬 شيت العينات</h2><p style="font-size:11px;color:var(--muted)">متوسط الوزن لكل تانك — العينة اللي فاتت قدامك للمقارنة</p></div>'

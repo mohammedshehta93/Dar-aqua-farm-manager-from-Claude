@@ -10,6 +10,10 @@ var DA_AQW_COLS = ['Parameter', 'Site', 'Time', 'Zone', 'Value'];
 var DA_AQW_KIND = [[/oxygen|\bdo\b/i, 'do'], [/^\s*ph\b/i, 'ph'], [/ammonia|\btan\b|nh3|nh4/i, 'tan'], [/nitrite|no2/i, 'no2'], [/nitrate|no3/i, 'no3'], [/alkal/i, 'alk']];
 var DA_AQW_FIELD = {do:'do', ph:'ph', tan:'ammonia', no2:'nitrite', no3:'nitrate', alk:'alkalinity'};
 function daAqwCfg(){ try{ return JSON.parse(localStorage.getItem(DA_AQW_KEY) || '{}') || {}; }catch(e){ return {}; } }
+function daInFarm(unit, farm){   // a tank / section belongs to a farm by its own data (not only by its name's prefix)
+  if(String(unit || '').indexOf(farm + '.') === 0) return true; var r = typeof daRawUnit === 'function' ? daRawUnit(unit) : null; if(r && r.farm) return r.farm === farm;
+  var c = (typeof getFarmUnits === 'function' ? getFarmUnits() : []).filter(function(u){ return u.section === unit; })[0]; return !!(c && c.farm === farm);
+}
 function daAqwParse(name){   // "Oxygen FH2. S01" → {kind:'do', farm:'F2', sec:1}; "Temperature FH1" → {kind:'temp', farm:'F1'}
   var s = String(name || '').trim(), t = s.match(/^temperature\s+f\s*h?\s*(\d)\s*$/i); if(t) return {kind:'temp', farm:'F' + t[1]};
   var m = s.match(/^(.*?)\s*f\s*h?\s*(\d)\s*\.?\s*s\s*0*(\d+)\s*$/i); if(!m) return null;
@@ -30,7 +34,7 @@ function daAqwDate(d){ var p = String(d).split('-'); return (+p[1]) + '/' + (+p[
 function daAqwRows(farm, date){
   var c = daAqwCfg(), map = (c.names || {})[farm] || {}, out = [], temps = [], miss = {}, site = c.site || '';
   getTX().forEach(function(t){
-    if(t.type !== 'water_quality' || t.deleted || t.date !== date || t.scope !== 'section' || String(t.unit).indexOf(farm + '.') !== 0) return;
+    if(t.type !== 'water_quality' || t.deleted || t.date !== date || t.scope !== 'section' || !daInFarm(t.unit, farm)) return;
     var sec = daSecNo(t.unit); if(parseFloat(t.temp) > 0) temps.push(parseFloat(t.temp));
     Object.keys(DA_AQW_FIELD).forEach(function(k){ var v = t[DA_AQW_FIELD[k]]; if(v === undefined || v === null || v === '' || isNaN(parseFloat(v))) return;
       var nm = (map[sec] || {})[k]; if(!nm){ if(k !== 'alk') miss[k + ' S' + sec] = 1; return; } out.push([nm, site, daAqwDate(date), '', +parseFloat(v)]); }); });   // alkalinity: kept in the tool only (not an AquaManager parameter at this farm)
@@ -42,10 +46,10 @@ function daAqwRows(farm, date){
 function daAqwAll(date){   // AquaManager keeps the whole site in one sheet: every farm, its own row order
   var c = daAqwCfg(), ord = c.order || [], rows = [], per = [], miss = [];
   daFarms().forEach(function(f){ var R = daAqwRows(f, date), secs = {};
-    var wk = {}; getTX().forEach(function(t){ if(t.type !== 'water_quality' || t.deleted || t.date !== date || t.scope !== 'section' || String(t.unit).indexOf(f + '.') !== 0) return;
+    var wk = {}; getTX().forEach(function(t){ if(t.type !== 'water_quality' || t.deleted || t.date !== date || t.scope !== 'section' || !daInFarm(t.unit, f)) return;
       if(['temp', 'ph', 'do'].some(function(k){ return t[k] !== undefined && t[k] !== null && t[k] !== ''; })) secs[t.unit] = 1;
       if(['ammonia', 'nitrite', 'nitrate', 'alkalinity'].some(function(k){ return t[k] !== undefined && t[k] !== null && t[k] !== ''; })) wk[t.unit] = 1; });
-    var all = {}; _txLiveRows().forEach(function(r){ if(String(r.unit).indexOf(f + '.') === 0 && daSecOf(r.unit)) all[daSecOf(r.unit)] = 1; });   // the farm's sections
+    var all = {}; _txLiveRows().forEach(function(r){ if(daInFarm(r.unit, f) && daSecOf(r.unit)) all[daSecOf(r.unit)] = 1; });   // the farm's sections
     rows = rows.concat(R.rows); per.push({farm:f, secs:Object.keys(secs).length, weekly:Object.keys(wk).length, total:Object.keys(all).length || null, avg:R.avgTemp, n:R.nTemp}); R.miss.forEach(function(m){ miss.push(f + ' ' + m); }); });
   var key = function(n){ var i = ord.indexOf(n); return i >= 0 ? i : 1e6; };
   rows.sort(function(a, b){ return key(a[0]) - key(b[0]) || a[0].toLowerCase().localeCompare(b[0].toLowerCase()); });

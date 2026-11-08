@@ -28,12 +28,22 @@ function daParseSheetGroups(text){
   });
   return {groups:out, bad:bad};
 }
-function daTankNo(unit){   // F1.S01T01 · HA.S01.T01 · HA.S1-T1 · HA.S01.Tank1 · and names without T: the unit's section + its last number
+var _daUnitSecVer = -1, _daUnitSecMap = {};
+function daUnitSecMap(){   // every tank → its section, the way the daily testing log sees it (imported list + tanks added in setup)
+  if(_daUnitSecVer === _dataVer && Object.keys(_daUnitSecMap).length) return _daUnitSecMap;
+  var m = {}; RAW.forEach(function(r){ if(r.unit) m[r.unit] = r.section || ''; });
+  (typeof getFarmUnits === 'function' ? getFarmUnits() : []).forEach(function(u){ if(u && u.name && !(u.name in m)) m[u.name] = u.section || String(u.name).split('.').slice(0, 2).join('.'); });
+  _daUnitSecMap = m; _daUnitSecVer = _dataVer; return m;
+}
+function daTankNo(unit){   // F1.S01T01 · HA.S01.T01 · HA.S1-T1 · and ANY other name: section from the tank's data, number from its name (or its place in the section)
   var u = String(unit || ''), m = /S\s*(\d+)[\s._\-\/]*T(?:ank)?\s*(\d+)/i.exec(u);
   if(m) return {s:+m[1], t:+m[2], label:(+m[1]) + '.' + (+m[2])};
-  var cu = (typeof getFarmUnits === 'function' ? getFarmUnits() : []).filter(function(x){ return x.name === u; })[0], raw = typeof daRawUnit === 'function' ? daRawUnit(u) : null;
-  var sec = (cu && cu.section) || (raw && raw.section) || '', sm = /S\s*(\d+)\s*$/i.exec(sec) || /\.S\s*(\d+)\b/i.exec(u), rest = sec && u.indexOf(sec) === 0 ? u.slice(sec.length) : u.replace(/^.*?S\s*\d+/i, ''), tm = /(\d+)\s*$/.exec(rest);
-  return sm && tm ? {s:+sm[1], t:+tm[1], label:(+sm[1]) + '.' + (+tm[1])} : null;
+  var map = daUnitSecMap(), sec = map[u]; if(sec === undefined) return null;
+  var sm = /S\s*0*(\d+)\s*$/i.exec(sec || '') || /S\s*0*(\d+)/i.exec(sec || ''); if(!sm) return null;
+  var rest = sec && u.indexOf(sec) === 0 ? u.slice(sec.length) : u, tm = /(\d+)\D*$/.exec(rest), t;
+  if(tm) t = +tm[1];
+  else { var mates = Object.keys(map).filter(function(k){ return map[k] === sec; }).sort(function(a, b){ return a.localeCompare(b, undefined, {numeric:true}); }); t = mates.indexOf(u) + 1; }
+  return t > 0 ? {s:+sm[1], t:t, label:(+sm[1]) + '.' + t} : null;
 }
 function daSizeOf(feed){ var m = /(\d+(?:\.\d+)?)\s*mm/i.exec(String(feed || '')); return m ? m[1] : ''; }
 function daSheetProducts(size){

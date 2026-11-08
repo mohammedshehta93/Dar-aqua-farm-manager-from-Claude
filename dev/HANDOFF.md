@@ -139,7 +139,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   made them invisible / locked in the feed sheet: (1) daTankNo only read "S01T01" → now also S01.T01, S1-T1, S01 T01,
   S01.Tank1, and names without T (section from the tank's setup + last number); (2) daRawUnit read the imported list
   only, so daStateAt saw a setup tank (with its fish count) as empty → now falls back to getFarmUnits (fishNo, avgWt,
-  startWt, stock date, vol; flag custom:true). Wide regression clean.
+  startWt, stock date, vol; flag custom:true). Wide regression clean. STILL missing for the owner → (3) daTankNo now
+  works for ANY name: section from the tank's own data (daUnitSecMap = RAW + setup tanks, cached by _dataVer), number =
+  last number in the name, or its place in the section; (4) the weekly log, sampling sheet and AquaManager readings
+  picked a farm's tanks by NAME PREFIX ("HA.") — now by the tank's own farm (r.farm / daInFarm), like the daily log.
 - SITES PER USER (owner 2026-11-08; module `sites_scope.js`, test `e2e_sites`): owner could not find the boxes at the end
   of the permissions grid → umPermsHTML now renders them in their own box "📍 المكان — يشتغل فين؟" (add + edit forms),
   and the users list shows each user's site (daSiteBadges, "كل الأماكن" when none). sites are extra items of
