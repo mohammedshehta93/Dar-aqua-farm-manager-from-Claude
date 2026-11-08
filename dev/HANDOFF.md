@@ -138,7 +138,7 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - TESTING LOG DAILY + WEEKLY (owner 2026-11-08; module `wq_weekly.js`, test `e2e_wqweekly`): the wq-sheet has a mode
   toggle (window._wqs.mode): daily = the original sheet (temp/pH/DO); weekly = TAN · NO2 · NO3 · alkalinity per section,
   saved as wn-<sec>-<date> (same record the twin's weekly card writes and reads). The AquaManager copy of a day carries
-  both (kinds no3 + alk added; alkalinity is NOT in the owner's AquaManager file → recorded, not copied, panel says so).
+  both (kinds no3 + alk added; alkalinity is NOT an AquaManager parameter at this farm (owner confirmed) → tool only, never warned about).
   Panel shows per farm "يومي x من y · أسبوعي z".
 - WORKER USERNAMES (owner 2026-11-08; module `username_login.js`, edits `dev/tools/patch_username_login.py`, test
   `e2e_userlogin`): Supabase Auth needs an email → username "irfan" = irfan@workers.dar-aqua.app (never shown: list shows

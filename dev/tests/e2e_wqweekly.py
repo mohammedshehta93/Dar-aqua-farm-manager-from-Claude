@@ -34,7 +34,7 @@ with sync_playwright() as p:
         A = pg.evaluate("daAqwAll(window._wqs.date)"); names = {r[0]: r[4] for r in A['rows']}
         check('Q8 the AquaManager copy of the day carries daily AND weekly readings with AquaManager\'s names',
               names.get('Oxygen FH1.S01') == 6.5 and names.get('TOTAL AMMONIA FH1.S01') == 0.2 and names.get('Nitrite(NO2) FH1.S01') == 0.1 and names.get('Nitrate(NO3) FH1.S01') == 10 and names.get('Nitrate(NO3) FH1.S02') == 5, names)
-        check('Q9 alkalinity is not in the AquaManager file → not copied, and the panel says why', not any('lkal' in k for k in names) and 'القلوية متسجلة' in content(pg))
+        check('Q9 alkalinity stays in the tool only (not an AquaManager parameter here): not copied, no warning, a quiet note', not any('lkal' in k for k in names) and 'القلوية بتتسجل في الأداة بس' in content(pg) and not any('alk' in m for m in A['miss']))
         check('Q10 per farm: daily and weekly sections shown separately', 'أسبوعي 2 سكشن' in content(pg), A['per'])
     check('Q11 no page errors', not pg._errs, pg._errs)
     ctx.close()

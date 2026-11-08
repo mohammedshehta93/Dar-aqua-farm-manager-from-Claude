@@ -16088,7 +16088,7 @@ function daAqwRows(farm, date){
     if(t.type !== 'water_quality' || t.deleted || t.date !== date || t.scope !== 'section' || String(t.unit).indexOf(farm + '.') !== 0) return;
     var sec = daSecNo(t.unit); if(parseFloat(t.temp) > 0) temps.push(parseFloat(t.temp));
     Object.keys(DA_AQW_FIELD).forEach(function(k){ var v = t[DA_AQW_FIELD[k]]; if(v === undefined || v === null || v === '' || isNaN(parseFloat(v))) return;
-      var nm = (map[sec] || {})[k]; if(!nm){ miss[k + ' S' + sec] = 1; return; } out.push([nm, site, daAqwDate(date), '', +parseFloat(v)]); }); });
+      var nm = (map[sec] || {})[k]; if(!nm){ if(k !== 'alk') miss[k + ' S' + sec] = 1; return; } out.push([nm, site, daAqwDate(date), '', +parseFloat(v)]); }); });   // alkalinity: kept in the tool only (not an AquaManager parameter at this farm)
   out.sort(function(a, b){ return a[0].localeCompare(b[0]); });
   var avg = temps.length ? +(temps.reduce(function(a, b){ return a + b; }, 0) / temps.length).toFixed(1) : null;
   if(avg !== null){ var tn = (c.temp || {})[farm]; if(tn) out.unshift([tn, site, daAqwDate(date), '', avg]); else miss['temp'] = 1; }
@@ -16122,9 +16122,8 @@ function daAqwOpen(){
         + (p.avg !== null ? ' · 🌡️ ' + p.avg + '° (متوسط ' + p.n + ')' : '') + (p.secs ? '' : ' — <b>متسجلش لسه</b>') + '</span>'; }).join('') + '</div>'
       + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">الأكوامانجر بياخد حرارة واحدة لكل عنبر = متوسط سكاشنه. الترتيب نفس ترتيب ملف الأكوامانجر.</div>';
     if(!c.order) h += '<div style="color:var(--amber);font-size:12px;font-weight:700;margin-bottom:6px">⚠️ ارفع ملف Site Measurements من الأكوامانجر تاني (📥 فوق) عشان الأداة تتعلم ترتيبه.</div>';
-    if(R.miss.length){ var alk = R.miss.filter(function(m){ return / alk /.test(' ' + m.split(' ').slice(1).join(' ') + ' '); }).length, other = R.miss.filter(function(m){ return !/ alk /.test(' ' + m.split(' ').slice(1).join(' ') + ' '); });
-      if(other.length) h += '<div style="color:var(--amber);font-size:12px;margin-bottom:6px">⚠️ مش لاقي اسم في الأكوامانجر لـ: ' + other.join('، ') + ' — مش هيتنسخوا (ارفع ملف فيه القياسات دي).</div>';
-      if(alk) h += '<div style="color:var(--amber);font-size:12px;margin-bottom:6px">⚠️ القلوية متسجلة في ' + alk + ' سكشن بس مش موجودة في ملف الأكوامانجر اللي اترفع — مش هتتنسخ لحد ما ترفع ملف فيه القلوية.</div>'; }
+    if(R.miss.length) h += '<div style="color:var(--amber);font-size:12px;margin-bottom:6px">⚠️ مش لاقي اسم في الأكوامانجر لـ: ' + R.miss.join('، ') + ' — مش هيتنسخوا (ارفع ملف فيه القياسات دي).</div>';
+    if(R.per.some(function(p){ return p.weekly; })) h += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">القلوية بتتسجل في الأداة بس — مش موجودة في الأكوامانجر.</div>';
     if(!R.rows.length) h += '<div style="color:var(--amber);font-size:14px;font-weight:700">مفيش قياسات محفوظة يوم ' + st.date + ' لسه.</div>';
     else h += '<div style="overflow:auto;max-height:30vh" dir="ltr"><table id="aqw-t" style="border-collapse:collapse;font-size:11px"><tr style="background:#f1f5f9">' + DA_AQW_COLS.map(function(x){ return '<th style="padding:3px 6px;text-align:left">' + x + '</th>'; }).join('') + '</tr>'
       + R.rows.map(function(r){ return '<tr>' + r.map(function(v){ return '<td style="padding:2px 6px;border-top:1px solid #e2e8f0">' + daEsc(String(v)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table></div>';
