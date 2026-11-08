@@ -18,27 +18,8 @@ function daPaperDark(I, k, cap){   // k: how much darker than the surrounding pa
   return d;
 }
 // long straight runs → grouped segments → fitted lines. horiz: y = a·x + b (top & bottom edge); vert: x = a·y + b
-function daPaperLines(D, W, H, horiz){
-  var L = horiz ? W : H, M = horiz ? H : W, minRun = Math.round((horiz ? W : H) * 0.022), runs = [];
-  for(var m = 0; m < M; m++){ var s = -1;
-    for(var l = 0; l <= L; l++){ var on = l < L && (horiz ? D[m * W + l] : D[l * W + m]);
-      if(on && s < 0) s = l; else if(!on && s >= 0){ if(l - s >= minRun) runs.push({m:m, a:s, b:l - 1}); s = -1; } } }
-  var par = runs.map(function(_, i){ return i; }), find = function(i){ while(par[i] !== i){ par[i] = par[par[i]]; i = par[i]; } return i; }, byM = {};
-  runs.forEach(function(r, i){ (byM[r.m] = byM[r.m] || []).push(i); });
-  runs.forEach(function(r, i){ for(var dm = 1; dm <= 2; dm++) (byM[r.m + dm] || []).forEach(function(j){ var q = runs[j]; if(q.a <= r.b && r.a <= q.b){ var A = find(i), B = find(j); if(A !== B) par[A] = B; } }); });
-  var groups = {}; runs.forEach(function(r, i){ (groups[find(i)] = groups[find(i)] || []).push(r); });
-  var out = [];
-  Object.keys(groups).forEach(function(k){ var G = groups[k], lo = Infinity, hi = -Infinity, mlo = Infinity, mhi = -Infinity;
-    G.forEach(function(r){ lo = Math.min(lo, r.a); hi = Math.max(hi, r.b); mlo = Math.min(mlo, r.m); mhi = Math.max(mhi, r.m); });
-    if(hi - lo < L * 0.2) return;
-    var fit = function(pick){ var bins = {}; G.forEach(function(r){ for(var t = r.a; t <= r.b; t += 8){ var b = Math.floor(t / 8); if(bins[b] === undefined || (pick ? r.m > bins[b] : r.m < bins[b])) bins[b] = r.m; } });
-      var sx = 0, sy = 0, sxx = 0, sxy = 0, n = 0; Object.keys(bins).forEach(function(b){ var x = b * 8 + 4, y = bins[b]; sx += x; sy += y; sxx += x * x; sxy += x * y; n++; });
-      var a = n > 1 ? (n * sxy - sx * sy) / Math.max(1e-9, n * sxx - sx * sx) : 0; return {a:a, b:(sy - a * sx) / n}; };
-    var top = fit(false), bot = fit(true); out.push({lo:lo, hi:hi, thick:mhi - mlo, top:top, bot:bot, mid:{a:(top.a + bot.a) / 2, b:(top.b + bot.b) / 2}});
-  });
-  return out;
-}
-function daPaperAt(f, t){ return f.a * t + f.b; }
+
+
 function daPaperX(h, v){ // intersection of horizontal y = a x + b and vertical x = c y + d
   var x = (v.a * h.b + v.b) / (1 - v.a * h.a); return {x:x, y:h.a * x + h.b};
 }

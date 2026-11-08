@@ -30,6 +30,7 @@ function daCompactStatus(){
   else if(e.dataset.full){ e.textContent = e.dataset.full; delete e.dataset.full; }
 }
 function daFixEmptySheet(){   // a sheet opened before the tanks arrived from the cloud has no farm: pick one and redraw (nothing typed yet)
+  if(['feed-sheet', 'wq-sheet'].indexOf(currentView) < 0) return;   // nothing to fix unless a sheet is open
   var farms = daFarms(); if(!farms.length) return; var dirty = window._daActiveTab && window._daActiveTab.dirty;
   [['feed-sheet', '_fs'], ['wq-sheet', '_wqs']].forEach(function(x){ var st = window[x[1]];
     if(currentView === x[0] && !dirty && (!st || farms.indexOf(st.farm) < 0)){ window[x[1]] = Object.assign(st || {}, {farm:farmFilter && farmFilter !== 'all' && farms.indexOf(farmFilter) >= 0 ? farmFilter : farms[0]}); show(x[0], true); } });
@@ -93,6 +94,7 @@ if(!window._daWuiWrapped){
   window.addEventListener('resize', daCompactStatus);
   var _tlPreWui = toggleLang;
   toggleLang = function(){ var r = _tlPreWui.apply(this, arguments); daWorkerBar(); updateUserUI(); return r; };
-  new MutationObserver(function(){ var c = document.getElementById('content'); if(!c) return; daDateCtl(c); if(typeof daHideWorkerEmails === 'function' && c.textContent.indexOf('@' + DA_USER_DOMAIN) >= 0) daHideWorkerEmails(c); })
+  new MutationObserver(function(){ var c = document.getElementById('content'); if(!c) return; daDateCtl(c);   // cheap: only the pages that show accounts are searched for internal addresses
+    if(typeof daHideWorkerEmails === 'function' && (currentView === 'account' || currentView === 'user-management')) daHideWorkerEmails(c); })
     .observe(document.getElementById('content') || document.body, {childList:true, subtree:true});
 }

@@ -135,6 +135,20 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- SPEED + CLEAN-UP (owner 2026-11-08 "clean it and make it faster"; module `perf_tune.js`, patch `dev/tools/patch_perf.py`,
+  benchmarks `dev/tests/perf_year.py` (pages, 70k local records) and `dev/tests/perf_boot.py` (a year ON THE SERVER:
+  first login + daily open); PHONE=1 → CDP 4× CPU throttle). No duplicate functions existed (merge tool replaces);
+  26 never-called functions removed (core + fcr_weekly/plan/paper_ocr modules). Phone-speed before → after: daily open
+  4.1 → 2.1 s, first login 6.3 → 5.0 s, feed sheet 1.24 → 0.55 s, save feed sheet 2.0 → 1.0 s, sampling 1.1 → 0.3 s,
+  daily overview 1.06 → 0.27 s, twin 2.1 → 1.3 s. How: generateAlerts memo (key _dataVer|day|hour|farm|lang|role);
+  no alert monitor for users who cannot see alerts (workers); daRawUnit indexed (RAW + setup tanks); daBgRefresh skipped
+  when the page was drawn at the same _dataVer; txStoreInit no longer rewrites the whole IndexedDB copy at every opening;
+  feed-sheet helpers (daFwDefaultFeed, daFsRows, daSheetDefaultProduct) use daTxByUnit / memo instead of scanning all
+  records; sampling sheet uses daTxByUnit; daFixEmptySheet returns unless a sheet is open; the worker observer no longer
+  reads #content.textContent on every change. daTimelineCheck KEPT for feeding (its 'pre' / 'empty' checks apply to
+  feed). Retired legacy screens (quick-feed, tx-feeding, feed-week, per-tank WQ) are still in the code, hidden; tests
+  updated: e2e_fprint FP10, e2e_week W12 (workers no longer reach office / retired pages). e2e_week W1 still the known
+  date-dependent failure.
 - TANKS ADDED IN THE TOOL (the hatchery, owner 2026-11-08; module `custom_units.js`, test `e2e_tanknames`): two bugs
   made them invisible / locked in the feed sheet: (1) daTankNo only read "S01T01" → now also S01.T01, S1-T1, S01 T01,
   S01.Tank1, and names without T (section from the tank's setup + last number); (2) daRawUnit read the imported list

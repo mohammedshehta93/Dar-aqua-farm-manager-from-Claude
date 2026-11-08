@@ -272,7 +272,7 @@ function daCopyText(text){
   if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ toast('✅ اتنسخ'); }, function(){ daCopyFallback(text); });
   else daCopyFallback(text);
 }
-function daCopyFallback(text){ var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); toast('✅ اتنسخ'); }catch(e){} document.body.removeChild(t); }
+
 // dashboard card: last closed week's report, until it has been opened on this device
 function daWeeklyCard(){
   if(!currentUser || !canAccessView('weekly-report')) return '';

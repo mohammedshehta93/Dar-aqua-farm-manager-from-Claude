@@ -4,8 +4,8 @@
 // Every tank with fish on the chosen day, grouped by section: previous sample (reference), average weight (g), fish
 // weighed, change since the previous sample (shown while typing). A day already sampled is edited in place (no second
 // record). Same input ids as before (sp-date, sp-wt-<unit>, sp-n-<unit>) so the printed-sheet photo still fills it.
-function daSpLast(unit, date){ var b = null; getTX().forEach(function(t){ if(t.type === 'sampling' && t.unit === unit && !t.deleted && !t.link && t.date < date && parseFloat(t.avgWt) > 0 && (!b || t.date > b.date)) b = t; }); return b; }
-function daSpOn(unit, date){ return getTX().filter(function(t){ return t.type === 'sampling' && t.unit === unit && t.date === date && !t.deleted && !t.link; })[0] || null; }
+function daSpLast(unit, date){ var b = null; (daTxByUnit()[unit] || []).forEach(function(t){ if(t.type === 'sampling' && !t.deleted && !t.link && t.date < date && parseFloat(t.avgWt) > 0 && (!b || t.date > b.date)) b = t; }); return b; }
+function daSpOn(unit, date){ return (daTxByUnit()[unit] || []).filter(function(t){ return t.type === 'sampling' && t.date === date && !t.deleted && !t.link; })[0] || null; }
 function renderSampSheet(){
   var st = window._sp = window._sp || {}, farms = daFarms(); if(!st.date) st.date = (typeof _sampSheetDate !== 'undefined' && _sampSheetDate) || daToday();
   if(farmFilter && farmFilter !== 'all') st.farm = farmFilter; if(!st.farm || farms.indexOf(st.farm) < 0) st.farm = farms[0] || '';
@@ -50,7 +50,7 @@ function daSpSave(){
     if(!w){ return; } var avg = parseFloat(w.replace(',', '.')), N = parseInt((document.getElementById('sp-n-' + u) || {}).value) || 0, s = daStateEnd(u, date), L = daSpLast(u, date);
     var rec = {avgWt:avg, sampleN:N, biomass:(s.fish || 0) * avg / 1000, sgr:0, fcr:0, daysSinceLast:0, feedSinceLast:0};
     if(L){ rec.daysSinceLast = Math.max(1, daDaysBetween(L.date, date)); rec.sgr = computeSGR(L.avgWt, avg, rec.daysSinceLast);
-      rec.feedSinceLast = getTX().filter(function(t){ return t.unit === u && t.type === 'feeding' && !t.deleted && t.date >= L.date && t.date <= date; }).reduce(function(a, t){ return a + (parseFloat(t.kg) || 0); }, 0);
+      rec.feedSinceLast = (daTxByUnit()[u] || []).filter(function(t){ return t.type === 'feeding' && !t.deleted && t.date >= L.date && t.date <= date; }).reduce(function(a, t){ return a + (parseFloat(t.kg) || 0); }, 0);
       var wg = (avg - L.avgWt) / 1000 * (s.fish || 0); if(wg > 0 && rec.feedSinceLast > 0) rec.fcr = rec.feedSinceLast / wg; }
     if(cur){ if(+cur.avgWt !== avg || (+cur.sampleN || 0) !== N){ updateTX(cur.id, rec); upd++; } }
     else { addTX(Object.assign({id:'sp-' + u + '-' + date, type:'sampling', date:date, unit:u, source:'sheet', _skipValidation:true}, rec)); n++; } });

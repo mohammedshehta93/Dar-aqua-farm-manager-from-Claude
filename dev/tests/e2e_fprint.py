@@ -58,7 +58,7 @@ with sync_playwright() as p:
     pg.evaluate('doLogout(true)'); pg.wait_for_timeout(400)
     login(pg,'worker@example.com','work123'); wait_sync(pg)
     pg.evaluate("show('feeding-print')"); pg.wait_for_timeout(300)
-    check('FP10 worker can print the sheet', 'شيت التغذية للطباعة' in content(pg) and 'feeding-print' in visible_views(pg))
+    check('FP10 the feeding-schedule print is an office page: closed to workers (they get only their entry pages, 2026-11-08)', 'feeding-print' not in visible_views(pg) and not pg.evaluate("canAccessView('feeding-print')"))
     pg.evaluate('doLogout(true)'); pg.wait_for_timeout(400)
     login(pg,'viewer@example.com','view123'); wait_sync(pg)
     pg.evaluate("show('feeding-print')"); pg.wait_for_timeout(300)

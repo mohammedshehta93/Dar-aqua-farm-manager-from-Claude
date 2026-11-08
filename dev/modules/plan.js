@@ -19,14 +19,8 @@ function daPlanStageIssues(st){
     if(i > 0 && a.until > 0 && st[i - 1].until > 0 && a.until <= st[i - 1].until) out.push('المرحلة ' + (i + 1) + ': وزن النقل لازم يبقى أكبر من اللي قبلها'); });
   return out;
 }
-function daPlanStagesText(p){ return p.stages.map(function(s){ return s.from + '-' + (s.to >= 999 ? '' : s.to) + ' = ' + (s.name || '') + (s.until ? ' | ' + s.until : ''); }).join('\n'); }
-function daPlanParseStages(t){
-  var out = [], bad = [];
-  String(t || '').split('\n').forEach(function(l, i){ l = l.trim(); if(!l) return;
-    var m = l.match(/^(\d+)\s*-\s*(\d*)\s*=\s*([^|]*?)\s*(?:\|\s*(\d+(?:\.\d+)?))?\s*$/); if(!m){ bad.push(i + 1); return; }
-    out.push({from:+m[1], to:m[2] === '' ? 999 : +m[2], name:m[3], until:m[4] ? +m[4] : 0}); });
-  return {stages:out, bad:bad};
-}
+
+
 // growth basis = the digital twin's farm values
 function daPlanBasis(farm){
   var cfg = daTwinCfg(farm), R = daTwinRun(farm, {days:1, feedPct:100, dT:0}), units = {}, temps = [];
@@ -165,8 +159,7 @@ function daPlanSaveBasis(){
   a[farm] = c; localStorage.setItem(DA_TWIN_KEY, JSON.stringify(a));
   var p = daPlanOf(farm); p.surv = sv || 0; daPlanSave(farm, p); toast('✅ اتحفظ أساس الحساب'); show('farm-plan', true);
 }
-function daPlanSaveStages(){ var r = daPlanParseStages((document.getElementById('pl-stages') || {}).value); if(r.bad.length || !r.stages.length){ toast('⚠️ السطر ' + r.bad.join('، ') + ' مش مفهوم — مثال: 1-3 = تحضين | 50'); return; }
-  var p = daPlanOf(window._pl.farm); p.stages = r.stages; daPlanSave(window._pl.farm, p); toast('✅ اتحفظ المسار'); show('farm-plan', true); }
+
 function daPlanAdd(){
   var g = function(id){ return String((document.getElementById(id) || {}).value || '').trim(); }, b = {name:g('pl-name'), date:g('pl-date'), count:+g('pl-count'), wt:+g('pl-wt'), target:+g('pl-target') || 0};
   if(!b.date || !(b.count > 0) || !(b.wt > 0)){ toast('⚠️ اكتب التاريخ والعدد ووزن البداية'); return; }
