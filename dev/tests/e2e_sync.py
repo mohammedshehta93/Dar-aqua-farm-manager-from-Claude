@@ -51,8 +51,9 @@ with sync_playwright() as p:
     # Y10 new-version notice
     A.evaluate('_verTag=null; daCheckUpdate()'); A.wait_for_timeout(600)
     os.utime(os.path.join(ROOT, 'index.html'), None); _t.sleep(1.2); os.utime(os.path.join(ROOT, 'index.html'), None)
-    A.evaluate('daCheckUpdate()'); A.wait_for_timeout(800)
-    check('Y10 "new version" notice appears after an update is published', A.is_visible('#upd-banner'))
+    A.evaluate("window.__beforeUpd = 1; daCheckUpdate()"); A.wait_for_timeout(2500)
+    # nothing at risk on A → the new version applies itself (page reloads); with unsaved input it would show the banner instead
+    check('Y10 a published update reaches the device (applied by itself when nothing is at risk, else the banner)', A.evaluate("window.__beforeUpd === undefined") or A.is_visible('#upd-banner'))
     for c in (cA, cB): c.close()
     # Y5 database without the new column still works (full download, old way)
     sb2 = MockSB(); sb2.no_synced_at = True; sb2.add_user('owner@example.com','admin123',role='admin',uid='u-admin')

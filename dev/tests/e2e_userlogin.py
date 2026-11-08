@@ -5,6 +5,7 @@ with sync_playwright() as p:
     BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
     sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin')
     ctx, pg = new_page(p, sb)
+    ctx.route('**://wa.me/**', lambda r: r.fulfill(status=200, body='whatsapp'))   # no internet in tests: answer the WhatsApp page locally
     pg.wait_for_timeout(300)
     check('U1 login page asks for "username or email" (plain text field)', pg.evaluate("(document.getElementById('auth-email')||{}).type") == 'text' and 'اسم المستخدم أو الإيميل' in content(pg))
     login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)

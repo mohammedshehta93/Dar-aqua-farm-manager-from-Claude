@@ -135,6 +135,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- PHONE + UPDATES (owner 2026-11-08; module `mobile_ui.js`, test `e2e_mobile` at 390×844): body.da-out (not logged in)
+  hides farm picker / back / user chip / connection; ≤560 px header = one compact row. Updates: daShowUpdateBanner now
+  reloads by itself when daUpdateSafe() (no dirty tab, empty offline queue, not typing), else banner "احفظ شغلك…" and a
+  20 s retry; daStaleCheck at start (server Last-Modified newer than document.lastModified → update). Version
+  (document.lastModified) on the login card and in the guide. Tests opening wa.me must route it locally (no internet →
+  slow teardown).
 - TESTING LOG DAILY + WEEKLY (owner 2026-11-08; module `wq_weekly.js`, test `e2e_wqweekly`): the wq-sheet has a mode
   toggle (window._wqs.mode): daily = the original sheet (temp/pH/DO); weekly = TAN · NO2 · NO3 · alkalinity per section,
   saved as wn-<sec>-<date> (same record the twin's weekly card writes and reads). The AquaManager copy of a day carries
@@ -279,7 +285,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-43 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+44 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
