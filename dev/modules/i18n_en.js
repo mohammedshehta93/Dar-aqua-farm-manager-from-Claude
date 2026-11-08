@@ -18,6 +18,8 @@ var DA_EN_RULES = [
   [/📋 اتنسخ علف (\d+) تانك من (\S+) — راجع وعدّل واحفظ/g, '📋 Copied feed of $1 tanks from $2 — check, edit and save'], [/⚠️ أرقام مش منطقية: (.+)/g, '⚠️ Impossible numbers: $1'],
   [/⚠️ اكتب الحجم \(1 أو 2 أو 3\) للتانكات: (.+)/g, '⚠️ Write the size (1, 2 or 3) for tanks: $1'], [/⚠️ أرقام مش صحيحة في: (.+)/g, '⚠️ Wrong numbers in: $1'],
   [/فيه بيانات اتكتبت في "(.+?)" ومتحفظتش\. (.+)/g, 'Unsaved input in "$1". $2'], [/(\d+) تاب فيهم بيانات متحفظتش\. تقفلهم برضه؟/g, '$1 tabs have unsaved input. Close them anyway?'],
+  [/✅ اتحفظت عينات (\d+) تانك/g, '✅ Samples saved for $1 tank(s)'], [/⚠️ أوزان مش منطقية: (.+)/g, '⚠️ Impossible weights: $1'],
+  [/الوزن نازل عن العينة اللي فاتت أو زاد أكتر من الضعف في: (.+?)\s*متأكد من الأرقام؟/g, 'Lower than the last sample, or more than double, in: $1\nAre the numbers right?'],
   [/متاح يومها: ([\d,]+) سمكة · (\d+)g/g, 'Available that day: $1 fish · $2 g'], [/^(\d+) سجل$/g, '$1 records'], [/حصاد (\S+): ([\d,]+) سمكة · ([\d.]+) كجم/g, 'Harvest $1: $2 fish · $3 kg'],
   [/نقل من (\S+) لـ (\d+) تانك · ([\d,]+) سمكة/g, 'Transfer from $1 to $2 tank(s) · $3 fish'], [/(\S+) يومها فيه ([\d,]+) سمكة بس — مينفعش تنقل ([\d,]+)/g, '$1 had only $2 fish that day — cannot transfer $3'],
   [/التانك يومها فيه ([\d,]+) سمكة بس — مينفعش تحصد ([\d,]+)/g, 'The tank had only $1 fish that day — cannot harvest $2'],
@@ -77,6 +79,9 @@ var DA_EN = [
   ['🎣 الحصاد', '🎣 Harvest'], ['🔄 النقل', '🔄 Transfer'], ['الحصاد', 'Harvest'], ['النقل', 'Transfer'], ['العينات', 'Sampling'], ['التانك', 'Tank'], ['المشتري', 'Buyer'], ['السعر', 'Price'],
   ['صغير', 'Small'], ['طبيعي', 'Normal'], ['كبير جداً', 'X-large'], ['كبير', 'Large'], ['غير مصنف', 'Unsorted'], ['فلتر', 'Filter'], ['لحد', 'To'], ['من', 'From'], ['فرق عد', 'Count difference'],
   ['مفيش تانكات متسجلة للمزرعة دي.', 'No tanks recorded for this farm.'], ['مفيش سكاشن في المزرعة دي', 'No sections in this farm'],
+  ['🔬 شيت العينات', '🔬 Sampling sheet'], ['متوسط الوزن لكل تانك — العينة اللي فاتت قدامك للمقارنة', 'Average weight per tank — the last sample is shown to compare'],
+  ['مفيش تانكات فيها سمك في اليوم ده.', 'No tanks with fish on this day.'],
+  ['سيب التانك فاضي لو متوزنش. الأصفر = الوزن نازل عن اللي فات أو أكتر من الضعف — اتأكد منه.', 'Leave a tank empty if it was not weighed. Yellow = lower than last time or more than double — check it.'],
   ['هروب', 'Escape'], ['سرقة / فقد', 'Theft / loss'], ['أخرى', 'Other'], ['نقل / فرز', 'Transfer / grading'], ['ملاحظات', 'Notes'], ['المدة', 'Period']];
 DA_EN.sort(function(a, b){ return b[0].length - a[0].length; });
 var _daArRe = /[\u0600-\u06FF]/;

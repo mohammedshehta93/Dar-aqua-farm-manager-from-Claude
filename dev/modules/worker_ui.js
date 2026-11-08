@@ -34,6 +34,28 @@ function daFixEmptySheet(){   // a sheet opened before the tanks arrived from th
   [['feed-sheet', '_fs'], ['wq-sheet', '_wqs']].forEach(function(x){ var st = window[x[1]];
     if(currentView === x[0] && !dirty && (!st || farms.indexOf(st.farm) < 0)){ window[x[1]] = Object.assign(st || {}, {farm:farmFilter && farmFilter !== 'all' && farms.indexOf(farmFilter) >= 0 ? farmFilter : farms[0]}); show(x[0], true); } });
 }
+function daCalOpen(inp, anchor, set){
+  var old = document.getElementById('da-cal'); if(old){ old.remove(); if(old._for === inp) return; }
+  var L = isAr ? 'ar' : 'en', full = {en:['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], ar:DA_MONTHS.ar};
+  var cur = (inp.value || daToday()).split('-'), y = +cur[0], m = +cur[1] - 1, c = document.createElement('div'); c.id = 'da-cal'; c._for = inp; c.dir = isAr ? 'rtl' : 'ltr';
+  c.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:10px;width:290px;font-size:14px';
+  var draw = function(){
+    var first = new Date(Date.UTC(y, m, 1)).getUTCDay(), days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(), max = inp.max || '9999-12-31', p2 = function(n){ return ('0' + n).slice(-2); };
+    var hh = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><button data-k="-1" style="border:0;background:#f1f5f9;border-radius:8px;width:40px;height:36px;font-size:16px;cursor:pointer">' + (isAr ? '▶' : '◀') + '</button>'
+      + '<b>' + full[L][m] + ' ' + y + '</b><button data-k="1" style="border:0;background:#f1f5f9;border-radius:8px;width:40px;height:36px;font-size:16px;cursor:pointer"' + (y + '-' + p2(m + 1) >= max.slice(0, 7) ? ' disabled' : '') + '>' + (isAr ? '◀' : '▶') + '</button></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center">' + DA_DAYS[L].map(function(d){ return '<div style="font-size:11px;color:var(--muted)">' + d.slice(0, isAr ? 5 : 2) + '</div>'; }).join('');
+    for(var i = 0; i < first; i++) hh += '<div></div>';
+    for(var d = 1; d <= days; d++){ var v = y + '-' + p2(m + 1) + '-' + p2(d), dis = v > max || (inp.min && v < inp.min), on = v === inp.value, td = v === daToday();
+      hh += '<button data-d="' + v + '"' + (dis ? ' disabled' : '') + ' style="height:36px;border-radius:8px;cursor:' + (dis ? 'default' : 'pointer') + ';font:inherit;border:' + (td ? '2px solid var(--teal)' : '1px solid transparent') + ';background:' + (on ? 'var(--teal)' : '#fff') + ';color:' + (on ? '#fff' : dis ? '#cbd5e1' : 'inherit') + '">' + d + '</button>'; }
+    c.innerHTML = hh + '</div>';
+  };
+  draw(); document.body.appendChild(c);
+  var r = anchor.getBoundingClientRect(); c.style.top = Math.min(r.bottom + 6, window.innerHeight - c.offsetHeight - 8) + 'px'; c.style.left = Math.max(6, Math.min(r.left, window.innerWidth - 296)) + 'px';
+  c.addEventListener('click', function(e){ var b = e.target.closest('button'); if(!b || b.disabled) return; e.stopPropagation();
+    if(b.dataset.k){ m += +b.dataset.k; if(m < 0){ m = 11; y--; } if(m > 11){ m = 0; y++; } draw(); return; }
+    if(b.dataset.d){ c.remove(); set(b.dataset.d); } });
+  setTimeout(function(){ document.addEventListener('mousedown', function off(e){ if(!c.contains(e.target) && !anchor.contains(e.target)){ c.remove(); document.removeEventListener('mousedown', off, true); } }, true); }, 0);
+}
 var DA_DAYS = {en:['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], ar:['الأحد', 'الاتنين', 'التلات', 'الأربع', 'الخميس', 'الجمعة', 'السبت']};
 var DA_MONTHS = {en:['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], ar:['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']};
 function daFmtDate(v){ var p = String(v || '').split('-'); if(p.length !== 3) return v || '—'; var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])), L = isAr ? 'ar' : 'en';
@@ -49,14 +71,17 @@ function daDateCtl(root){
     var paint = function(){ lbl.firstChild.nodeValue = daFmtDate(inp.value); next.disabled = !!inp.max && inp.value >= inp.max; today.style.display = inp.value === daToday() ? 'none' : ''; };
     var set = function(v){ if(!v || (inp.max && v > inp.max) || (inp.min && v < inp.min)) return; inp.value = v; paint(); inp.dispatchEvent(new Event('input', {bubbles:true})); inp.dispatchEvent(new Event('change', {bubbles:true})); };
     prev.onclick = function(){ set(daAddDays(inp.value || daToday(), -1)); }; next.onclick = function(){ set(daAddDays(inp.value || daToday(), 1)); }; today.onclick = function(){ set(daToday()); };
-    lbl.addEventListener('click', function(e){ if(e.target !== inp && inp.showPicker) try{ inp.showPicker(); }catch(x){} });
+    inp.style.pointerEvents = 'none'; inp.tabIndex = -1;   // the phone's calendar speaks the phone's language: ours speaks the app's
+    lbl.addEventListener('click', function(){ daCalOpen(inp, lbl, set); });
     inp.addEventListener('change', paint); inp.addEventListener('input', paint); paint();
   });
 }
 if(!window._daWuiWrapped){
   window._daWuiWrapped = true;
   var _showPreWui = show;
-  show = function(){ var r = _showPreWui.apply(this, arguments); daWorkerBar(); daDateCtl(document.getElementById('content')); return r; };
+  show = function(){ var r = _showPreWui.apply(this, arguments); daWorkerBar(); daDateCtl(document.getElementById('content'));
+    if(currentUser && currentUserRole === 'worker' && currentView === 'account') document.querySelectorAll('#content input[type=password]').forEach(function(i){ var c = i.closest('.card'); if(c) c.style.display = 'none'; });   // passwords: the admin's job
+    return r; };
   var _uuiPreWui = updateUserUI;
   updateUserUI = function(){ var r = _uuiPreWui.apply(this, arguments); daWorkerBar();
     var b = document.getElementById('user-badge'); if(b && currentUser && currentUserRole === 'worker'){ var nm = (getSession() || {}).name || daShowLogin(currentUser.email); b.textContent = '👤 ' + nm; }

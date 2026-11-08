@@ -1,0 +1,50 @@
+# Sampling as one sheet per farm (like the feed sheet); in-app calendar in the app's language; no password change for workers.
+import os, re; os.environ['E2E_PORT'] = '8837'
+from harness import *
+AR = re.compile(r'[\u0600-\u06FF]+')
+def arabic(pg): return [w for w in AR.findall(pg.evaluate("(() => { let t=''; const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT); let n; while((n=w.nextNode())) if(n.parentElement && n.parentElement.offsetParent!==null) t+=' '+n.nodeValue; return t; })()")) if w != 'عربي']
+with sync_playwright() as p:
+    BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
+    sb = MockSB(); sb.add_user('sam@workers.dar-aqua.app', 'work123', role='worker', perms=['input_feeding', 'input_sampling']); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin')
+    ctx, pg = new_page(p, sb); pg.set_viewport_size({'width': 390, 'height': 844})
+    pg.evaluate("localStorage.setItem('da_lang','en')"); pg.reload(); pg.wait_for_timeout(400)
+    login(pg, 'sam@workers.dar-aqua.app', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pg.evaluate("addTX({id:'old1',type:'sampling',unit:'F1.S01T01',date:daAddDays(daToday(),-14),avgWt:200,_skipValidation:true})")
+    pg.click('#da-wbar button[data-v="tx-sampling"]'); pg.wait_for_timeout(400); pg.evaluate("window._sp.farm='F1'; show('tx-sampling',true)"); pg.wait_for_timeout(400)
+    rows = pg.evaluate("[...document.querySelectorAll('.sp-t tbody tr')].map(r=>r.dataset.u)")
+    check('S1 one sheet for the farm: every tank with fish in rows, grouped by section', len(rows) >= 3 and all(r.startswith('F1.') for r in rows) and pg.evaluate("document.querySelectorAll('.sp-t').length") >= 1, rows)
+    check('S2 the last sample is shown next to each tank', '200 g' in pg.evaluate("document.querySelector('.sp-t tr[data-u=\"F1.S01T01\"]').innerText"))
+    pg.fill('#sp-wt-F1\\.S01T01', '256'); pg.fill('#sp-n-F1\\.S01T01', '30'); pg.wait_for_timeout(100)
+    chg = pg.evaluate("document.querySelector('.sp-t tr[data-u=\"F1.S01T01\"] .sp-chg').innerText")
+    check('S3 change since the last sample while typing (+56 g, 4.0 g/d)', '+56 g' in chg and '4.0 g/d' in chg, chg)
+    pg.fill('#sp-wt-F1\\.S01T02', '40'); pg.wait_for_timeout(50)
+    check('S4 the sheet is in English, incl. sections', not arabic(pg), arabic(pg)[:10])
+    pg.click('#sp-save'); pg.wait_for_timeout(500)
+    r = pg.evaluate("getTX().find(t=>t.id==='sp-F1.S01T01-'+daToday())")
+    check('S5 saved with growth figures (SGR) and waiting for review (worker)', r and r['avgWt'] == 256 and r['sampleN'] == 30 and r['sgr'] > 0 and r.get('status') == 'pending', r)
+    pg.fill('#sp-wt-F1\\.S01T01', '260'); pg.click('#sp-save'); pg.wait_for_timeout(400)
+    check('S6 editing the same day updates the sample (no second one)', pg.evaluate("getTX().filter(t=>t.type==='sampling'&&t.unit==='F1.S01T01'&&t.date===daToday()&&!t.deleted).length") == 1 and pg.evaluate("getTX().find(t=>t.id==='sp-F1.S01T01-'+daToday()).avgWt") == 260)
+    pg.fill('#sp-wt-F1\\.S01T01', '120'); msgs = []
+    pg.once('dialog', lambda d: (msgs.append(d.message), d.dismiss())); pg.click('#sp-save'); pg.wait_for_timeout(300)
+    check('S7 a weight lower than last time asks first (in English)', msgs and 'Lower than the last sample' in msgs[0], msgs)
+    # in-app calendar
+    pg.evaluate("show('tx-sampling',true)"); pg.wait_for_timeout(300)
+    pg.click('.da-dctl .lbl'); pg.wait_for_timeout(200)
+    cal = pg.evaluate("(document.getElementById('da-cal')||{}).innerText||''")
+    check('S8 tapping the date opens the app\'s own calendar, in English', re.search(r'(January|February|March|April|May|June|July|August|September|October|November|December) 20\d\d', cal) is not None and 'Su' in cal and not AR.search(cal), cal[:80])
+    check('S9 days after today cannot be picked', pg.evaluate("[...document.querySelectorAll('#da-cal button[data-d]')].filter(b=>b.dataset.d>daToday()).every(b=>b.disabled)"))
+    d1 = pg.evaluate("daAddDays(daToday(),-1)")
+    if pg.evaluate(f"!!document.querySelector('#da-cal button[data-d=\"{d1}\"]')"): pg.click(f'#da-cal button[data-d="{d1}"]')
+    else: pg.click('#da-cal button[data-k="-1"]'); pg.wait_for_timeout(100); pg.click(f'#da-cal button[data-d="{d1}"]')
+    pg.wait_for_timeout(400)
+    check('S10 picking a day changes the sheet\'s date', pg.evaluate("window._sp.date") == d1 and not pg.evaluate("!!document.getElementById('da-cal')"))
+    pg.evaluate("show('account')"); pg.wait_for_timeout(300)
+    check('S11 a worker\'s account page has no password change', not pg.evaluate("[...document.querySelectorAll('#content input[type=password]')].some(i=>i.offsetParent!==null)"))
+    pg.evaluate("doLogout(true)"); pg.wait_for_timeout(500)
+    login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.evaluate("show('account')"); pg.wait_for_timeout(300)
+    check('S12 the admin still changes their own password there', pg.evaluate("[...document.querySelectorAll('#content input[type=password]')].some(i=>i.offsetParent!==null)"))
+    check('S13 no page errors', not pg._errs, pg._errs)
+    ctx.close()
+    fails = [r for r in RESULTS if not r[1]]
+    for nm, ok, dt in RESULTS: print(('✅ ' if ok else '❌ ') + nm + ('' if ok else f'  → {str(dt)[:300]}'))
+    print(f'\n{len(RESULTS)-len(fails)}/{len(RESULTS)} passed')

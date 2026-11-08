@@ -16374,6 +16374,8 @@ var DA_EN_RULES = [
   [/📋 اتنسخ علف (\d+) تانك من (\S+) — راجع وعدّل واحفظ/g, '📋 Copied feed of $1 tanks from $2 — check, edit and save'], [/⚠️ أرقام مش منطقية: (.+)/g, '⚠️ Impossible numbers: $1'],
   [/⚠️ اكتب الحجم \(1 أو 2 أو 3\) للتانكات: (.+)/g, '⚠️ Write the size (1, 2 or 3) for tanks: $1'], [/⚠️ أرقام مش صحيحة في: (.+)/g, '⚠️ Wrong numbers in: $1'],
   [/فيه بيانات اتكتبت في "(.+?)" ومتحفظتش\. (.+)/g, 'Unsaved input in "$1". $2'], [/(\d+) تاب فيهم بيانات متحفظتش\. تقفلهم برضه؟/g, '$1 tabs have unsaved input. Close them anyway?'],
+  [/✅ اتحفظت عينات (\d+) تانك/g, '✅ Samples saved for $1 tank(s)'], [/⚠️ أوزان مش منطقية: (.+)/g, '⚠️ Impossible weights: $1'],
+  [/الوزن نازل عن العينة اللي فاتت أو زاد أكتر من الضعف في: (.+?)\s*متأكد من الأرقام؟/g, 'Lower than the last sample, or more than double, in: $1\nAre the numbers right?'],
   [/متاح يومها: ([\d,]+) سمكة · (\d+)g/g, 'Available that day: $1 fish · $2 g'], [/^(\d+) سجل$/g, '$1 records'], [/حصاد (\S+): ([\d,]+) سمكة · ([\d.]+) كجم/g, 'Harvest $1: $2 fish · $3 kg'],
   [/نقل من (\S+) لـ (\d+) تانك · ([\d,]+) سمكة/g, 'Transfer from $1 to $2 tank(s) · $3 fish'], [/(\S+) يومها فيه ([\d,]+) سمكة بس — مينفعش تنقل ([\d,]+)/g, '$1 had only $2 fish that day — cannot transfer $3'],
   [/التانك يومها فيه ([\d,]+) سمكة بس — مينفعش تحصد ([\d,]+)/g, 'The tank had only $1 fish that day — cannot harvest $2'],
@@ -16433,6 +16435,9 @@ var DA_EN = [
   ['🎣 الحصاد', '🎣 Harvest'], ['🔄 النقل', '🔄 Transfer'], ['الحصاد', 'Harvest'], ['النقل', 'Transfer'], ['العينات', 'Sampling'], ['التانك', 'Tank'], ['المشتري', 'Buyer'], ['السعر', 'Price'],
   ['صغير', 'Small'], ['طبيعي', 'Normal'], ['كبير جداً', 'X-large'], ['كبير', 'Large'], ['غير مصنف', 'Unsorted'], ['فلتر', 'Filter'], ['لحد', 'To'], ['من', 'From'], ['فرق عد', 'Count difference'],
   ['مفيش تانكات متسجلة للمزرعة دي.', 'No tanks recorded for this farm.'], ['مفيش سكاشن في المزرعة دي', 'No sections in this farm'],
+  ['🔬 شيت العينات', '🔬 Sampling sheet'], ['متوسط الوزن لكل تانك — العينة اللي فاتت قدامك للمقارنة', 'Average weight per tank — the last sample is shown to compare'],
+  ['مفيش تانكات فيها سمك في اليوم ده.', 'No tanks with fish on this day.'],
+  ['سيب التانك فاضي لو متوزنش. الأصفر = الوزن نازل عن اللي فات أو أكتر من الضعف — اتأكد منه.', 'Leave a tank empty if it was not weighed. Yellow = lower than last time or more than double — check it.'],
   ['هروب', 'Escape'], ['سرقة / فقد', 'Theft / loss'], ['أخرى', 'Other'], ['نقل / فرز', 'Transfer / grading'], ['ملاحظات', 'Notes'], ['المدة', 'Period']];
 DA_EN.sort(function(a, b){ return b[0].length - a[0].length; });
 var _daArRe = /[\u0600-\u06FF]/;
@@ -16520,6 +16525,28 @@ function daFixEmptySheet(){   // a sheet opened before the tanks arrived from th
   [['feed-sheet', '_fs'], ['wq-sheet', '_wqs']].forEach(function(x){ var st = window[x[1]];
     if(currentView === x[0] && !dirty && (!st || farms.indexOf(st.farm) < 0)){ window[x[1]] = Object.assign(st || {}, {farm:farmFilter && farmFilter !== 'all' && farms.indexOf(farmFilter) >= 0 ? farmFilter : farms[0]}); show(x[0], true); } });
 }
+function daCalOpen(inp, anchor, set){
+  var old = document.getElementById('da-cal'); if(old){ old.remove(); if(old._for === inp) return; }
+  var L = isAr ? 'ar' : 'en', full = {en:['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], ar:DA_MONTHS.ar};
+  var cur = (inp.value || daToday()).split('-'), y = +cur[0], m = +cur[1] - 1, c = document.createElement('div'); c.id = 'da-cal'; c._for = inp; c.dir = isAr ? 'rtl' : 'ltr';
+  c.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:10px;width:290px;font-size:14px';
+  var draw = function(){
+    var first = new Date(Date.UTC(y, m, 1)).getUTCDay(), days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(), max = inp.max || '9999-12-31', p2 = function(n){ return ('0' + n).slice(-2); };
+    var hh = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><button data-k="-1" style="border:0;background:#f1f5f9;border-radius:8px;width:40px;height:36px;font-size:16px;cursor:pointer">' + (isAr ? '▶' : '◀') + '</button>'
+      + '<b>' + full[L][m] + ' ' + y + '</b><button data-k="1" style="border:0;background:#f1f5f9;border-radius:8px;width:40px;height:36px;font-size:16px;cursor:pointer"' + (y + '-' + p2(m + 1) >= max.slice(0, 7) ? ' disabled' : '') + '>' + (isAr ? '◀' : '▶') + '</button></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center">' + DA_DAYS[L].map(function(d){ return '<div style="font-size:11px;color:var(--muted)">' + d.slice(0, isAr ? 5 : 2) + '</div>'; }).join('');
+    for(var i = 0; i < first; i++) hh += '<div></div>';
+    for(var d = 1; d <= days; d++){ var v = y + '-' + p2(m + 1) + '-' + p2(d), dis = v > max || (inp.min && v < inp.min), on = v === inp.value, td = v === daToday();
+      hh += '<button data-d="' + v + '"' + (dis ? ' disabled' : '') + ' style="height:36px;border-radius:8px;cursor:' + (dis ? 'default' : 'pointer') + ';font:inherit;border:' + (td ? '2px solid var(--teal)' : '1px solid transparent') + ';background:' + (on ? 'var(--teal)' : '#fff') + ';color:' + (on ? '#fff' : dis ? '#cbd5e1' : 'inherit') + '">' + d + '</button>'; }
+    c.innerHTML = hh + '</div>';
+  };
+  draw(); document.body.appendChild(c);
+  var r = anchor.getBoundingClientRect(); c.style.top = Math.min(r.bottom + 6, window.innerHeight - c.offsetHeight - 8) + 'px'; c.style.left = Math.max(6, Math.min(r.left, window.innerWidth - 296)) + 'px';
+  c.addEventListener('click', function(e){ var b = e.target.closest('button'); if(!b || b.disabled) return; e.stopPropagation();
+    if(b.dataset.k){ m += +b.dataset.k; if(m < 0){ m = 11; y--; } if(m > 11){ m = 0; y++; } draw(); return; }
+    if(b.dataset.d){ c.remove(); set(b.dataset.d); } });
+  setTimeout(function(){ document.addEventListener('mousedown', function off(e){ if(!c.contains(e.target) && !anchor.contains(e.target)){ c.remove(); document.removeEventListener('mousedown', off, true); } }, true); }, 0);
+}
 var DA_DAYS = {en:['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], ar:['الأحد', 'الاتنين', 'التلات', 'الأربع', 'الخميس', 'الجمعة', 'السبت']};
 var DA_MONTHS = {en:['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], ar:['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']};
 function daFmtDate(v){ var p = String(v || '').split('-'); if(p.length !== 3) return v || '—'; var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])), L = isAr ? 'ar' : 'en';
@@ -16535,14 +16562,17 @@ function daDateCtl(root){
     var paint = function(){ lbl.firstChild.nodeValue = daFmtDate(inp.value); next.disabled = !!inp.max && inp.value >= inp.max; today.style.display = inp.value === daToday() ? 'none' : ''; };
     var set = function(v){ if(!v || (inp.max && v > inp.max) || (inp.min && v < inp.min)) return; inp.value = v; paint(); inp.dispatchEvent(new Event('input', {bubbles:true})); inp.dispatchEvent(new Event('change', {bubbles:true})); };
     prev.onclick = function(){ set(daAddDays(inp.value || daToday(), -1)); }; next.onclick = function(){ set(daAddDays(inp.value || daToday(), 1)); }; today.onclick = function(){ set(daToday()); };
-    lbl.addEventListener('click', function(e){ if(e.target !== inp && inp.showPicker) try{ inp.showPicker(); }catch(x){} });
+    inp.style.pointerEvents = 'none'; inp.tabIndex = -1;   // the phone's calendar speaks the phone's language: ours speaks the app's
+    lbl.addEventListener('click', function(){ daCalOpen(inp, lbl, set); });
     inp.addEventListener('change', paint); inp.addEventListener('input', paint); paint();
   });
 }
 if(!window._daWuiWrapped){
   window._daWuiWrapped = true;
   var _showPreWui = show;
-  show = function(){ var r = _showPreWui.apply(this, arguments); daWorkerBar(); daDateCtl(document.getElementById('content')); return r; };
+  show = function(){ var r = _showPreWui.apply(this, arguments); daWorkerBar(); daDateCtl(document.getElementById('content'));
+    if(currentUser && currentUserRole === 'worker' && currentView === 'account') document.querySelectorAll('#content input[type=password]').forEach(function(i){ var c = i.closest('.card'); if(c) c.style.display = 'none'; });   // passwords: the admin's job
+    return r; };
   var _uuiPreWui = updateUserUI;
   updateUserUI = function(){ var r = _uuiPreWui.apply(this, arguments); daWorkerBar();
     var b = document.getElementById('user-badge'); if(b && currentUser && currentUserRole === 'worker'){ var nm = (getSession() || {}).name || daShowLogin(currentUser.email); b.textContent = '👤 ' + nm; }
@@ -16557,6 +16587,67 @@ if(!window._daWuiWrapped){
   new MutationObserver(function(){ var c = document.getElementById('content'); if(!c) return; daDateCtl(c); if(typeof daHideWorkerEmails === 'function' && c.textContent.indexOf('@' + DA_USER_DOMAIN) >= 0) daHideWorkerEmails(c); })
     .observe(document.getElementById('content') || document.body, {childList:true, subtree:true});
 }
+
+// ══════════════════════════════════════════════════════════
+//  SAMPLING SHEET — one sheet per farm, like the feed sheet (owner, 2026-11-08)
+// ══════════════════════════════════════════════════════════
+// Every tank with fish on the chosen day, grouped by section: previous sample (reference), average weight (g), fish
+// weighed, change since the previous sample (shown while typing). A day already sampled is edited in place (no second
+// record). Same input ids as before (sp-date, sp-wt-<unit>, sp-n-<unit>) so the printed-sheet photo still fills it.
+function daSpLast(unit, date){ var b = null; getTX().forEach(function(t){ if(t.type === 'sampling' && t.unit === unit && !t.deleted && !t.link && t.date < date && parseFloat(t.avgWt) > 0 && (!b || t.date > b.date)) b = t; }); return b; }
+function daSpOn(unit, date){ return getTX().filter(function(t){ return t.type === 'sampling' && t.unit === unit && t.date === date && !t.deleted && !t.link; })[0] || null; }
+function renderSampSheet(){
+  var st = window._sp = window._sp || {}, farms = daFarms(); if(!st.date) st.date = (typeof _sampSheetDate !== 'undefined' && _sampSheetDate) || daToday();
+  if(farmFilter && farmFilter !== 'all') st.farm = farmFilter; if(!st.farm || farms.indexOf(st.farm) < 0) st.farm = farms[0] || '';
+  _sampSheetDate = st.date;
+  var inp = 'padding:7px 9px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px', cin = inp + ';width:84px;text-align:center';
+  var units = _txLiveRows().filter(function(r){ return String(r.unit).indexOf(st.farm + '.') === 0 && daTankNo(r.unit); }).map(function(r){ return r.unit; })
+    .filter(function(u){ return (daStateEnd(u, st.date).fish || 0) > 0; }).sort(function(a, b){ var x = daTankNo(a), y = daTankNo(b); return x.s - y.s || x.t - y.t; });
+  var bySec = {}; units.forEach(function(u){ var s = daTankNo(u).s; (bySec[s] = bySec[s] || []).push(u); });
+  var h = '<div class="ph"><div><h2>🔬 شيت العينات</h2><p style="font-size:11px;color:var(--muted)">متوسط الوزن لكل تانك — العينة اللي فاتت قدامك للمقارنة</p></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="sp-print" onclick="daOcrPrint(&quot;samp&quot;)" style="padding:9px 14px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">🖨️ شيت للطباعة</button>'
+    + '<button id="sp-photo" onclick="daOcrPick(&quot;samp&quot;)" style="padding:9px 14px;border:1.5px solid var(--teal);background:#fff;color:var(--teal);border-radius:8px;font:inherit;cursor:pointer;font-weight:700">📷 من صورة</button>'
+    + '<button id="sp-save" class="savebtn" style="width:auto;padding:10px 22px" onclick="daSpSave()">💾 حفظ الشيت</button></div></div>';
+  h += '<div class="card" style="margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end"><div class="field" style="margin:0"><label>التاريخ</label><input type="date" id="sp-date" data-nodirty="1" value="' + st.date + '" max="' + daToday() + '" style="' + inp + '" onchange="window._sp.date=this.value;_sampSheetDate=this.value;show(&quot;tx-sampling&quot;,true)"/></div>'
+    + '<div class="field" style="margin:0"><label>المزرعة</label><select id="sp-farm" style="' + inp + '" onchange="window._sp.farm=this.value;show(&quot;tx-sampling&quot;,true)">' + farms.map(function(f){ return '<option' + (f === st.farm ? ' selected' : '') + '>' + daEsc(f) + '</option>'; }).join('') + '</select></div></div>';
+  if(!units.length) return h + '<div class="card" style="text-align:center;padding:30px;color:var(--muted)">مفيش تانكات فيها سمك في اليوم ده.</div>';
+  Object.keys(bySec).sort(function(a, b){ return a - b; }).forEach(function(s){
+    h += '<div class="card" style="margin-bottom:12px;padding:10px"><div class="card-title">سكشن ' + s + '</div><div style="overflow-x:auto" dir="ltr"><table class="fs-t sp-t" dir="ltr"><thead><tr><th class="fs-tank">Tank</th><th>Last</th><th>Avg wt (g)</th><th>Fish weighed</th><th>Change</th></tr></thead><tbody>';
+    bySec[s].forEach(function(u){ var L = daSpLast(u, st.date), cur = daSpOn(u, st.date);
+      h += '<tr data-u="' + daEsc(u) + '"><td class="fs-tank">' + daEsc(daTankNo(u).label) + '</td><td style="font-size:11px;color:var(--muted);white-space:nowrap;text-align:center">' + (L ? Math.round(L.avgWt) + ' g<br>' + L.date.slice(5) : '—') + '</td>'
+        + '<td><input id="sp-wt-' + daEsc(u) + '" inputmode="decimal" value="' + (cur ? cur.avgWt : '') + '" style="' + cin + '" oninput="daSpCheck(this)" data-last="' + (L ? L.avgWt : '') + '" data-lastd="' + (L ? L.date : '') + '"/></td>'
+        + '<td><input id="sp-n-' + daEsc(u) + '" inputmode="numeric" value="' + (cur && cur.sampleN ? cur.sampleN : '') + '" style="' + cin + ';width:70px"/></td><td class="sp-chg" style="font-size:12px;text-align:center;white-space:nowrap"></td></tr>'; });
+    h += '</tbody></table></div></div>'; });
+  return h + '<div style="font-size:11px;color:var(--muted);margin:0 4px 12px">سيب التانك فاضي لو متوزنش. الأصفر = الوزن نازل عن اللي فات أو أكتر من الضعف — اتأكد منه.</div>';
+}
+function daSpCheck(el){   // change since the last sample, while typing
+  var tr = el.closest('tr'), c = tr && tr.querySelector('.sp-chg'), v = parseFloat(el.value), last = parseFloat(el.dataset.last); if(!c) return;
+  el.classList.remove('ocr-low'); if(!(v > 0)){ c.textContent = ''; return; }
+  if(!(last > 0)){ c.textContent = ''; return; }
+  var d = v - last, days = Math.max(1, daDaysBetween(el.dataset.lastd, window._sp.date)), odd = v < last * 0.97 || v > last * 2;
+  c.innerHTML = '<span style="color:' + (odd ? 'var(--amber)' : 'var(--green)') + ';font-weight:700">' + (d >= 0 ? '+' : '') + Math.round(d) + ' g</span><br><span style="color:var(--muted)">' + (d / days).toFixed(1) + ' g/d</span>';
+  if(odd) el.classList.add('ocr-low');
+}
+function daSpSave(){
+  var st = window._sp, date = st.date, n = 0, upd = 0, bad = [], odd = [];
+  var rows = Array.prototype.slice.call(document.querySelectorAll('.sp-t tbody tr'));
+  rows.forEach(function(tr){ var u = tr.dataset.u, w = String((document.getElementById('sp-wt-' + u) || {}).value || '').trim(); if(!w) return; var v = parseFloat(w.replace(',', '.'));
+    if(!(v > 0 && v < 5000)) bad.push(daTankNo(u).label); else { var L = daSpLast(u, date); if(L && (v < L.avgWt * 0.97 || v > L.avgWt * 2)) odd.push(daTankNo(u).label); } });
+  if(bad.length){ toast('⚠️ أوزان مش منطقية: ' + bad.join('، ')); return; }
+  if(odd.length && !confirm('الوزن نازل عن العينة اللي فاتت أو زاد أكتر من الضعف في: ' + odd.join('، ') + '\nمتأكد من الأرقام؟')) return;
+  rows.forEach(function(tr){
+    var u = tr.dataset.u, w = String((document.getElementById('sp-wt-' + u) || {}).value || '').trim(), cur = daSpOn(u, date);
+    if(!w){ return; } var avg = parseFloat(w.replace(',', '.')), N = parseInt((document.getElementById('sp-n-' + u) || {}).value) || 0, s = daStateEnd(u, date), L = daSpLast(u, date);
+    var rec = {avgWt:avg, sampleN:N, biomass:(s.fish || 0) * avg / 1000, sgr:0, fcr:0, daysSinceLast:0, feedSinceLast:0};
+    if(L){ rec.daysSinceLast = Math.max(1, daDaysBetween(L.date, date)); rec.sgr = computeSGR(L.avgWt, avg, rec.daysSinceLast);
+      rec.feedSinceLast = getTX().filter(function(t){ return t.unit === u && t.type === 'feeding' && !t.deleted && t.date >= L.date && t.date <= date; }).reduce(function(a, t){ return a + (parseFloat(t.kg) || 0); }, 0);
+      var wg = (avg - L.avgWt) / 1000 * (s.fish || 0); if(wg > 0 && rec.feedSinceLast > 0) rec.fcr = rec.feedSinceLast / wg; }
+    if(cur){ if(+cur.avgWt !== avg || (+cur.sampleN || 0) !== N){ updateTX(cur.id, rec); upd++; } }
+    else { addTX(Object.assign({id:'sp-' + u + '-' + date, type:'sampling', date:date, unit:u, source:'sheet', _skipValidation:true}, rec)); n++; } });
+  if(window._daActiveTab) window._daActiveTab.dirty = false;
+  toast(n + upd ? '✅ اتحفظت عينات ' + (n + upd) + ' تانك' : 'مفيش تغيير'); show('tx-sampling', true);
+}
+if(!window._daSpWrapped){ window._daSpWrapped = true; VIEWS['tx-sampling'] = renderSampSheet; }
 
 // ── Init ──────────────────────────────────────
 (function(){

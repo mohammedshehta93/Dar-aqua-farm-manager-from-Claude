@@ -20,7 +20,7 @@ with sync_playwright() as p:
     hh = pg.evaluate("document.querySelector('header.top').getBoundingClientRect().height"); chips = pg.evaluate("[...document.querySelectorAll('header.top .top-right > *')].filter(e=>e.offsetParent!==null).map(e=>e.scrollWidth<=e.clientWidth+1)")
     check('W4 header: one row, nothing cut off', hh < 70 and all(chips), (hh, chips))
     pg.evaluate("show('account')"); pg.wait_for_timeout(400)
-    check('W5 account page in English, no internal address', not arabic(pg) and 'workers.dar-aqua.app' not in content(pg) and 'Change password' in content(pg), arabic(pg)[:10])
+    check('W5 account page in English, no internal address, no password change (the admin handles passwords)', not arabic(pg) and 'workers.dar-aqua.app' not in content(pg) and 'Your permissions' in content(pg) and not pg.evaluate("[...document.querySelectorAll('#content input[type=password]')].some(i=>i.offsetParent!==null)"), arabic(pg)[:10])
     pg.click('#da-wbar button[data-v="feed-sheet"]'); pg.wait_for_timeout(400)
     lbl = pg.evaluate("document.querySelector('.da-dctl .lbl').textContent")
     check('W6 date in the app\'s language with (today)', re.match(r'^(Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d+ [A-Z][a-z]{2} 20\d\d \(today\)$', lbl) is not None, lbl)
