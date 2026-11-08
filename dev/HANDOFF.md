@@ -135,6 +135,18 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- FH2 PAPER READING (owner 2026-11-08; paper_ocr.js, test `e2e_paper_f2` on SYNTHETIC photos in dev/tests/data — the
+  farm's FH2 Word form filled with values via LibreOffice, rotated/blurred; truth in fh2_synthetic_truth.json).
+  DA_PAPER_TPL is now {farm:{pages:[{cols, rows, headH, rowH, unit, maxV, halves:[{c0, meals, labels[], maxV?}]}]}},
+  generated from the Word forms (labels = the tank numbers printed per half). FH2 page 1 = sections 1–3, 5 meals, GRAMS
+  (no "12"→1.2 rule); page 2 = sections 4–5 (3 meals, max 8 kg) | 6–16 (4 meals, max 40 kg: concrete tanks eat 12 kg).
+  The page is chosen by grid fit score. Grid changes that helped FH1 too (real photo 29 → 30/48): header band = first
+  dark block merged with the pieces white header text splits it into; vertical lines at the angle perpendicular to the
+  rows (no free angle search on faint lines). Tried and REVERTED (hurt FH1): row spacing from peak gaps, from the
+  table's bottom border. SAFETY: rowFit < 0.45 (most row lines not seen) → every cell incl. empty ones yellow + alert
+  "grid lines not clear". Paper fallback only when NO corner marks (an outdated print stays refused — e2e_ocr R10).
+  Synthetic: page detection, tanks, units right; 0 wrong without yellow; page 2 values 124/192 right even with faint
+  lines. NEEDS real FH2 photos (both pages) to calibrate.
 - OLD ENTRY SCREENS REMOVED (owner agreed 2026-11-08; patch `dev/tools/patch_retire_legacy.py`): quick-feed, tx-feeding,
   feed-week, photo-entry, the old daily sheet and the old mortality form — VIEWS entries now null (the retired-notice
   wrappers show "feed is entered in one place" / the causes page), daSingleFeed() always true (window.DA_SINGLE_FEED gone).
@@ -348,7 +360,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-47 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+48 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

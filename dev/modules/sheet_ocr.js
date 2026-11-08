@@ -348,7 +348,7 @@ async function daOcrReadFiles(files, kind){
   var pages = [], errs = [];
   for(var i = 0; i < files.length; i++){
     try{ var I = await daOcrLoad(files[i]), R = daOcrRegister(I, layouts);
-      if(R.err && kind === 'feed' && typeof daPaperTemplate === 'function' && daPaperTemplate(farm)){   // not a printed sheet: the farm's own paper?
+      if(R.err && /المربعات السودا|الأربع أركان/.test(R.err) && kind === 'feed' && typeof daPaperTemplate === 'function' && daPaperTemplate(farm)){   // no corner marks at all: the farm's own paper? (a recognised but outdated print stays refused)
         var P = daPaperRead(I, farm, (window._fs || {}).date); if(!P.err){ pages.push(daPaperAsPage(P)); continue; } }
       if(R.err){ errs.push((files.length > 1 ? 'صورة ' + (i + 1) + ': ' : '') + R.err); continue; }
       pages.push(daOcrReadPage(I, R)); }catch(e){ errs.push('صورة ' + (i + 1) + ': ' + e.message); }
@@ -396,7 +396,7 @@ async function daOcrRun(files, kind){
   }
   var msg = '📷 اتقري ' + n + ' خانة من ' + res.pages.length + ' صفحة' + (low ? ' — ' + low + ' متعلّمين بالأصفر راجعهم' : '') + '. راجع وبعدين اضغط حفظ.';
   toast(msg); if(res.errs.length) setTimeout(function(){ alert('⚠️ ' + res.errs.join('\n')); }, 50);
-  else if(res.pages.some(function(p){ return p.paper; })) setTimeout(function(){ alert('📄 اتقرت الورقة العادية (مش المطبوعة من الأداة).\n\n• التاريخ المكتوب بخط اليد مش بيتقرا — الأرقام اتحطت في يوم ' + st.date + '. لو الورقة ليوم تاني، غيّر التاريخ فوق وصوّر تاني.\n• ' + low + ' خانة بالأصفر محتاجة مراجعة، والنافق دايماً بيتراجع.'); }, 50);
+  else if(res.pages.some(function(p){ return p.paper; })) setTimeout(function(){ alert('📄 اتقرت الورقة العادية (مش المطبوعة من الأداة).\n\n' + (res.pages.some(function(p){ return p.weak; }) ? '⚠️ خطوط الجدول في الصورة مش واضحة — كل الأرقام بالأصفر، راجعها كلها (أو صوّر تاني بإضاءة أحسن ومن فوق).\n\n' : '') + '• التاريخ المكتوب بخط اليد مش بيتقرا — الأرقام اتحطت في يوم ' + st.date + '. لو الورقة ليوم تاني، غيّر التاريخ فوق وصوّر تاني.\n• ' + low + ' خانة بالأصفر محتاجة مراجعة، والنافق دايماً بيتراجع.'); }, 50);
 }
 document.addEventListener('input', function(e){ var x = e.target; if(x && x.classList && x.classList.contains('ocr-low') && e.isTrusted){ x.classList.remove('ocr-low'); x.title = ''; } }, true);
 (function(){

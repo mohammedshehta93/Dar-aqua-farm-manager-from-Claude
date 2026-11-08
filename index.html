@@ -13115,7 +13115,7 @@ async function daOcrReadFiles(files, kind){
   var pages = [], errs = [];
   for(var i = 0; i < files.length; i++){
     try{ var I = await daOcrLoad(files[i]), R = daOcrRegister(I, layouts);
-      if(R.err && kind === 'feed' && typeof daPaperTemplate === 'function' && daPaperTemplate(farm)){   // not a printed sheet: the farm's own paper?
+      if(R.err && /المربعات السودا|الأربع أركان/.test(R.err) && kind === 'feed' && typeof daPaperTemplate === 'function' && daPaperTemplate(farm)){   // no corner marks at all: the farm's own paper? (a recognised but outdated print stays refused)
         var P = daPaperRead(I, farm, (window._fs || {}).date); if(!P.err){ pages.push(daPaperAsPage(P)); continue; } }
       if(R.err){ errs.push((files.length > 1 ? 'صورة ' + (i + 1) + ': ' : '') + R.err); continue; }
       pages.push(daOcrReadPage(I, R)); }catch(e){ errs.push('صورة ' + (i + 1) + ': ' + e.message); }
@@ -13163,7 +13163,7 @@ async function daOcrRun(files, kind){
   }
   var msg = '📷 اتقري ' + n + ' خانة من ' + res.pages.length + ' صفحة' + (low ? ' — ' + low + ' متعلّمين بالأصفر راجعهم' : '') + '. راجع وبعدين اضغط حفظ.';
   toast(msg); if(res.errs.length) setTimeout(function(){ alert('⚠️ ' + res.errs.join('\n')); }, 50);
-  else if(res.pages.some(function(p){ return p.paper; })) setTimeout(function(){ alert('📄 اتقرت الورقة العادية (مش المطبوعة من الأداة).\n\n• التاريخ المكتوب بخط اليد مش بيتقرا — الأرقام اتحطت في يوم ' + st.date + '. لو الورقة ليوم تاني، غيّر التاريخ فوق وصوّر تاني.\n• ' + low + ' خانة بالأصفر محتاجة مراجعة، والنافق دايماً بيتراجع.'); }, 50);
+  else if(res.pages.some(function(p){ return p.paper; })) setTimeout(function(){ alert('📄 اتقرت الورقة العادية (مش المطبوعة من الأداة).\n\n' + (res.pages.some(function(p){ return p.weak; }) ? '⚠️ خطوط الجدول في الصورة مش واضحة — كل الأرقام بالأصفر، راجعها كلها (أو صوّر تاني بإضاءة أحسن ومن فوق).\n\n' : '') + '• التاريخ المكتوب بخط اليد مش بيتقرا — الأرقام اتحطت في يوم ' + st.date + '. لو الورقة ليوم تاني، غيّر التاريخ فوق وصوّر تاني.\n• ' + low + ' خانة بالأصفر محتاجة مراجعة، والنافق دايماً بيتراجع.'); }, 50);
 }
 document.addEventListener('input', function(e){ var x = e.target; if(x && x.classList && x.classList.contains('ocr-low') && e.isTrusted){ x.classList.remove('ocr-low'); x.title = ''; } }, true);
 (function(){
@@ -14395,7 +14395,7 @@ function daCmpCard(){
 // matched to the form's column widths; each cell is sampled, line remnants removed, handwriting split into digits and
 // decimal points, read by the same digit model. Sanity: meals > 5 kg = a missing point; a meal unlike the rest of its
 // row is flagged. Everything uncertain is yellow; nothing is saved until Save.
-var DA_PAPER_TPL = {F1:{halves:2, rows:26, cols:[855, 728, 714, 741, 729, 756, 770, 855, 761, 764, 775, 761, 789, 803], meals:4, maxKg:5}};
+var DA_PAPER_TPL = {"F1":{"pages":[{"cols":[855,728,714,741,729,756,770,855,761,764,775,761,789,803],"rows":26,"headH":372,"rowH":396,"halves":[{"c0":0,"meals":4,"labels":["1.1","1.2","1.3","1.4","2.1","2.2","2.3","2.4","3.1","3.2","3.3","3.4","4.1","4.2","4.3","4.4","5.1","5.2","5.3","5.4","6.1","6.2","6.3","6.4","6.5","6.6"]},{"c0":7,"meals":4,"labels":["7.1","7.2","7.3","7.4","8.1","8.2","8.3","8.4","9.1","9.2","9.3","9.4","10.1","10.2","10.3","10.4","11.1","11.2","11.3","11.4","12.1","12.2","12.3","12.4","",""]}],"unit":"kg","maxV":5}]},"F2":{"pages":[{"cols":[727,609,677,608,601,601,695,717,726,601,604,604,601,601,695,859],"rows":21,"headH":490,"rowH":522,"halves":[{"c0":0,"meals":5,"labels":["1.1","1.2","1.3","1.4","1.5","1.6","1.7","1.8","1.9","1.10","1.11","1.12","1.13","1.14","2.1","2.2","2.3","2.4","2.5","2.6","2.7"]},{"c0":8,"meals":5,"labels":["2.8","2.9","2.10","2.11","2.12","2.13","2.14","3.1","3.2","3.3","3.4","3.5","3.6","3.7","3.8","3.9","3.10","3.11","3.12","3.13","3.14"]}],"unit":"g","maxV":3000},{"cols":[863,808,807,807,862,840,797,700,700,840,732,775,904],"rows":28,"headH":359,"rowH":382,"halves":[{"c0":0,"meals":3,"labels":["4.1","4.2","4.3","4.4","4.5","4.6","4.7","4.8","4.9","4.10","4.11","4.12","4.13","4.14","5.1","5.2","5.3","5.4","5.5","5.6","5.7","5.8","5.9","5.10","5.11","5.12","5.13","5.14"],"maxV":8},{"c0":6,"meals":4,"labels":["6.1","6.2","7.1","7.2","8.1","8.2","9.1","9.2","10.1","10.2","11.1","11.2","12.1","12.2","13.1","13.2","14.1","14.2","15.1","15.2","16.1","16.2","16.3","16.4","16.5","16.6","16.7",""],"maxV":40}],"unit":"kg","maxV":40}]}};
 function daPaperTemplate(farm){ return DA_PAPER_TPL[farm] || null; }
 function daPaperDark(I, k, cap){   // k: how much darker than the surrounding paper (lines are light grey on this form)
   k = k || 0.78; cap = cap || 0.62;
@@ -14417,12 +14417,13 @@ function daPaperPeaks(P, minFrac){
   var out = []; for(var j = 3; j < P.length - 3; j++) if(sm[j] >= mx * minFrac && sm[j] >= sm[j - 1] && sm[j] > sm[j + 1] && sm[j] >= sm[j - 2] && sm[j] >= sm[j + 2]) out.push({k:j, s:sm[j]});
   return out;
 }
-function daPaperProfile(M, W, H, horiz, a0, a1){   // horiz: rows (project along x over x∈[a0,a1)); else columns (along y over y∈[a0,a1))
+function daPaperProfile(M, W, H, horiz, a0, a1, fixedT){   // horiz: rows (project along x over x∈[a0,a1)); else columns (along y over y∈[a0,a1))
   var best = null;
-  for(var deg = -8; deg <= 8.001; deg += 0.2){ var t = Math.tan(deg * Math.PI / 180), P = new Float64Array((horiz ? H : W) + 400), sc = 0;
+  var angles = []; if(fixedT !== undefined) angles.push(fixedT); else for(var deg = -8; deg <= 8.001; deg += 0.2) angles.push(Math.tan(deg * Math.PI / 180));
+  angles.forEach(function(t){ var P = new Float64Array((horiz ? H : W) + 400), sc = 0;
     for(var u = a0; u < a1; u += 2) for(var v = 0; v < (horiz ? H : W); v++){ var z = horiz ? v * W + u : u * W + v; if(!M[z]) continue; var k = Math.round(v - u * t) + 200; if(k >= 0 && k < P.length) P[k]++; }
     for(var q = 0; q < P.length; q++) sc += P[q] * P[q];
-    if(!best || sc > best.sc) best = {sc:sc, t:t, P:P}; }
+    if(!best || sc > best.sc) best = {sc:sc, t:t, P:P}; });
   return best;   // line through the band: v = k − 200 + u·t
 }
 function daPaperRunMask(D, W, H, horiz, minRun){
@@ -14435,18 +14436,22 @@ function daPaperGrid(I, tpl){
   var W = I.W, H = I.H, D1 = daPaperDark(I), D2 = daPaperDark(I, 0.9, 0.86);
   var HM = daPaperRunMask(D2, W, H, true, Math.round(W * 0.02)), VM = daPaperRunMask(D2, W, H, false, Math.round(H * 0.012));
   // ── rows: two half-page strips, each with its own skew (perspective) ──
-  var strips = [[Math.round(W * 0.08), Math.round(W * 0.48)], [Math.round(W * 0.52), Math.round(W * 0.92)]], rowPts = [];
+  var strips = [[Math.round(W * 0.08), Math.round(W * 0.48)], [Math.round(W * 0.52), Math.round(W * 0.92)]], rowPts = [], rowHits = 0, colScore = 0;
   for(var si = 0; si < 2; si++){
     var a0 = strips[si][0], a1 = strips[si][1], xc = (a0 + a1) / 2, pr = daPaperProfile(HM, W, H, true, a0, a1), t = pr.t;
     // header band = the darkest block of rows in the strong mask at the same skew
     var B = new Float64Array(H + 400); for(var u = a0; u < a1; u += 2) for(var v = 0; v < H; v++) if(D1[v * W + u]){ var k = Math.round(v - u * t) + 200; if(k >= 0 && k < B.length) B[k]++; }
     var cols = (a1 - a0) / 2, bandEnd = -1, bandStart = -1, run = 0;
-    for(var k2 = 0; k2 < B.length && bandEnd < 0; k2++){ if(B[k2] > cols * 0.45){ if(!run) bandStart = k2; run++; } else { if(run >= 12) bandEnd = k2; run = 0; } }   // the FIRST dark block (not the signature boxes below)
+    var blocks = []; for(var k2 = 0; k2 < B.length; k2++){ if(B[k2] > cols * 0.45){ if(!run) bandStart = k2; run++; } else { if(run >= 4) blocks.push([bandStart, k2]); run = 0; } }
+    for(var bi = 0; bi < blocks.length && bandEnd < 0; bi++){   // the FIRST dark band (not the signature boxes below); white header text can split it into pieces
+      var b0 = blocks[bi][0], b1 = blocks[bi][1];
+      while(bi + 1 < blocks.length && blocks[bi + 1][0] - b1 <= Math.max(12, (b1 - b0) * 2.2)){ bi++; b1 = blocks[bi][1]; }
+      if(b1 - b0 >= 12){ bandStart = b0; bandEnd = b1; } }
     if(bandEnd < 0) return {err:'مش لاقي صف العناوين الأسود'};
-    var peaks = daPaperPeaks(pr.P, 0.12).filter(function(p){ return p.k > bandEnd + 4; }), s = (bandEnd - bandStart) * 396 / 372, cur = bandEnd, ys = [bandEnd];
+    var peaks = daPaperPeaks(pr.P, 0.12).filter(function(p){ return p.k > bandEnd + 4; }), s = (bandEnd - bandStart) * (tpl.rowH || 396) / (tpl.headH || 372), cur = bandEnd, ys = [bandEnd];
     for(var r = 0; r < tpl.rows; r++){ var target = cur + s, best = null;
       peaks.forEach(function(p){ if(Math.abs(p.k - target) < s * 0.3 && (!best || Math.abs(p.k - target) < Math.abs(best.k - target))) best = p; });
-      var nk = best ? best.k : target; if(best) s = 0.7 * s + 0.3 * (nk - cur); ys.push(nk); cur = nk; }
+      var nk = best ? best.k : target; if(best){ s = 0.7 * s + 0.3 * (nk - cur); rowHits++; } ys.push(nk); cur = nk; }
     rowPts.push(ys.map(function(k){ return {x:xc, y:k - 200 + xc * t}; })); }
   var rows = rowPts[0].map(function(p, i){ var q = rowPts[1][i], a = (q.y - p.y) / (q.x - p.x); return {a:a, b:p.y - a * p.x}; });
   // ── columns: top and bottom halves of the table, matched to the form's column widths ──
@@ -14454,13 +14459,14 @@ function daPaperGrid(I, tpl){
   var tot = tpl.cols.reduce(function(a, b){ return a + b; }, 0), cum = [0]; tpl.cols.forEach(function(w){ cum.push(cum[cum.length - 1] + w / tot); });
   var colPts = [];
   [[yA, ym], [ym, yZ]].forEach(function(yr){
-    var pr = daPaperProfile(VM, W, H, false, Math.round(yr[0]), Math.round(yr[1])), yc = (yr[0] + yr[1]) / 2, pk = daPaperPeaks(pr.P, 0.08);
+    var rowT = rows.reduce(function(a, f){ return a + f.a; }, 0) / rows.length;   // vertical lines are perpendicular to the rows: dx/dy = −dy/dx
+    var pr = daPaperProfile(VM, W, H, false, Math.round(yr[0]), Math.round(yr[1]), -rowT), yc = (yr[0] + yr[1]) / 2, pk = daPaperPeaks(pr.P, 0.08);
     // borders: the pair of strong peaks whose template prediction fits the most peaks
     var strong = pk.slice().sort(function(a, b){ return b.s - a.s; }).slice(0, 30), best = null;
     strong.forEach(function(L){ strong.forEach(function(R){ var span = R.k - L.k; if(span < W * 0.5) return; var sc = 0;
       cum.forEach(function(c){ var ex = L.k + span * c, nb = null; pk.forEach(function(p){ if(Math.abs(p.k - ex) < span * 0.012 && (!nb || p.s > nb.s)) nb = p; }); if(nb) sc += 1 + nb.s / strong[0].s; });
       if(!best || sc > best.sc) best = {sc:sc, L:L.k, R:R.k}; }); });
-    if(!best){ colPts.push(null); return; }
+    if(!best){ colPts.push(null); return; } colScore += best.sc;
     // walk left → right: each line predicted from the REAL previous line (the printout is not exactly the Word widths)
     var span = best.R - best.L, prev = best.L, ks = [best.L];
     for(var j = 1; j < cum.length - 1; j++){ var w = span * (cum[j] - cum[j - 1]), ex = prev + w, nb = null;
@@ -14471,7 +14477,7 @@ function daPaperGrid(I, tpl){
   });
   if(!colPts[0] || !colPts[1]) return {err:'مش لاقي أعمدة الجدول', dbg:[yA, ym, yZ, rows.length]};
   var colsV = colPts[0].map(function(p, i){ var q = colPts[1][i], a = (q.x - p.x) / (q.y - p.y); return {a:a, b:p.x - a * p.y}; });
-  return {rows:rows, cols:colsV};
+  return {rows:rows, cols:colsV, score:colScore / cum.length + rowHits / (2 * tpl.rows), rowFit:rowHits / (2 * tpl.rows)};   // how well this page's form fits the photo
 }
 // sample one cell (quad between two horizontals and two verticals) → grey patch
 function daPaperCell(I, G, r, c, CW, CH){
@@ -14540,14 +14546,14 @@ function daPaperDigit(ink, c, CW){   // component → MNIST-style 28×28 (20×20
   for(var yy = 0; yy < 28; yy++) for(var xx = 0; xx < 28; xx++){ var u2 = xx - dx, v2 = yy - dy; if(u2 >= 0 && v2 >= 0 && u2 < 28 && v2 < 28) img[yy * 28 + xx] = tmp[v2 * 28 + u2]; }
   return img;
 }
-function daPaperMeal(pcs, maxKg){   // pieces → {v, text, conf}
+function daPaperMeal(pcs, maxKg, unit){   // pieces → {v, text, conf}
   if(!pcs.length) return null; var t = '', conf = 1, digits = 0, ink = pcs.some(function(p){ return !p.dot; });
   pcs.forEach(function(p){ if(p.dot){ if(t.indexOf('.') < 0) t += '.'; } else { t += p.d; conf = Math.min(conf, p.p); digits++; } });
   if(!digits) return ink ? {v:null, text:'', conf:0} : null;
   var dp = t.indexOf('.'); if(dp >= 0 && t.length - dp > 2){ t = t.slice(0, dp + 2); conf = Math.min(conf, 0.7); }   // trimmed → always checked   // the farm writes one decimal: more = a line sliver
   var v = parseFloat(t.charAt(0) === '.' ? '0' + t : t);
   if(isNaN(v)) return {v:null, text:t, conf:0};
-  if(v > maxKg && t.indexOf('.') < 0 && t.length === 2){ v = +(t.charAt(0) + '.' + t.charAt(1)); conf = Math.min(conf, 0.6); }   // "12" → 1.2 (point not seen)
+  if(unit !== 'g' && v > maxKg && t.indexOf('.') < 0 && t.length === 2){ v = +(t.charAt(0) + '.' + t.charAt(1)); conf = Math.min(conf, 0.6); }   // kg pages only   // "12" → 1.2 (point not seen)
   if(v > maxKg) conf = Math.min(conf, 0.3);
   return {v:v, text:String(v), conf:conf};
 }
@@ -14564,36 +14570,42 @@ function daPaperPrev(unit, date){   // the tank's latest feed record in the week
 }
 // whole page → [{label, meals:[{v,conf}], size, dead, total}]
 function daPaperRead(I, farm, date){
-  var tpl = daPaperTemplate(farm); if(!tpl) return {err:'الورقة القديمة متعرّفة لـ F1 بس لحد دلوقتي'};
-  var G = daPaperGrid(I, tpl); if(G.err) return G;
-  var CW = 96, CH = 40, labels = daSheetRowsFor(farm), out = [], per = tpl.cols.length / tpl.halves;
-  for(var h = 0; h < tpl.halves; h++) for(var r = 0; r < tpl.rows; r++){
-    var lab = labels[h * tpl.rows + r]; if(!lab) continue; var c0 = h * per, row = {unit:lab.unit, label:lab.label, meals:[]};
-    for(var m = 0; m < tpl.meals; m++) row.meals.push(daPaperMeal(daPaperPieces(daPaperCell(I, G, r, c0 + 1 + m, CW, CH), CW, CH), tpl.maxKg));
-    row.size = daPaperSize(daPaperPieces(daPaperCell(I, G, r, c0 + 1 + tpl.meals, CW, CH), CW, CH));
+  var tpl = daPaperTemplate(farm); if(!tpl) return {err:'الورقة العادية متعرّفة لـ ' + Object.keys(DA_PAPER_TPL).join(' و ') + ' بس'};
+  var best = null;   // which page of the form is this? the one whose columns and rows fit best
+  tpl.pages.forEach(function(pg, k){ var G = daPaperGrid(I, pg); if(!G.err && (!best || G.score > best.G.score)) best = {G:G, pg:pg, k:k}; });
+  if(!best) return daPaperGrid(I, tpl.pages[0]);
+  var G = best.G, page = best.pg, CW = 96, CH = 40, out = [], byLabel = {}, fac = page.unit === 'g' ? 1000 : 1;
+  daSheetRowsFor(farm).forEach(function(x){ byLabel[x.label] = x; });
+  page.halves.forEach(function(half){ half.labels.forEach(function(label, r){
+    var lab = label && byLabel[label]; if(!lab) return; var c0 = half.c0, row = {unit:lab.unit, label:lab.label, meals:[]};
+    for(var m = 0; m < half.meals; m++) row.meals.push(daPaperMeal(daPaperPieces(daPaperCell(I, G, r, c0 + 1 + m, CW, CH), CW, CH), half.maxV || page.maxV, page.unit));
+    row.size = daPaperSize(daPaperPieces(daPaperCell(I, G, r, c0 + 1 + half.meals, CW, CH), CW, CH));
     var prev = date ? daPaperPrev(lab.unit, date) : null;   // pellet size rarely changes: yesterday's wins unless the paper clearly says otherwise
-    if(prev && prev.size) row.size = {v:prev.size, conf:!row.size || row.size.v === prev.size ? 0.95 : 0.6, prior:true, read:row.size ? row.size.v : ''};   // paper disagrees → yellow, yesterday's shown
-    row.dead = daPaperDead(daPaperPieces(daPaperCell(I, G, r, c0 + 2 + tpl.meals, CW, CH), CW, CH));
-    // a meal unlike the rest of its row (the farm usually feeds the same amount) is flagged
-    var cnt = {}; row.meals.forEach(function(x){ if(x && x.v !== null && x.conf >= 0.85) cnt[x.v] = (cnt[x.v] || 0) + 1; });
+    if(prev && prev.size) row.size = {v:prev.size, conf:!row.size || row.size.v === prev.size ? 0.95 : 0.6, prior:true, read:row.size ? row.size.v : ''};
+    row.dead = daPaperDead(daPaperPieces(daPaperCell(I, G, r, c0 + 2 + half.meals, CW, CH), CW, CH));
+  var cnt = {}; row.meals.forEach(function(x){ if(x && x.v !== null && x.conf >= 0.85) cnt[x.v] = (cnt[x.v] || 0) + 1; });
     var ks = Object.keys(cnt).sort(function(a, b){ return cnt[b] - cnt[a]; }), maj = ks[0];
     if(ks.length > 1 && cnt[ks[1]] === cnt[ks[0]]){ row.meals.forEach(function(x){ if(x) x.conf = Math.min(x.conf, 0.5); }); maj = undefined; }   // a tie: no majority, check them all
     if(maj !== undefined && cnt[maj] >= 2) row.meals.forEach(function(x, k){   // the farm feeds the same amount each meal: unclear meals take the row's value, in yellow
       if(x && String(x.v) !== String(+maj)){ if(x.conf < 0.85) row.meals[k] = {v:+maj, text:String(+maj), conf:0.6, guess:true}; else x.conf = Math.min(x.conf, 0.5); } });
     var got = row.meals.filter(Boolean); row.total = got.length ? {v:+got.reduce(function(a, x){ return a + (x.v || 0); }, 0).toFixed(3), conf:Math.min.apply(null, got.map(function(x){ return x.conf; }))} : null;
-    if(prev && prev.kg > 0 && row.total && row.total.v > 0 && (row.total.v > prev.kg * 1.6 || row.total.v < prev.kg / 1.6)) row.total.conf = Math.min(row.total.conf, 0.5);   // far from yesterday → check
+    if(prev && prev.kg > 0 && row.total && row.total.v > 0 && (row.total.v > prev.kg * fac * 1.6 || row.total.v < prev.kg * fac / 1.6)) row.total.conf = Math.min(row.total.conf, 0.5);   // same unit as the page   // far from yesterday → check
     // read EXACTLY yesterday's amount: misreads don't land on the same number by chance → trusted (amounts rarely change day to day)
-    if(prev && prev.kg > 0 && row.total && Math.abs(row.total.v - prev.kg) < 1e-6 && row.meals.every(function(m){ return !m || m.v !== null; })){
+    if(prev && prev.kg > 0 && row.total && Math.abs(row.total.v - prev.kg * fac) < 1e-6 * fac && row.meals.every(function(m){ return !m || m.v !== null; })){
       row.total.conf = 0.95; row.total.sameAsYesterday = true; row.meals.forEach(function(m){ if(m) m.conf = Math.max(m.conf, 0.9); }); }
-    out.push(row); }
-  return {rows:out, grid:G};
+    out.push(row); }); });
+  // safety: if most row lines were not seen in the photo (the grid is mostly guessed), nothing is trusted — every cell yellow
+  var weak = G.rowFit !== undefined && G.rowFit < 0.45;
+  // an "empty" cell may just be a misplaced grid: check it too
+  if(weak) out.forEach(function(r){ r.meals = r.meals.map(function(m){ return m ? Object.assign(m, {conf:Math.min(m.conf, 0.5)}) : {v:null, text:'', conf:0}; }); if(r.total) r.total.conf = Math.min(r.total.conf, 0.5); if(r.size) r.size.conf = Math.min(r.size.conf, 0.6); });
+  return {rows:out, grid:G, page:best.k, unit:page.unit, weak:weak};
 }
 function daSheetRowsFor(farm){   // the paper lists the farm's tanks in order (1.1, 1.2 … 12.4)
   return _txLiveRows().concat([]).filter(function(r){ return (r.farm === farm || String(r.unit).indexOf(farm + '.') === 0) && daTankNo(r.unit); })
     .map(function(r){ return {unit:r.unit, label:daTankNo(r.unit).label, no:daTankNo(r.unit)}; }).sort(function(a, b){ return a.no.s - b.no.s || a.no.t - b.no.t; });
 }
 function daPaperAsPage(P){   // same shape as a printed-sheet page, so the screen is filled the same way
-  return {paper:true, date:null, rows:P.rows.map(function(r){ return {unit:r.unit, fast:false,
+  return {paper:true, weak:!!P.weak, date:null, rows:P.rows.map(function(r){ return {unit:r.unit, fast:false,
     meals:r.meals.map(function(m){ return !m ? null : {text:m.v === null ? '' : String(m.v), conf:m.v === null ? 0 : m.conf}; }),
     size:r.size ? {v:r.size.v, conf:r.size.conf} : null, dead:r.dead && r.dead.v ? [{text:r.dead.text || String(r.dead.v), conf:r.dead.conf}] : []}; })};
 }
