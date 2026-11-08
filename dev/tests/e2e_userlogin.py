@@ -16,7 +16,7 @@ with sync_playwright() as p:
     check('U4 worker account created with a hidden internal address', 'irfan@workers.dar-aqua.app' in sb.users)
     check('U4b the form is cleared after success (username not put back)', pg.input_value('#um-email') == '' and pg.input_value('#um-pass') == '')
     card = pg.evaluate("(document.getElementById('um-share')||{}).innerText||''")
-    check('U4c share card right after creating: app link + username + password, said to be shown once', 'irfan' in card and 'farm2026' in card and 'http' in card and 'مرة واحدة' in card, card[:200])
+    check('U4c share card right after creating: app link + username + password (in English), said to be shown once', 'Username: irfan' in card and 'Password: farm2026' in card and 'http' in card and 'مرة واحدة' in card, card[:200])
     with ctx.expect_page() as wp: pg.click('#um-share-wa')
     url = wp.value.url; wp.value.close()
     import urllib.parse
@@ -27,7 +27,7 @@ with sync_playwright() as p:
     n_btn = pg.evaluate("document.querySelectorAll('#content .um-wa').length")
     with ctx.expect_page() as wp2: pg.click('#content .um-wa >> nth=-1')
     u2 = wp2.value.url; wp2.value.close(); t2 = urllib.parse.unquote(u2.split('text=', 1)[-1])
-    check('U5b 📲 next to each user: link + username, never a password (it is not kept)', n_btn >= 2 and 'كلمة السر: اللي المدير ادهالك' in t2, (n_btn, t2[:160]))
+    check('U5b 📲 next to each user: link + username, never a password (it is not kept)', n_btn >= 2 and 'Password: the one your manager gave you' in t2 and 'Username: irfan' in t2, (n_btn, t2[:160]))
     pg.fill('#um-name', 'X'); pg.fill('#um-email', 'irfan'); pg.fill('#um-pass', 'other123'); pg.click('#um-add-btn'); pg.wait_for_timeout(500)
     check('U6 a username already taken → "choose another name"', 'اختار اسم تاني' in pg.evaluate("(window.__toasts||[]).join(' ')"))
     pg.evaluate("doLogout(true)"); pg.wait_for_timeout(600)

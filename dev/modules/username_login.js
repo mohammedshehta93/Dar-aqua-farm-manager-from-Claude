@@ -16,9 +16,9 @@ function daHideWorkerEmails(root){   // "irfan@workers.dar-aqua.app" → "👤 i
 }
 // ── share the login on WhatsApp ──
 function daAppUrl(){ return location.origin + location.pathname; }
-function daLoginMsg(name, user, pass){
-  return 'أهلاً ' + name + ' 👋\nده رابط أداة مزرعة ' + daFarmName() + ':\n' + daAppUrl() + '\n\n👤 اسم المستخدم: ' + daShowLogin(user) + (pass ? '\n🔑 كلمة السر: ' + pass : '\n🔑 كلمة السر: اللي المدير ادهالك')
-    + '\n\nافتح الرابط ← اكتب اسم المستخدم وكلمة السر ← دخول.\nومن قايمة المتصفح اختار «إضافة إلى الشاشة الرئيسية» عشان تفتحها زي الأبلكيشن.';
+function daLoginMsg(name, user, pass){   // in English (owner, 2026-11-08): the workers read English
+  return 'Hello ' + name + ' 👋\nThis is the link to the ' + daFarmName() + ' farm app:\n' + daAppUrl() + '\n\n👤 Username: ' + daShowLogin(user) + (pass ? '\n🔑 Password: ' + pass : '\n🔑 Password: the one your manager gave you')
+    + '\n\nOpen the link → type your username and password → Login.\nThen, from the browser menu, choose “Add to Home Screen” to open it like an app.';
 }
 function daWhatsApp(text){ window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); }
 async function daCopyText(text){ try{ await navigator.clipboard.writeText(text); toast('📋 اتنسخت الرسالة'); }catch(e){ toast('⚠️ مقدرتش أنسخ'); } }
