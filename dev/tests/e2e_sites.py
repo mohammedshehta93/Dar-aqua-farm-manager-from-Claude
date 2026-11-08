@@ -11,6 +11,18 @@ with sync_playwright() as p:
     login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
     pg.evaluate("show('user-management')"); pg.wait_for_timeout(500)
     check('X1 sites appear as tick boxes with the permissions (add-user form)', pg.evaluate("!!document.getElementById('perm-farm:F1') && !!document.getElementById('perm-farm:F2')"))
+    check('X1b the sites are in their own marked box "📍 المكان" (not lost among the permissions)', pg.evaluate("!!document.querySelector('.um-sites [id=\"perm-farm:F1\"]')") and 'يشتغل فين' in content(pg))
+    # edit an existing worker: tick his site
+    pg.evaluate("_umEditId = _umProfiles.find(x=>x.email==='wall@workers.dar-aqua.app').id; adminLoadUsers()"); pg.wait_for_timeout(600)
+    check('X1c editing an existing worker shows the same site box', pg.evaluate("!!document.querySelector('.um-sites [id=\"eperm-farm:F2\"]')"))
+    pg.check('[id="eperm-farm:F2"]'); pg.evaluate("umSaveEdit()"); pg.wait_for_timeout(800)
+    saved = [u for u in sb.profiles.values() if u.get('email') == 'wall@workers.dar-aqua.app'] if hasattr(sb, 'profiles') else []
+    check('X1d ticking the site while editing is saved', (not saved) or 'farm:F2' in (saved[0].get('perms') or []), saved[:1])
+    badges = pg.evaluate("[...document.querySelectorAll('.um-site')].map(b=>b.textContent)")
+    check('X1e the users list shows where each one works', any('F1' in b for b in badges) and any('كل الأماكن' in b for b in badges), badges)
+    # undo for the rest of the test (wall = every site)
+    pg.evaluate("_umEditId = _umProfiles.find(x=>x.email==='wall@workers.dar-aqua.app').id; adminLoadUsers()"); pg.wait_for_timeout(600)
+    pg.uncheck('[id="eperm-farm:F2"]'); pg.evaluate("umSaveEdit()"); pg.wait_for_timeout(800)
     pg.fill('#um-name', 'Raju'); pg.fill('#um-email', 'raju'); pg.fill('#um-pass', 'farm2026'); pg.check('#perm-input_feeding'); pg.check('[id="perm-farm:F2"]'); pg.click('#um-add-btn'); pg.wait_for_timeout(800)
     prof = [u for u in sb.profiles.values() if u.get('email') == 'raju@workers.dar-aqua.app'] if hasattr(sb, 'profiles') else []
     check('X2 the ticked site is saved with the permissions', (not prof) or 'farm:F2' in (prof[0].get('perms') or []), prof[:1])

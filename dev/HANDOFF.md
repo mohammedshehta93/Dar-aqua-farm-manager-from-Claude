@@ -140,7 +140,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   S01.Tank1, and names without T (section from the tank's setup + last number); (2) daRawUnit read the imported list
   only, so daStateAt saw a setup tank (with its fish count) as empty → now falls back to getFarmUnits (fishNo, avgWt,
   startWt, stock date, vol; flag custom:true). Wide regression clean.
-- SITES PER USER (owner 2026-11-08; module `sites_scope.js`, test `e2e_sites`): sites are extra items of
+- SITES PER USER (owner 2026-11-08; module `sites_scope.js`, test `e2e_sites`): owner could not find the boxes at the end
+  of the permissions grid → umPermsHTML now renders them in their own box "📍 المكان — يشتغل فين؟" (add + edit forms),
+  and the users list shows each user's site (daSiteBadges, "كل الأماكن" when none). sites are extra items of
   getPermsList ("farm:<id>", label 📍 الموقع) → tick boxes in add/edit user, saved in profile perms (no schema change).
   daUserFarms() (null for admin / none ticked): daFarms + getFarmList filtered ("all" only when >1 site), farmFilter
   forced to the first site at login (updateUserUI), setFarm refuses others. A forced site never carries over to the next
