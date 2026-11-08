@@ -141,7 +141,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   recovery blocked for them (admin changes the password). VIEWS['user-management'] re-pointed (the views table held the
   original function). REQUIRES Supabase Auth → Email → "Confirm email" OFF, otherwise signup returns no session and the
   account waits for a confirmation that can never arrive (alert explains it). Admin password reset for workers still TODO
-  (needs a server-side admin call — e.g. the Cloudflare Worker with the service key, admin-checked).
+  (needs a server-side admin call — e.g. the Cloudflare Worker with the service key, admin-checked). WhatsApp share:
+  right after creating an account a card offers "📲 ابعت على واتساب" (wa.me with link + username + password — the only
+  moment the password is known) and "📋 انسخ"; 📲 next to every user in the list sends link + username only.
 - TESTING LOG → AQUAMANAGER (module `aqm_wq_export.js`, test `e2e_aqw` on the owner's 588.xls): Site Measurements =
   Parameter / Site / Time / Zone / Value; the SECTION is inside the parameter name, spelled inconsistently ("Oxygen FH2. S01",
   "PH F1.S01", "TOTAL AMMONIA FH2 .S16") → `daAqwParse` + names learned per farm/section/kind (do, ph, tan, no2, no3);
