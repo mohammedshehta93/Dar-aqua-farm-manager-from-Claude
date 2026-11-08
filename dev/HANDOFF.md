@@ -135,6 +135,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- OLD ENTRY SCREENS REMOVED (owner agreed 2026-11-08; patch `dev/tools/patch_retire_legacy.py`): quick-feed, tx-feeding,
+  feed-week, photo-entry, the old daily sheet and the old mortality form — VIEWS entries now null (the retired-notice
+  wrappers show "feed is entered in one place" / the causes page), daSingleFeed() always true (window.DA_SINGLE_FEED gone).
+  48 functions used ONLY by them removed (call-graph fixpoint over the whole file, script /tmp/dead_graph.js approach:
+  a function goes only if every reference to it is inside removed functions) — 77 KB; index.html 1.40 → 1.32 MB.
+  Tests moved to current pages: e2e_tabs (feed-sheet / wq-sheet / tx-sampling), e2e_mortharv M1–M4 (causes page),
+  e2e_ai S5; e2e_week deleted (its screen is gone). 47 suites.
 - SPEED + CLEAN-UP (owner 2026-11-08 "clean it and make it faster"; module `perf_tune.js`, patch `dev/tools/patch_perf.py`,
   benchmarks `dev/tests/perf_year.py` (pages, 70k local records) and `dev/tests/perf_boot.py` (a year ON THE SERVER:
   first login + daily open); PHONE=1 → CDP 4× CPU throttle). No duplicate functions existed (merge tool replaces);
@@ -341,7 +348,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-49 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+47 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
