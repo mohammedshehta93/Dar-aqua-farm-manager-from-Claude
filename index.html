@@ -16075,10 +16075,10 @@ async function daAqwLearn(file){
   var wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), {type:'array'}), aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:''});
   var hd = (aoa[0] || []).map(function(x){ return String(x).trim().toLowerCase(); }), ip = hd.indexOf('parameter'), is = hd.indexOf('site');
   if(ip < 0){ alert('⚠️ الملف ده مش Site Measurements من الأكوامانجر (مش لاقي عمود Parameter).'); return; }
-  var c = daAqwCfg(), names = c.names || {}, temp = c.temp || {}, n = 0;
-  aoa.slice(1).forEach(function(r){ var nm = String(r[ip] || '').trim(), p = daAqwParse(nm); if(is >= 0 && r[is]) c.site = String(r[is]).trim(); if(!p) return; n++;
+  var c = daAqwCfg(), names = c.names || {}, temp = c.temp || {}, n = 0, order = [];
+  aoa.slice(1).forEach(function(r){ var nm = String(r[ip] || '').trim(), p = daAqwParse(nm); if(is >= 0 && r[is]) c.site = String(r[is]).trim(); if(nm && order.indexOf(nm) < 0) order.push(nm); if(!p) return; n++;
     if(p.kind === 'temp') temp[p.farm] = nm; else { ((names[p.farm] = names[p.farm] || {})[p.sec] = names[p.farm][p.sec] || {})[p.kind] = nm; } });
-  c.names = names; c.temp = temp; localStorage.setItem(DA_AQW_KEY, JSON.stringify(c));
+  c.names = names; c.temp = temp; c.order = order; localStorage.setItem(DA_AQW_KEY, JSON.stringify(c));   // AquaManager's own row order
   toast('✅ اتعلمت أسماء ' + n + ' قياس من الأكوامانجر'); daAqwOpen();
 }
 function daAqwDate(d){ var p = String(d).split('-'); return (+p[1]) + '/' + (+p[2]) + '/' + p[0]; }   // AquaManager shows M/D/YYYY
@@ -16094,10 +16094,20 @@ function daAqwRows(farm, date){
   if(avg !== null){ var tn = (c.temp || {})[farm]; if(tn) out.unshift([tn, site, daAqwDate(date), '', avg]); else miss['temp'] = 1; }
   return {rows:out, avgTemp:avg, nTemp:temps.length, miss:Object.keys(miss)};
 }
+function daAqwAll(date){   // AquaManager keeps the whole site in one sheet: every farm, its own row order
+  var c = daAqwCfg(), ord = c.order || [], rows = [], per = [], miss = [];
+  daFarms().forEach(function(f){ var R = daAqwRows(f, date), secs = {};
+    getTX().forEach(function(t){ if(t.type === 'water_quality' && !t.deleted && t.date === date && t.scope === 'section' && String(t.unit).indexOf(f + '.') === 0) secs[t.unit] = 1; });
+    var all = {}; _txLiveRows().forEach(function(r){ if(String(r.unit).indexOf(f + '.') === 0 && daSecOf(r.unit)) all[daSecOf(r.unit)] = 1; });   // the farm's sections
+    rows = rows.concat(R.rows); per.push({farm:f, secs:Object.keys(secs).length, total:Object.keys(all).length || null, avg:R.avgTemp, n:R.nTemp}); R.miss.forEach(function(m){ miss.push(f + ' ' + m); }); });
+  var key = function(n){ var i = ord.indexOf(n); return i >= 0 ? i : 1e6; };
+  rows.sort(function(a, b){ return key(a[0]) - key(b[0]) || a[0].toLowerCase().localeCompare(b[0].toLowerCase()); });
+  return {rows:rows, per:per, miss:miss};
+}
 function daAqwOpen(){
   var st = window._wqs; if(!st) return; var box = document.getElementById('wqs-aqbox'); if(!box) return;
-  var c = daAqwCfg(), R = daAqwRows(st.farm, st.date), inp = 'padding:6px 9px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px', dirty = window._daActiveTab && window._daActiveTab.dirty;
-  var h = '<div class="card" id="aqw-card" style="margin-bottom:12px;border:2px solid var(--teal)"><div class="card-title">📤 قياسات يوم ' + st.date + ' للأكوامانجر <button onclick="document.getElementById(&quot;wqs-aqbox&quot;).innerHTML=&quot;&quot;" style="border:0;background:none;cursor:pointer;color:var(--muted)">✕</button></div>'
+  var c = daAqwCfg(), R = daAqwAll(st.date), inp = 'padding:6px 9px;border:1.5px solid var(--line);border-radius:7px;font:inherit;font-size:13px', dirty = window._daActiveTab && window._daActiveTab.dirty;
+  var h = '<div class="card" id="aqw-card" style="margin-bottom:12px;border:2px solid var(--teal)"><div class="card-title">📤 قياسات يوم ' + st.date + ' للأكوامانجر — المزرعة كلها <button onclick="document.getElementById(&quot;wqs-aqbox&quot;).innerHTML=&quot;&quot;" style="border:0;background:none;cursor:pointer;color:var(--muted)">✕</button></div>'
     + '<div style="font-size:12px;background:#f8fafc;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.8">1️⃣ سجّل القياسات و<b>احفظ</b> · 2️⃣ <b>انسخ</b> · 3️⃣ في الأكوامانجر: <b>Site Measurements</b> ← Paste From Clipboard ← <b>Save</b>. <span style="color:var(--muted)">الأداة مش بتبعت حاجة لوحدها.</span></div>';
   if(dirty) h += '<div style="color:var(--amber);font-weight:700;font-size:13px;margin-bottom:8px">⚠️ فيه قياسات متحفظتش — احفظ الأول، النسخ بياخد المحفوظ بس.</div>';
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button id="aqw-learn" onclick="daAqwPick()" style="' + inp + ';background:#fff;cursor:pointer">📥 ' + (c.names ? 'حدّث الأسماء من ملف الأكوامانجر' : 'ارفع ملف Site Measurements من الأكوامانجر') + '</button>';
@@ -16105,7 +16115,11 @@ function daAqwOpen(){
   h += '</div>';
   if(!c.names) h += '<div style="font-size:13px">أول مرة: صدّر Site Measurements من الأكوامانجر (أي يوم) وارفعه — الأداة بتتعلم منه أسماء القياسات لكل سكشن زي ما هي عندكم.</div>';
   else {
-    if(R.avgTemp !== null) h += '<div style="font-size:12px;margin-bottom:6px">🌡️ الأكوامانجر بياخد حرارة واحدة للعنبر: هيتبعت <b>' + R.avgTemp + '°</b> (متوسط ' + R.nTemp + ' سكشن).</div>';
+    h += '<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin-bottom:6px">' + R.per.map(function(p){ var full = p.total && p.secs >= p.total;
+      return '<span id="aqw-per-' + p.farm + '" style="padding:5px 10px;border-radius:8px;background:' + (p.secs ? (full ? '#dcfce7' : '#fef9c3') : '#fee2e2') + '"><b>' + daEsc(p.farm) + '</b>: ' + p.secs + (p.total ? ' من ' + p.total : '') + ' سكشن'
+        + (p.avg !== null ? ' · 🌡️ ' + p.avg + '° (متوسط ' + p.n + ')' : '') + (p.secs ? '' : ' — <b>متسجلش لسه</b>') + '</span>'; }).join('') + '</div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">الأكوامانجر بياخد حرارة واحدة لكل عنبر = متوسط سكاشنه. الترتيب نفس ترتيب ملف الأكوامانجر.</div>';
+    if(!c.order) h += '<div style="color:var(--amber);font-size:12px;font-weight:700;margin-bottom:6px">⚠️ ارفع ملف Site Measurements من الأكوامانجر تاني (📥 فوق) عشان الأداة تتعلم ترتيبه.</div>';
     if(R.miss.length) h += '<div style="color:var(--amber);font-size:12px;margin-bottom:6px">⚠️ مش لاقي اسم في الأكوامانجر لـ: ' + R.miss.join('، ') + ' — مش هيتنسخوا (ارفع ملف فيه القياسات دي).</div>';
     if(!R.rows.length) h += '<div style="color:var(--amber);font-size:14px;font-weight:700">مفيش قياسات محفوظة يوم ' + st.date + ' لسه.</div>';
     else h += '<div style="overflow:auto;max-height:30vh" dir="ltr"><table id="aqw-t" style="border-collapse:collapse;font-size:11px"><tr style="background:#f1f5f9">' + DA_AQW_COLS.map(function(x){ return '<th style="padding:3px 6px;text-align:left">' + x + '</th>'; }).join('') + '</tr>'
@@ -16115,15 +16129,15 @@ function daAqwOpen(){
 }
 function daAqwPick(){ var i = document.createElement('input'); i.type = 'file'; i.accept = '.xls,.xlsx'; i.id = 'aqw-file'; i.onchange = function(){ if(i.files[0]) daAqwLearn(i.files[0]); }; document.body.appendChild(i); i.click(); setTimeout(function(){ i.remove(); }, 60000); }
 async function daAqwCopy(){
-  var st = window._wqs, R = daAqwRows(st.farm, st.date), txt = [DA_AQW_COLS].concat(R.rows).map(function(r){ return r.join('\t'); }).join('\r\n');
+  var st = window._wqs, R = daAqwAll(st.date), txt = [DA_AQW_COLS].concat(R.rows).map(function(r){ return r.join('\t'); }).join('\r\n');
   try{ await navigator.clipboard.writeText(txt); toast('📋 اتنسخ ' + R.rows.length + ' قياس — الزق في الأكوامانجر: Site Measurements ← Paste From Clipboard'); }
   catch(e){ toast('⚠️ المتصفح منعني أنسخ — استخدم ⬇️ Excel وانسخ منه'); }
 }
 function daAqwExcel(){
   if(typeof XLSX === 'undefined'){ toast('مكتبة Excel مش جاهزة — جرّب تاني'); return; }
-  var st = window._wqs, R = daAqwRows(st.farm, st.date), p = st.date.split('-'), d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+  var st = window._wqs, R = daAqwAll(st.date), p = st.date.split('-'), d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
   var ws = XLSX.utils.aoa_to_sheet([DA_AQW_COLS].concat(R.rows.map(function(r){ return [r[0], r[1], d, r[3], r[4]]; })), {cellDates:true});
-  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sheet'); XLSX.writeFile(wb, 'AquaManager_SiteMeasurements_' + st.farm + '_' + st.date + '.xlsx');
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sheet'); XLSX.writeFile(wb, 'AquaManager_SiteMeasurements_' + st.date + '.xlsx');
 }
 
 // ══════════════════════════════════════════════════════════

@@ -148,7 +148,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   Parameter / Site / Time / Zone / Value; the SECTION is inside the parameter name, spelled inconsistently ("Oxygen FH2. S01",
   "PH F1.S01", "TOTAL AMMONIA FH2 .S16") → `daAqwParse` + names learned per farm/section/kind (do, ph, tan, no2, no3);
   temperature is ONE per house ("Temperature FH1") → average of the sections that day, shown before copying. Date M/D/YYYY
-  in the clipboard, real date in the Excel. Button "📤 للأكوامانجر" on the testing log. NOT YET CONFIRMED that the paste
+  in the clipboard, real date in the Excel. Button "📤 للأكوامانجر" on the testing log. WHOLE SITE in one sheet (owner:
+  AquaManager has every farm in one Site Measurements sheet) — `daAqwAll(date)` gathers every farm, rows in the learned
+  order of AquaManager's own file (`order` = names in file order; AquaManager sorts by parameter name, houses inside);
+  panel shows per farm "sections recorded of total" + its average temperature. NOT YET CONFIRMED that the paste
   accepts these 5 columns (the feeding export had 5 but the paste wanted 8) — owner testing.
 - FEEDING → AQUAMANAGER (module `aqm_export.js`, test `e2e_aqx` on the owner's 2.xls): AquaManager's Feeding "Paste From
   Clipboard" demands the columns Unit / Batch / Store / Feed / Feed Batch Code / Qty / Feeder / Feeding Method (its own error
