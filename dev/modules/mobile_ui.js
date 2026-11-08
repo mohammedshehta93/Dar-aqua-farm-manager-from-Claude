@@ -13,7 +13,7 @@
     + 'header.top{padding:6px 8px!important;gap:6px!important;flex-wrap:nowrap!important}'
     + 'header.top .brand{min-width:0;flex-shrink:1}#brand-title{font-size:15px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}#sb-status{display:none!important}'
     + 'header.top .top-right{display:flex;flex-wrap:nowrap!important;align-items:center;gap:4px!important;overflow-x:auto;scrollbar-width:none;flex-shrink:0;max-width:62vw}header.top .top-right::-webkit-scrollbar{display:none}'
-    + '#offline-status{padding:4px 6px!important;max-width:30px;overflow:hidden;margin-inline-end:2px!important}'
+    + '#offline-status{padding:4px 7px!important;margin-inline-end:2px!important}'
     + '#user-badge{padding:4px 8px!important;max-width:96px;overflow:hidden;text-overflow:ellipsis;margin-inline-end:2px!important}'
     + '#back-btn{padding:5px 8px!important}#back-lbl{display:none}'
     + '#farm-dd-btn{min-width:0!important;padding:5px 8px!important;font-size:12px!important}#lang-btn{padding:4px 8px!important}'

@@ -135,6 +135,14 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- WORKER PHONE SCREEN (owner 2026-11-08; module `worker_ui.js`, test `e2e_workerui`): workers get #da-wbar (big buttons
+  for their pages: Feed / Water / Samples / Harvest / Transfer / Review / Guide + pinned 🔄) instead of #topnav +
+  #da-tabbar (office users keep tabs; e2e_tabs T17 phone check runs as admin); header without farm picker / back; chip
+  "👤 name"; connection status = dot (+ waiting count) on ≤560 px (`daCompactStatus`). Date control `daDateCtl` on
+  fs-date / wqs-date / wqw-date / sp-date / rf-date: ◀ day ▶ · Today, label in the APP's language (the native date field
+  follows the phone's language), tap opens the calendar. `daFixEmptySheet`: a sheet opened before the tanks arrived
+  (first login on a new phone) picks a farm and redraws when daSetRAW runs. Daily-total mode hides the repeated total
+  column (.fs-tot). i18n: whole phrases only — a text with Arabic left after translation stays as it was (no mixing).
 - WORKER SCOPE + ENGLISH (owner 2026-11-08; modules `worker_scope.js`, `i18n_en.js`, test `e2e_workerview`):
   role worker → canAccessView only: one entry page per input permission (DA_WORKER_PAGES: feeding / mortality →
   feed-sheet, input_wq → wq-sheet, sampling, harvest → harvest+transfer, approve_data → review-queue, input_health → its
@@ -294,7 +302,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-45 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+46 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

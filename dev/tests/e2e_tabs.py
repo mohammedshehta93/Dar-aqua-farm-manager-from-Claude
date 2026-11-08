@@ -72,7 +72,7 @@ with sync_playwright() as p:
     # phone
     ctx = BROWSER.new_context(viewport={'width': 390, 'height': 800}); ctx.route('**/*', make_handler(sb)); pg = ctx.new_page(); pg._errs = []
     pg.on('pageerror', lambda e: pg._errs.append(str(e)))
-    pg.goto(BASE); pg.wait_for_timeout(500); login(pg, 'worker@example.com', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.evaluate('window.DA_SINGLE_FEED=false')  # legacy screens under test (retired from the menu 2026-10-29)
+    pg.goto(BASE); pg.wait_for_timeout(500); login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.evaluate('window.DA_SINGLE_FEED=false')   # office users keep the tab strip on phones (workers get big page buttons instead, 2026-11-08)  # legacy screens under test (retired from the menu 2026-10-29)
     for v in ['quick-feed', 'tx-mortality', 'tx-sampling', 'feed-week']: pg.evaluate(f"show('{v}')"); pg.wait_for_timeout(100)
     m = pg.evaluate("(() => { const b=document.getElementById('da-tabbar'), r=b.querySelector('.dt-row'); return {vis:b.offsetHeight>0, scroll:r.scrollWidth>r.clientWidth, overflow:document.documentElement.scrollWidth>window.innerWidth+1}; })()")
     check('T17 phone: tab bar visible, scrolls sideways, page does not overflow', m['vis'] and m['scroll'] and not m['overflow'], m)

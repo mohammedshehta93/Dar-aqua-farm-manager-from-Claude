@@ -122,7 +122,7 @@ function renderFeedSheet(){
     gr.forEach(function(r){ used[r.unit] = 1; });
     var secs = gr.map(function(r){ return r.no.s; }), lo = Math.min.apply(null, secs), hi = Math.max.apply(null, secs);
     h += '<div class="card fs-group" style="margin-bottom:12px;padding:10px"><div class="card-title">' + (lo === hi ? 'سكشن ' + lo : 'سكاشن ' + lo + ' – ' + hi) + ' <span style="font-weight:400;color:var(--muted);font-size:12px">(' + g.meals.length + ' وجبات' + (g.unit === 'g' ? ' — <b style="color:var(--teal)">بالجرام</b>' : ' — بالكيلو') + ')</span></div>'
-      + '<div style="overflow-x:auto" dir="ltr"><table class="fs-t" dir="ltr"><thead><tr><th class="fs-tank">Tank</th>' + (tot ? '<th>Quantity (' + (g.unit === 'g' ? 'g' : 'kg') + ')</th>' : g.meals.map(function(m){ return '<th>' + daEsc(m) + '</th>'; }).join(''))
+      + '<div style="overflow-x:auto" dir="ltr"><table class="fs-t' + (tot ? ' fs-tot' : '') + '" dir="ltr"><thead><tr><th class="fs-tank">Tank</th>' + (tot ? '<th>Quantity (' + (g.unit === 'g' ? 'g' : 'kg') + ')</th>' : g.meals.map(function(m){ return '<th>' + daEsc(m) + '</th>'; }).join(''))
       + '<th>Size</th><th>dead</th><th class="fs-sumh">الإجمالي</th><th></th></tr></thead><tbody>';
     gr.forEach(function(r){
       var i = idx++, ft = r.feedTx, mt = r.mortTx, meals = (ft && ft.meals) || {}, off = !(r.fish > 0) && !ft && !mt;

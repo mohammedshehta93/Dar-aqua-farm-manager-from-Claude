@@ -18,6 +18,9 @@ var DA_EN_RULES = [
   [/📋 اتنسخ علف (\d+) تانك من (\S+) — راجع وعدّل واحفظ/g, '📋 Copied feed of $1 tanks from $2 — check, edit and save'], [/⚠️ أرقام مش منطقية: (.+)/g, '⚠️ Impossible numbers: $1'],
   [/⚠️ اكتب الحجم \(1 أو 2 أو 3\) للتانكات: (.+)/g, '⚠️ Write the size (1, 2 or 3) for tanks: $1'], [/⚠️ أرقام مش صحيحة في: (.+)/g, '⚠️ Wrong numbers in: $1'],
   [/فيه بيانات اتكتبت في "(.+?)" ومتحفظتش\. (.+)/g, 'Unsaved input in "$1". $2'], [/(\d+) تاب فيهم بيانات متحفظتش\. تقفلهم برضه؟/g, '$1 tabs have unsaved input. Close them anyway?'],
+  [/متاح يومها: ([\d,]+) سمكة · (\d+)g/g, 'Available that day: $1 fish · $2 g'], [/^(\d+) سجل$/g, '$1 records'], [/حصاد (\S+): ([\d,]+) سمكة · ([\d.]+) كجم/g, 'Harvest $1: $2 fish · $3 kg'],
+  [/نقل من (\S+) لـ (\d+) تانك · ([\d,]+) سمكة/g, 'Transfer from $1 to $2 tank(s) · $3 fish'], [/(\S+) يومها فيه ([\d,]+) سمكة بس — مينفعش تنقل ([\d,]+)/g, '$1 had only $2 fish that day — cannot transfer $3'],
+  [/التانك يومها فيه ([\d,]+) سمكة بس — مينفعش تحصد ([\d,]+)/g, 'The tank had only $1 fish that day — cannot harvest $2'],
   [/فيه أرقام اتكتبت ومتحفظتش في الشيت ده\. تغيّر (.+?)؟/g, 'Numbers typed in this sheet are not saved. Change $1?'], [/فيه قرايات اتكتبت ومتحفظتش\. تغيّر (.+?)؟/g, 'Readings typed are not saved. Change $1?']];
 var DA_EN = [
   ['نفس ترتيب الشيت الورق — الكميات بالكيلو لكل وجبة، والأداة بتجمعها', 'Same order as the paper sheet — amounts in kg per meal; the app adds them up'],
@@ -55,7 +58,26 @@ var DA_EN = [
   ['الإجمالي', 'Total'], ['الإدخال:', 'Entry:'], ['الإدخال', 'Entry'], ['الإعداد', 'Setup'], ['الرئيسية', 'Home'], ['التاريخ', 'Date'], ['المزرعة', 'Farm'], ['الفني', 'Technician'],
   ['دليل الاستخدام', 'Guide'], ['المزيد', 'More'], ['الكل', 'All'], ['بعدين', 'Later'], ['تحديث', 'Update'], ['إلغاء', 'Cancel'], ['رجوع', 'Back'], ['قفل', 'Close'], ['ملاحظات', 'Notes'],
   ['🟢 متصل', '🟢 Online'], ['☁️ متصل', '☁️ Online'], ['متصل', 'Online'], ['أدمن', 'Admin'], ['عامل', 'Worker'], ['مهندس', 'Engineer'], ['مدير', 'Manager'], ['كجم', 'kg'],
-  ['سكشن برّه الحدود', 'section(s) out of range'], ['تانك', 'tanks']];
+  ['سكشن برّه الحدود', 'section(s) out of range'],
+  // account
+  ['👤 حسابي', '👤 My account'], ['حسابي', 'My account'], ['صلاحياتك:', 'Your permissions:'], ['🌾 إدخال التغذية', '🌾 Feeding'], ['💀 إدخال النفوق', '💀 Mortality'],
+  ['🔬 إدخال العينات', '🔬 Sampling'], ['💧 جودة المياه', '💧 Water quality'], ['🎣 الحصاد والنقل', '🎣 Harvest & transfer'], ['💊 الصحة والعلاجات', '💊 Health'], ['✔️ مراجعة واعتماد البيانات', '✔️ Review data'],
+  ['🔐 تغيير كلمة السر', '🔐 Change password'], ['كلمة السر الجديدة', 'New password'], ['أكد كلمة السر', 'Confirm password'], ['💾 تغيير', '💾 Change'], ['🚪 تسجيل خروج', '🚪 Log out'],
+  ['✅ اتغيرت كلمة السر', '✅ Password changed'], ['⚠️ كلمتين السر مش زي بعض', '⚠️ The passwords do not match'], ['⚠️ كلمة السر 6 حروف على الأقل', '⚠️ Password: at least 6 characters'],
+  // harvest / transfer / sampling registers
+  ['كل الحصاد في الفترة — كليك يمين على أي سطر (أو ⋮) للتعديل والحذف والإضافة', 'All harvests in the period — tap ⋮ on a row to edit, delete or add'],
+  ['كل النقل في الفترة — من تانك لتانك أو أكتر في سجل واحد. كليك يمين (أو ⋮) للتعديل والحذف والإضافة', 'All transfers in the period — one tank to one or more tanks in one record. Tap ⋮ to edit, delete or add'],
+  ['مفيش حصاد في الفترة دي — ➕ جديد أو كليك يمين.', 'No harvest in this period — press ➕ New.'], ['مفيش نقل في الفترة دي — ➕ جديد أو كليك يمين.', 'No transfer in this period — press ➕ New.'],
+  ['العينات بتتسجل من هنا بس. ممكن من الشيت المطبوع:', 'Samples are entered here only.'],
+  ['متوسط وزن السمك اللي فاضل بيتحسب لوحده من وزن اللي طلع، والعلف اللي اتاكل بيتقسم بنسبة الكتلة.', 'The average weight of the fish left is calculated from the weight of those taken out.'],
+  ['(اقفل الدورة والباقي يبقى تسوية)', '(close the cycle; the rest becomes an adjustment)'], ['(لو الحصاد فضّى التانك)', '(if the harvest emptied the tank)'], ['Adjustments (فرق عد)', 'Adjustments (count difference)'],
+  ['➕ جديد — حصاد', '➕ New — harvest'], ['✏️ تعديل — حصاد', '✏️ Edit — harvest'], ['➕ جديد — نقل', '➕ New — transfer'], ['✏️ تعديل — نقل', '✏️ Edit — transfer'], ['➕ جديد', '➕ New'],
+  ['➕ سجل جديد', '➕ New record'], ['✏️ تعديل', '✏️ Edit'], ['📋 نسخة جديدة منه', '📋 Copy as new'], ['🗑 حذف', '🗑 Delete'], ['➕ تانك تاني', '➕ Another tank'],
+  ['وزن الباقي بعد النقل (جم)', 'Weight of fish left (g)'], ['فاضي = محسوب', 'empty = calculated'], ['الإجمالي:', 'Total:'], ['تانك / دفعة', 'Tank / batch'], ['من تانك', 'From tank'],
+  ['🎣 الحصاد', '🎣 Harvest'], ['🔄 النقل', '🔄 Transfer'], ['الحصاد', 'Harvest'], ['النقل', 'Transfer'], ['العينات', 'Sampling'], ['التانك', 'Tank'], ['المشتري', 'Buyer'], ['السعر', 'Price'],
+  ['صغير', 'Small'], ['طبيعي', 'Normal'], ['كبير جداً', 'X-large'], ['كبير', 'Large'], ['غير مصنف', 'Unsorted'], ['فلتر', 'Filter'], ['لحد', 'To'], ['من', 'From'], ['فرق عد', 'Count difference'],
+  ['مفيش تانكات متسجلة للمزرعة دي.', 'No tanks recorded for this farm.'], ['مفيش سكاشن في المزرعة دي', 'No sections in this farm'],
+  ['هروب', 'Escape'], ['سرقة / فقد', 'Theft / loss'], ['أخرى', 'Other'], ['نقل / فرز', 'Transfer / grading'], ['ملاحظات', 'Notes'], ['المدة', 'Period']];
 DA_EN.sort(function(a, b){ return b[0].length - a[0].length; });
 var _daArRe = /[\u0600-\u06FF]/;
 function daEn(s){
@@ -63,8 +85,10 @@ function daEn(s){
   DA_EN_RULES.forEach(function(r){ t = t.replace(r[0], r[1]); });
   if(!_daArRe.test(t)) return t; var trimmed = t.trim();
   for(var i = 0; i < DA_EN.length; i++){ if(trimmed === DA_EN[i][0]) return t.replace(trimmed, DA_EN[i][1]); }
-  for(var j = 0; j < DA_EN.length; j++) if(DA_EN[j][0].length >= 3 && t.indexOf(DA_EN[j][0]) >= 0) t = t.split(DA_EN[j][0]).join(DA_EN[j][1]);
-  return t;
+  // whole phrases inside a longer text, only at word boundaries; if Arabic is still left, keep the original (never mixed)
+  var u = t; for(var j = 0; j < DA_EN.length; j++){ var a = DA_EN[j][0]; if(a.length < 4 || u.indexOf(a) < 0) continue;
+    u = u.replace(new RegExp('(^|[^\u0600-\u06FF])' + a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\u0600-\u06FF])', 'g'), function(m, pre){ return pre + DA_EN[j][1]; }); }
+  return _daArRe.test(u) ? s : u;
 }
 function daEnNode(root){
   if(isAr || !root) return;

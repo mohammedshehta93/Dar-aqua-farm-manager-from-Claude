@@ -13633,7 +13633,7 @@ function renderFeedSheet(){
     gr.forEach(function(r){ used[r.unit] = 1; });
     var secs = gr.map(function(r){ return r.no.s; }), lo = Math.min.apply(null, secs), hi = Math.max.apply(null, secs);
     h += '<div class="card fs-group" style="margin-bottom:12px;padding:10px"><div class="card-title">' + (lo === hi ? 'سكشن ' + lo : 'سكاشن ' + lo + ' – ' + hi) + ' <span style="font-weight:400;color:var(--muted);font-size:12px">(' + g.meals.length + ' وجبات' + (g.unit === 'g' ? ' — <b style="color:var(--teal)">بالجرام</b>' : ' — بالكيلو') + ')</span></div>'
-      + '<div style="overflow-x:auto" dir="ltr"><table class="fs-t" dir="ltr"><thead><tr><th class="fs-tank">Tank</th>' + (tot ? '<th>Quantity (' + (g.unit === 'g' ? 'g' : 'kg') + ')</th>' : g.meals.map(function(m){ return '<th>' + daEsc(m) + '</th>'; }).join(''))
+      + '<div style="overflow-x:auto" dir="ltr"><table class="fs-t' + (tot ? ' fs-tot' : '') + '" dir="ltr"><thead><tr><th class="fs-tank">Tank</th>' + (tot ? '<th>Quantity (' + (g.unit === 'g' ? 'g' : 'kg') + ')</th>' : g.meals.map(function(m){ return '<th>' + daEsc(m) + '</th>'; }).join(''))
       + '<th>Size</th><th>dead</th><th class="fs-sumh">الإجمالي</th><th></th></tr></thead><tbody>';
     gr.forEach(function(r){
       var i = idx++, ft = r.feedTx, mt = r.mortTx, meals = (ft && ft.meals) || {}, off = !(r.fish > 0) && !ft && !mt;
@@ -16270,7 +16270,7 @@ if(!window._daWqwWrapped){
     + 'header.top{padding:6px 8px!important;gap:6px!important;flex-wrap:nowrap!important}'
     + 'header.top .brand{min-width:0;flex-shrink:1}#brand-title{font-size:15px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}#sb-status{display:none!important}'
     + 'header.top .top-right{display:flex;flex-wrap:nowrap!important;align-items:center;gap:4px!important;overflow-x:auto;scrollbar-width:none;flex-shrink:0;max-width:62vw}header.top .top-right::-webkit-scrollbar{display:none}'
-    + '#offline-status{padding:4px 6px!important;max-width:30px;overflow:hidden;margin-inline-end:2px!important}'
+    + '#offline-status{padding:4px 7px!important;margin-inline-end:2px!important}'
     + '#user-badge{padding:4px 8px!important;max-width:96px;overflow:hidden;text-overflow:ellipsis;margin-inline-end:2px!important}'
     + '#back-btn{padding:5px 8px!important}#back-lbl{display:none}'
     + '#farm-dd-btn{min-width:0!important;padding:5px 8px!important;font-size:12px!important}#lang-btn{padding:4px 8px!important}'
@@ -16374,6 +16374,9 @@ var DA_EN_RULES = [
   [/📋 اتنسخ علف (\d+) تانك من (\S+) — راجع وعدّل واحفظ/g, '📋 Copied feed of $1 tanks from $2 — check, edit and save'], [/⚠️ أرقام مش منطقية: (.+)/g, '⚠️ Impossible numbers: $1'],
   [/⚠️ اكتب الحجم \(1 أو 2 أو 3\) للتانكات: (.+)/g, '⚠️ Write the size (1, 2 or 3) for tanks: $1'], [/⚠️ أرقام مش صحيحة في: (.+)/g, '⚠️ Wrong numbers in: $1'],
   [/فيه بيانات اتكتبت في "(.+?)" ومتحفظتش\. (.+)/g, 'Unsaved input in "$1". $2'], [/(\d+) تاب فيهم بيانات متحفظتش\. تقفلهم برضه؟/g, '$1 tabs have unsaved input. Close them anyway?'],
+  [/متاح يومها: ([\d,]+) سمكة · (\d+)g/g, 'Available that day: $1 fish · $2 g'], [/^(\d+) سجل$/g, '$1 records'], [/حصاد (\S+): ([\d,]+) سمكة · ([\d.]+) كجم/g, 'Harvest $1: $2 fish · $3 kg'],
+  [/نقل من (\S+) لـ (\d+) تانك · ([\d,]+) سمكة/g, 'Transfer from $1 to $2 tank(s) · $3 fish'], [/(\S+) يومها فيه ([\d,]+) سمكة بس — مينفعش تنقل ([\d,]+)/g, '$1 had only $2 fish that day — cannot transfer $3'],
+  [/التانك يومها فيه ([\d,]+) سمكة بس — مينفعش تحصد ([\d,]+)/g, 'The tank had only $1 fish that day — cannot harvest $2'],
   [/فيه أرقام اتكتبت ومتحفظتش في الشيت ده\. تغيّر (.+?)؟/g, 'Numbers typed in this sheet are not saved. Change $1?'], [/فيه قرايات اتكتبت ومتحفظتش\. تغيّر (.+?)؟/g, 'Readings typed are not saved. Change $1?']];
 var DA_EN = [
   ['نفس ترتيب الشيت الورق — الكميات بالكيلو لكل وجبة، والأداة بتجمعها', 'Same order as the paper sheet — amounts in kg per meal; the app adds them up'],
@@ -16411,7 +16414,26 @@ var DA_EN = [
   ['الإجمالي', 'Total'], ['الإدخال:', 'Entry:'], ['الإدخال', 'Entry'], ['الإعداد', 'Setup'], ['الرئيسية', 'Home'], ['التاريخ', 'Date'], ['المزرعة', 'Farm'], ['الفني', 'Technician'],
   ['دليل الاستخدام', 'Guide'], ['المزيد', 'More'], ['الكل', 'All'], ['بعدين', 'Later'], ['تحديث', 'Update'], ['إلغاء', 'Cancel'], ['رجوع', 'Back'], ['قفل', 'Close'], ['ملاحظات', 'Notes'],
   ['🟢 متصل', '🟢 Online'], ['☁️ متصل', '☁️ Online'], ['متصل', 'Online'], ['أدمن', 'Admin'], ['عامل', 'Worker'], ['مهندس', 'Engineer'], ['مدير', 'Manager'], ['كجم', 'kg'],
-  ['سكشن برّه الحدود', 'section(s) out of range'], ['تانك', 'tanks']];
+  ['سكشن برّه الحدود', 'section(s) out of range'],
+  // account
+  ['👤 حسابي', '👤 My account'], ['حسابي', 'My account'], ['صلاحياتك:', 'Your permissions:'], ['🌾 إدخال التغذية', '🌾 Feeding'], ['💀 إدخال النفوق', '💀 Mortality'],
+  ['🔬 إدخال العينات', '🔬 Sampling'], ['💧 جودة المياه', '💧 Water quality'], ['🎣 الحصاد والنقل', '🎣 Harvest & transfer'], ['💊 الصحة والعلاجات', '💊 Health'], ['✔️ مراجعة واعتماد البيانات', '✔️ Review data'],
+  ['🔐 تغيير كلمة السر', '🔐 Change password'], ['كلمة السر الجديدة', 'New password'], ['أكد كلمة السر', 'Confirm password'], ['💾 تغيير', '💾 Change'], ['🚪 تسجيل خروج', '🚪 Log out'],
+  ['✅ اتغيرت كلمة السر', '✅ Password changed'], ['⚠️ كلمتين السر مش زي بعض', '⚠️ The passwords do not match'], ['⚠️ كلمة السر 6 حروف على الأقل', '⚠️ Password: at least 6 characters'],
+  // harvest / transfer / sampling registers
+  ['كل الحصاد في الفترة — كليك يمين على أي سطر (أو ⋮) للتعديل والحذف والإضافة', 'All harvests in the period — tap ⋮ on a row to edit, delete or add'],
+  ['كل النقل في الفترة — من تانك لتانك أو أكتر في سجل واحد. كليك يمين (أو ⋮) للتعديل والحذف والإضافة', 'All transfers in the period — one tank to one or more tanks in one record. Tap ⋮ to edit, delete or add'],
+  ['مفيش حصاد في الفترة دي — ➕ جديد أو كليك يمين.', 'No harvest in this period — press ➕ New.'], ['مفيش نقل في الفترة دي — ➕ جديد أو كليك يمين.', 'No transfer in this period — press ➕ New.'],
+  ['العينات بتتسجل من هنا بس. ممكن من الشيت المطبوع:', 'Samples are entered here only.'],
+  ['متوسط وزن السمك اللي فاضل بيتحسب لوحده من وزن اللي طلع، والعلف اللي اتاكل بيتقسم بنسبة الكتلة.', 'The average weight of the fish left is calculated from the weight of those taken out.'],
+  ['(اقفل الدورة والباقي يبقى تسوية)', '(close the cycle; the rest becomes an adjustment)'], ['(لو الحصاد فضّى التانك)', '(if the harvest emptied the tank)'], ['Adjustments (فرق عد)', 'Adjustments (count difference)'],
+  ['➕ جديد — حصاد', '➕ New — harvest'], ['✏️ تعديل — حصاد', '✏️ Edit — harvest'], ['➕ جديد — نقل', '➕ New — transfer'], ['✏️ تعديل — نقل', '✏️ Edit — transfer'], ['➕ جديد', '➕ New'],
+  ['➕ سجل جديد', '➕ New record'], ['✏️ تعديل', '✏️ Edit'], ['📋 نسخة جديدة منه', '📋 Copy as new'], ['🗑 حذف', '🗑 Delete'], ['➕ تانك تاني', '➕ Another tank'],
+  ['وزن الباقي بعد النقل (جم)', 'Weight of fish left (g)'], ['فاضي = محسوب', 'empty = calculated'], ['الإجمالي:', 'Total:'], ['تانك / دفعة', 'Tank / batch'], ['من تانك', 'From tank'],
+  ['🎣 الحصاد', '🎣 Harvest'], ['🔄 النقل', '🔄 Transfer'], ['الحصاد', 'Harvest'], ['النقل', 'Transfer'], ['العينات', 'Sampling'], ['التانك', 'Tank'], ['المشتري', 'Buyer'], ['السعر', 'Price'],
+  ['صغير', 'Small'], ['طبيعي', 'Normal'], ['كبير جداً', 'X-large'], ['كبير', 'Large'], ['غير مصنف', 'Unsorted'], ['فلتر', 'Filter'], ['لحد', 'To'], ['من', 'From'], ['فرق عد', 'Count difference'],
+  ['مفيش تانكات متسجلة للمزرعة دي.', 'No tanks recorded for this farm.'], ['مفيش سكاشن في المزرعة دي', 'No sections in this farm'],
+  ['هروب', 'Escape'], ['سرقة / فقد', 'Theft / loss'], ['أخرى', 'Other'], ['نقل / فرز', 'Transfer / grading'], ['ملاحظات', 'Notes'], ['المدة', 'Period']];
 DA_EN.sort(function(a, b){ return b[0].length - a[0].length; });
 var _daArRe = /[\u0600-\u06FF]/;
 function daEn(s){
@@ -16419,8 +16441,10 @@ function daEn(s){
   DA_EN_RULES.forEach(function(r){ t = t.replace(r[0], r[1]); });
   if(!_daArRe.test(t)) return t; var trimmed = t.trim();
   for(var i = 0; i < DA_EN.length; i++){ if(trimmed === DA_EN[i][0]) return t.replace(trimmed, DA_EN[i][1]); }
-  for(var j = 0; j < DA_EN.length; j++) if(DA_EN[j][0].length >= 3 && t.indexOf(DA_EN[j][0]) >= 0) t = t.split(DA_EN[j][0]).join(DA_EN[j][1]);
-  return t;
+  // whole phrases inside a longer text, only at word boundaries; if Arabic is still left, keep the original (never mixed)
+  var u = t; for(var j = 0; j < DA_EN.length; j++){ var a = DA_EN[j][0]; if(a.length < 4 || u.indexOf(a) < 0) continue;
+    u = u.replace(new RegExp('(^|[^\u0600-\u06FF])' + a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\u0600-\u06FF])', 'g'), function(m, pre){ return pre + DA_EN[j][1]; }); }
+  return _daArRe.test(u) ? s : u;
 }
 function daEnNode(root){
   if(isAr || !root) return;
@@ -16458,6 +16482,80 @@ if(!window._daEnWrapped){
   window.alert = function(m){ return _al.call(window, daEn(String(m))); };
   window.confirm = function(m){ return _cf.call(window, daEn(String(m))); };
   if(VIEWS.help){ var _vhEn = VIEWS.help; VIEWS.help = function(){ if(!isAr && (window._helpTab === 'worker' || (currentUser && currentUserRole === 'worker'))) return daWorkerGuideEn(); return _vhEn.apply(this, arguments); }; }
+}
+
+// ══════════════════════════════════════════════════════════
+//  A SIMPLE SCREEN FOR WORKERS (owner, 2026-11-08)
+// ══════════════════════════════════════════════════════════
+// Workers get big buttons for their own pages instead of the menu + tab strip, a calm header (no farm picker / back),
+// their name on the user chip, and a date control that speaks the app's language (the phone's date field follows the
+// PHONE's language): ◀ day ▶ · Today, tapping the date opens the calendar. The date control is used on the entry
+// sheets for everyone.
+var DA_WBAR = [['feed-sheet', '📋', 'العلف', 'Feed'], ['wq-sheet', '🧪', 'المياه', 'Water'], ['tx-sampling', '🔬', 'العينات', 'Samples'],
+  ['tx-harvesting', '🎣', 'الحصاد', 'Harvest'], ['tx-transfer', '🔄', 'النقل', 'Transfer'], ['review-queue', '✔️', 'المراجعة', 'Review'], ['help', '❓', 'الدليل', 'Guide']];
+(function(){ var st = document.createElement('style'); st.id = 'da-wui-css';
+  st.textContent = 'body.da-worker #topnav,body.da-worker #da-tabbar,body.da-worker #farm-dd-wrap,body.da-worker #back-btn,body.da-worker #mob-nav{display:none!important}'
+    + '#da-wbar{display:none}body.da-worker #da-wbar{display:flex;gap:6px;padding:8px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;z-index:50;scrollbar-width:none}'
+    + '#da-wbar::-webkit-scrollbar{display:none}#da-wbar button{flex:0 0 auto;min-height:46px;padding:6px 11px;border-radius:12px;border:2px solid var(--line);background:#fff;font:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}'
+    + '#da-wbar button.on{background:var(--teal);border-color:var(--teal);color:#fff}#da-wbar .rf{margin-inline-start:auto;color:var(--teal);position:sticky;inset-inline-end:0;box-shadow:-6px 0 8px -4px rgba(0,0,0,.15)}'
+    + '.fs-tot .fs-sumh,.fs-tot .fs-sum{display:none}'   // daily-total mode: the total column repeats the quantity
+    + '.da-dctl{display:inline-flex;align-items:stretch;gap:4px}.da-dctl button{min-width:40px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;font-size:16px;cursor:pointer}'
+    + '.da-dctl .lbl{position:relative;display:flex;align-items:center;padding:7px 12px;border:1.5px solid var(--line);border-radius:8px;background:#fff;font-weight:700;font-size:14px;white-space:nowrap;cursor:pointer;min-width:140px;justify-content:center}'
+    + '.da-dctl .lbl input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}.da-dctl .today{font-size:13px;padding:0 10px}';
+  document.head.appendChild(st); })();
+function daWorkerBar(){
+  var b = document.getElementById('da-wbar'); if(!b){ b = document.createElement('div'); b.id = 'da-wbar'; b.className = 'no-print'; var hd = document.querySelector('header.top'); if(!hd) return; hd.parentNode.insertBefore(b, hd.nextSibling); }
+  if(!(currentUser && currentUserRole === 'worker')){ b.innerHTML = ''; return; }
+  b.innerHTML = DA_WBAR.filter(function(x){ return canAccessView(x[0]); }).map(function(x){ return '<button data-v="' + x[0] + '" class="' + (x[0] === currentView ? 'on' : '') + '">' + x[1] + ' ' + (isAr ? x[2] : x[3]) + '</button>'; }).join('')
+    + '<button class="rf" data-v="__refresh" title="' + (isAr ? 'تحديث' : 'Refresh') + '">🔄</button>';
+  b.querySelectorAll('button').forEach(function(x){ x.onclick = function(){ if(x.dataset.v === '__refresh'){ if(typeof daTabRefresh === 'function') daTabRefresh(); else show(currentView, true); } else show(x.dataset.v); }; });
+}
+function daCompactStatus(){
+  var e = document.getElementById('offline-status'); if(!e) return; var full = e.dataset.full && e.textContent.length <= 6 ? e.dataset.full : e.textContent;
+  if(window.innerWidth <= 560){ var m = full.match(/^\s*(\S+)/), n = full.match(/\d+/); e.dataset.full = full; e.title = daEn ? daEn(full) : full; e.textContent = (m ? m[1] : '•') + (n ? ' ' + n[0] : ''); e.style.maxWidth = 'none'; }
+  else if(e.dataset.full){ e.textContent = e.dataset.full; delete e.dataset.full; }
+}
+function daFixEmptySheet(){   // a sheet opened before the tanks arrived from the cloud has no farm: pick one and redraw (nothing typed yet)
+  var farms = daFarms(); if(!farms.length) return; var dirty = window._daActiveTab && window._daActiveTab.dirty;
+  [['feed-sheet', '_fs'], ['wq-sheet', '_wqs']].forEach(function(x){ var st = window[x[1]];
+    if(currentView === x[0] && !dirty && (!st || farms.indexOf(st.farm) < 0)){ window[x[1]] = Object.assign(st || {}, {farm:farmFilter && farmFilter !== 'all' && farms.indexOf(farmFilter) >= 0 ? farmFilter : farms[0]}); show(x[0], true); } });
+}
+var DA_DAYS = {en:['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], ar:['الأحد', 'الاتنين', 'التلات', 'الأربع', 'الخميس', 'الجمعة', 'السبت']};
+var DA_MONTHS = {en:['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], ar:['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']};
+function daFmtDate(v){ var p = String(v || '').split('-'); if(p.length !== 3) return v || '—'; var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])), L = isAr ? 'ar' : 'en';
+  return DA_DAYS[L][d.getUTCDay()] + ' ' + (+p[2]) + ' ' + DA_MONTHS[L][+p[1] - 1] + ' ' + p[0] + (v === daToday() ? (isAr ? ' (النهارده)' : ' (today)') : ''); }
+var DA_DCTL_IDS = ['fs-date', 'wqs-date', 'wqw-date', 'sp-date', 'rf-date'];
+function daDateCtl(root){
+  DA_DCTL_IDS.forEach(function(id){ var inp = (root || document).querySelector ? (root || document).querySelector('#' + id) : null; if(!inp || inp.dataset.dctl) return; inp.dataset.dctl = '1';
+    var w = document.createElement('span'); w.className = 'da-dctl'; w.dir = isAr ? 'rtl' : 'ltr';
+    var prev = document.createElement('button'), lbl = document.createElement('span'), next = document.createElement('button'), today = document.createElement('button');
+    prev.type = next.type = today.type = 'button'; prev.textContent = isAr ? '▶' : '◀'; next.textContent = isAr ? '◀' : '▶'; prev.title = isAr ? 'اليوم اللي قبله' : 'Previous day'; next.title = isAr ? 'اليوم اللي بعده' : 'Next day';
+    today.className = 'today'; today.textContent = isAr ? 'النهارده' : 'Today'; lbl.className = 'lbl';
+    inp.parentNode.insertBefore(w, inp); lbl.appendChild(document.createTextNode('')); lbl.appendChild(inp); w.appendChild(prev); w.appendChild(lbl); w.appendChild(next); w.appendChild(today);
+    var paint = function(){ lbl.firstChild.nodeValue = daFmtDate(inp.value); next.disabled = !!inp.max && inp.value >= inp.max; today.style.display = inp.value === daToday() ? 'none' : ''; };
+    var set = function(v){ if(!v || (inp.max && v > inp.max) || (inp.min && v < inp.min)) return; inp.value = v; paint(); inp.dispatchEvent(new Event('input', {bubbles:true})); inp.dispatchEvent(new Event('change', {bubbles:true})); };
+    prev.onclick = function(){ set(daAddDays(inp.value || daToday(), -1)); }; next.onclick = function(){ set(daAddDays(inp.value || daToday(), 1)); }; today.onclick = function(){ set(daToday()); };
+    lbl.addEventListener('click', function(e){ if(e.target !== inp && inp.showPicker) try{ inp.showPicker(); }catch(x){} });
+    inp.addEventListener('change', paint); inp.addEventListener('input', paint); paint();
+  });
+}
+if(!window._daWuiWrapped){
+  window._daWuiWrapped = true;
+  var _showPreWui = show;
+  show = function(){ var r = _showPreWui.apply(this, arguments); daWorkerBar(); daDateCtl(document.getElementById('content')); return r; };
+  var _uuiPreWui = updateUserUI;
+  updateUserUI = function(){ var r = _uuiPreWui.apply(this, arguments); daWorkerBar();
+    var b = document.getElementById('user-badge'); if(b && currentUser && currentUserRole === 'worker'){ var nm = (getSession() || {}).name || daShowLogin(currentUser.email); b.textContent = '👤 ' + nm; }
+    return r; };
+  var _rawPreWui = daSetRAW;
+  daSetRAW = function(){ var r = _rawPreWui.apply(this, arguments); setTimeout(daFixEmptySheet, 0); return r; };
+  var _offPreWui = updateOfflineStatus;   // narrow phone: the status shows its dot (and a waiting count), full text on hover
+  updateOfflineStatus = function(){ var r = _offPreWui.apply(this, arguments); daCompactStatus(); return r; };
+  window.addEventListener('resize', daCompactStatus);
+  var _tlPreWui = toggleLang;
+  toggleLang = function(){ var r = _tlPreWui.apply(this, arguments); daWorkerBar(); updateUserUI(); return r; };
+  new MutationObserver(function(){ var c = document.getElementById('content'); if(!c) return; daDateCtl(c); if(typeof daHideWorkerEmails === 'function' && c.textContent.indexOf('@' + DA_USER_DOMAIN) >= 0) daHideWorkerEmails(c); })
+    .observe(document.getElementById('content') || document.body, {childList:true, subtree:true});
 }
 
 // ── Init ──────────────────────────────────────
