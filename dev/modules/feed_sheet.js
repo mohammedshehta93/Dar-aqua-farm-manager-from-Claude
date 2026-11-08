@@ -28,7 +28,13 @@ function daParseSheetGroups(text){
   });
   return {groups:out, bad:bad};
 }
-function daTankNo(unit){ var m = /S(\d+)\s*T(\d+)/i.exec(String(unit || '')); return m ? {s:+m[1], t:+m[2], label:(+m[1]) + '.' + (+m[2])} : null; }
+function daTankNo(unit){   // F1.S01T01 · HA.S01.T01 · HA.S1-T1 · HA.S01.Tank1 · and names without T: the unit's section + its last number
+  var u = String(unit || ''), m = /S\s*(\d+)[\s._\-\/]*T(?:ank)?\s*(\d+)/i.exec(u);
+  if(m) return {s:+m[1], t:+m[2], label:(+m[1]) + '.' + (+m[2])};
+  var cu = (typeof getFarmUnits === 'function' ? getFarmUnits() : []).filter(function(x){ return x.name === u; })[0], raw = typeof daRawUnit === 'function' ? daRawUnit(u) : null;
+  var sec = (cu && cu.section) || (raw && raw.section) || '', sm = /S\s*(\d+)\s*$/i.exec(sec) || /\.S\s*(\d+)\b/i.exec(u), rest = sec && u.indexOf(sec) === 0 ? u.slice(sec.length) : u.replace(/^.*?S\s*\d+/i, ''), tm = /(\d+)\s*$/.exec(rest);
+  return sm && tm ? {s:+sm[1], t:+tm[1], label:(+sm[1]) + '.' + (+tm[1])} : null;
+}
 function daSizeOf(feed){ var m = /(\d+(?:\.\d+)?)\s*mm/i.exec(String(feed || '')); return m ? m[1] : ''; }
 function daSheetProducts(size){
   var all = getFeedTypes(), avail = getAvailableFeedTypes(), seen = {};
