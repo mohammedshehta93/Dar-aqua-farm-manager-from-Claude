@@ -7,8 +7,8 @@
 // Temperature sent = the average of the sections' readings that day (shown before copying).
 var DA_AQW_KEY = 'daracqua_plan_v1_aqmwq';   // synced: {site, names:{farm:{sec:{do,ph,tan,no2,no3}}}, temp:{farm:name}}
 var DA_AQW_COLS = ['Parameter', 'Site', 'Time', 'Zone', 'Value'];
-var DA_AQW_KIND = [[/oxygen|\bdo\b/i, 'do'], [/^\s*ph\b/i, 'ph'], [/ammonia|\btan\b|nh3|nh4/i, 'tan'], [/nitrite|no2/i, 'no2'], [/nitrate|no3/i, 'no3']];
-var DA_AQW_FIELD = {do:'do', ph:'ph', tan:'ammonia', no2:'nitrite', no3:'nitrate'};
+var DA_AQW_KIND = [[/oxygen|\bdo\b/i, 'do'], [/^\s*ph\b/i, 'ph'], [/ammonia|\btan\b|nh3|nh4/i, 'tan'], [/nitrite|no2/i, 'no2'], [/nitrate|no3/i, 'no3'], [/alkal/i, 'alk']];
+var DA_AQW_FIELD = {do:'do', ph:'ph', tan:'ammonia', no2:'nitrite', no3:'nitrate', alk:'alkalinity'};
 function daAqwCfg(){ try{ return JSON.parse(localStorage.getItem(DA_AQW_KEY) || '{}') || {}; }catch(e){ return {}; } }
 function daAqwParse(name){   // "Oxygen FH2. S01" → {kind:'do', farm:'F2', sec:1}; "Temperature FH1" → {kind:'temp', farm:'F1'}
   var s = String(name || '').trim(), t = s.match(/^temperature\s+f\s*h?\s*(\d)\s*$/i); if(t) return {kind:'temp', farm:'F' + t[1]};
@@ -42,9 +42,11 @@ function daAqwRows(farm, date){
 function daAqwAll(date){   // AquaManager keeps the whole site in one sheet: every farm, its own row order
   var c = daAqwCfg(), ord = c.order || [], rows = [], per = [], miss = [];
   daFarms().forEach(function(f){ var R = daAqwRows(f, date), secs = {};
-    getTX().forEach(function(t){ if(t.type === 'water_quality' && !t.deleted && t.date === date && t.scope === 'section' && String(t.unit).indexOf(f + '.') === 0) secs[t.unit] = 1; });
+    var wk = {}; getTX().forEach(function(t){ if(t.type !== 'water_quality' || t.deleted || t.date !== date || t.scope !== 'section' || String(t.unit).indexOf(f + '.') !== 0) return;
+      if(['temp', 'ph', 'do'].some(function(k){ return t[k] !== undefined && t[k] !== null && t[k] !== ''; })) secs[t.unit] = 1;
+      if(['ammonia', 'nitrite', 'nitrate', 'alkalinity'].some(function(k){ return t[k] !== undefined && t[k] !== null && t[k] !== ''; })) wk[t.unit] = 1; });
     var all = {}; _txLiveRows().forEach(function(r){ if(String(r.unit).indexOf(f + '.') === 0 && daSecOf(r.unit)) all[daSecOf(r.unit)] = 1; });   // the farm's sections
-    rows = rows.concat(R.rows); per.push({farm:f, secs:Object.keys(secs).length, total:Object.keys(all).length || null, avg:R.avgTemp, n:R.nTemp}); R.miss.forEach(function(m){ miss.push(f + ' ' + m); }); });
+    rows = rows.concat(R.rows); per.push({farm:f, secs:Object.keys(secs).length, weekly:Object.keys(wk).length, total:Object.keys(all).length || null, avg:R.avgTemp, n:R.nTemp}); R.miss.forEach(function(m){ miss.push(f + ' ' + m); }); });
   var key = function(n){ var i = ord.indexOf(n); return i >= 0 ? i : 1e6; };
   rows.sort(function(a, b){ return key(a[0]) - key(b[0]) || a[0].toLowerCase().localeCompare(b[0].toLowerCase()); });
   return {rows:rows, per:per, miss:miss};
@@ -61,11 +63,13 @@ function daAqwOpen(){
   if(!c.names) h += '<div style="font-size:13px">أول مرة: صدّر Site Measurements من الأكوامانجر (أي يوم) وارفعه — الأداة بتتعلم منه أسماء القياسات لكل سكشن زي ما هي عندكم.</div>';
   else {
     h += '<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin-bottom:6px">' + R.per.map(function(p){ var full = p.total && p.secs >= p.total;
-      return '<span id="aqw-per-' + p.farm + '" style="padding:5px 10px;border-radius:8px;background:' + (p.secs ? (full ? '#dcfce7' : '#fef9c3') : '#fee2e2') + '"><b>' + daEsc(p.farm) + '</b>: ' + p.secs + (p.total ? ' من ' + p.total : '') + ' سكشن'
+      return '<span id="aqw-per-' + p.farm + '" style="padding:5px 10px;border-radius:8px;background:' + (p.secs ? (full ? '#dcfce7' : '#fef9c3') : '#fee2e2') + '"><b>' + daEsc(p.farm) + '</b>: يومي ' + p.secs + (p.total ? ' من ' + p.total : '') + ' سكشن' + (p.weekly ? ' · 🧪 أسبوعي ' + p.weekly + ' سكشن' : '')
         + (p.avg !== null ? ' · 🌡️ ' + p.avg + '° (متوسط ' + p.n + ')' : '') + (p.secs ? '' : ' — <b>متسجلش لسه</b>') + '</span>'; }).join('') + '</div>'
       + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">الأكوامانجر بياخد حرارة واحدة لكل عنبر = متوسط سكاشنه. الترتيب نفس ترتيب ملف الأكوامانجر.</div>';
     if(!c.order) h += '<div style="color:var(--amber);font-size:12px;font-weight:700;margin-bottom:6px">⚠️ ارفع ملف Site Measurements من الأكوامانجر تاني (📥 فوق) عشان الأداة تتعلم ترتيبه.</div>';
-    if(R.miss.length) h += '<div style="color:var(--amber);font-size:12px;margin-bottom:6px">⚠️ مش لاقي اسم في الأكوامانجر لـ: ' + R.miss.join('، ') + ' — مش هيتنسخوا (ارفع ملف فيه القياسات دي).</div>';
+    if(R.miss.length){ var alk = R.miss.filter(function(m){ return / alk /.test(' ' + m.split(' ').slice(1).join(' ') + ' '); }).length, other = R.miss.filter(function(m){ return !/ alk /.test(' ' + m.split(' ').slice(1).join(' ') + ' '); });
+      if(other.length) h += '<div style="color:var(--amber);font-size:12px;margin-bottom:6px">⚠️ مش لاقي اسم في الأكوامانجر لـ: ' + other.join('، ') + ' — مش هيتنسخوا (ارفع ملف فيه القياسات دي).</div>';
+      if(alk) h += '<div style="color:var(--amber);font-size:12px;margin-bottom:6px">⚠️ القلوية متسجلة في ' + alk + ' سكشن بس مش موجودة في ملف الأكوامانجر اللي اترفع — مش هتتنسخ لحد ما ترفع ملف فيه القلوية.</div>'; }
     if(!R.rows.length) h += '<div style="color:var(--amber);font-size:14px;font-weight:700">مفيش قياسات محفوظة يوم ' + st.date + ' لسه.</div>';
     else h += '<div style="overflow:auto;max-height:30vh" dir="ltr"><table id="aqw-t" style="border-collapse:collapse;font-size:11px"><tr style="background:#f1f5f9">' + DA_AQW_COLS.map(function(x){ return '<th style="padding:3px 6px;text-align:left">' + x + '</th>'; }).join('') + '</tr>'
       + R.rows.map(function(r){ return '<tr>' + r.map(function(v){ return '<td style="padding:2px 6px;border-top:1px solid #e2e8f0">' + daEsc(String(v)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table></div>';
