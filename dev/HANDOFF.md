@@ -135,6 +135,14 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- ADDING TANKS (owner 2026-11-09 "fix it at the root"; module `tank_add.js`, test `e2e_tankadd`): there were two places
+  with free-text names — Farm setup "add a unit by hand" (section optional, no empty tanks) and Settings "➕ new tank"
+  (NO section → the nursery). Now ONE card "➕ Add tanks" replaces the manual card in Farm setup (DOM swap after render
+  of the card holding #mu-unit): farm (or new farm code + name → registry), section REQUIRED (existing sections shown,
+  next suggested), count + first tank number (next free suggested), volume, with fish (count/weight/date/batch) or
+  EMPTY; names made as <farm>.S##T##, preview, existing skipped; units go to RAW + cloud like before. Settings'
+  settingsAddUnitRow now opens it. Tanks without a section get a warning card with one-click "put them in section N"
+  (section field set, names kept — records stay linked); daSecFix stays as a safety net.
 - HATCHERY ON THE PHONE (2026-11-09): owner saw no sections on the phone, yes on the computer. Reproduced both add paths
   (setup form → farm_units cloud table; settings units → synced key): the CURRENT version delivers them to an open phone
   after 🔄 and both sheets list them → the phone was most likely an older version. 🔄 (daTabRefresh) now also runs
@@ -383,7 +391,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-50 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+51 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
