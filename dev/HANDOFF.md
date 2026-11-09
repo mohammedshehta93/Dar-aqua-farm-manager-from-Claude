@@ -135,6 +135,14 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- URDU FOR WORKERS (owner 2026-11-09; module `i18n_ur.js`, test `e2e_urdu`): workers and the login page get a 3-way language
+  menu (عربي · English · اردو) from #lang-btn; office users keep the Arabic / English toggle (a stored "ur" reads as "en"
+  for them). Urdu = the English rendering (isAr false) + English → Urdu (DA_UR exact phrases, DA_UR_KEYS ≥ 4 chars at word
+  boundaries, DA_UR_RULES for messages with numbers), dir rtl, Urdu day / month names in daFmtDate and the calendar,
+  worker guide in Urdu. daUrText skips any text that already has Urdu-only letters (DA_UR_DONE) — without it,
+  translations that keep a Latin symbol ("DO (mg/L)" → "آکسیجن DO (mg/L)") looped forever. toggleLang(true) = the app
+  switching itself (start-up), toggleLang() = the button (menu); the choice is stored AFTER the switch (the English
+  layer's wrapper writes ar / en). New worker-visible text: add English (DA_EN) AND Urdu (DA_UR).
 - SECTIONS LAYOUT (owner 2026-11-09: the nursery's 7 tanks are 7 sections but were added as one; Settings showed "no tanks";
   module `tank_layout.js` + tank_add.js, test `e2e_tanklayout`). Add card asks "ترتيب التانكات": all in one section /
   each tank its own section (names F3.S01T01 … F3.S07T01, section per name). "🔀 ترتيب" per farm in the status card:
@@ -421,7 +429,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-54 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+55 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

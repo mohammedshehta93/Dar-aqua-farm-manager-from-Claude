@@ -32,7 +32,7 @@ with sync_playwright() as p:
     for v in ['wq-sheet', 'tx-harvesting', 'tx-transfer', 'help']:
         pg.click(f'#da-wbar button[data-v="{v}"]'); pg.wait_for_timeout(400); left = arabic(pg)
         check(f'W10 {v}: English (left: {len(left)})', len(left) <= 2, left[:12])
-    pg.click('#lang-btn'); pg.wait_for_timeout(400); pg.click('#da-wbar button[data-v="feed-sheet"]'); pg.wait_for_timeout(300)
+    pg.click('#lang-btn'); pg.wait_for_timeout(150); pg.click('#da-langmenu button[data-l="ar"]'); pg.wait_for_timeout(400); pg.click('#da-wbar button[data-v="feed-sheet"]'); pg.wait_for_timeout(300)
     check('W11 Arabic mode: buttons and date in Arabic', 'العلف' in pg.inner_text('#da-wbar') and 'النهارده' in pg.evaluate("document.querySelector('.da-dctl .lbl').textContent"))
     check('W12 no page errors', not pg._errs, pg._errs)
     ctx.close()

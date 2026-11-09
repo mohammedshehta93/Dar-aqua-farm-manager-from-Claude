@@ -120,7 +120,7 @@ function daWorkerGuideEn(){
 }
 if(!window._daEnWrapped){
   window._daEnWrapped = true;
-  try{ if(localStorage.getItem(DA_LANG_KEY) === 'en' && isAr) setTimeout(function(){ toggleLang(); }, 0); }catch(e){}
+  try{ if(localStorage.getItem(DA_LANG_KEY) === 'en' && isAr) setTimeout(function(){ toggleLang(true); }, 0); }catch(e){}
   var _tlPreEn = toggleLang;
   toggleLang = function(){ var r = _tlPreEn.apply(this, arguments); try{ localStorage.setItem(DA_LANG_KEY, isAr ? 'ar' : 'en'); }catch(e){}
     if(typeof renderNav === 'function') try{ renderNav(); }catch(e){} daEnNode(document.body); return r; };

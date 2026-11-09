@@ -19,7 +19,7 @@ with sync_playwright() as p:
     pg.evaluate("show('help')"); pg.wait_for_timeout(300)
     check('V5 the guide shows the worker part only (no engineer / admin tabs)', '🧑‍🔬 المهندس' not in content(pg) and '🛠️ الأدمن والمدير' not in content(pg) and 'شيت العلف' in content(pg))
     # English
-    pg.click('#lang-btn'); pg.wait_for_timeout(400)
+    pg.click('#lang-btn'); pg.wait_for_timeout(150); pg.click('#da-langmenu button[data-l="en"]'); pg.wait_for_timeout(400)
     for v, setup in [('feed-sheet', "window._fs={farm:'F1'}"), ('wq-sheet', "window._wqs={farm:'F1',mode:'daily'}"), ('wq-sheet', "window._wqs={farm:'F1',mode:'weekly'}"), ('help', "0")]:
         pg.evaluate(f"{setup}; show('{v}',true)"); pg.wait_for_timeout(400); left = arabic(pg)
         print('   left:', v, left); check(f'V6 English: {v} {setup[-10:]} has no Arabic left ({len(left)})', len(left) <= 2, left[:12])
@@ -31,7 +31,7 @@ with sync_playwright() as p:
     check('V8 the language choice is remembered on the phone', pg.evaluate("isAr") is False)
     pg.evaluate("doLogout(true)"); pg.wait_for_timeout(500)
     check('V8b English login page', len(arabic(pg)) <= 2, arabic(pg)[:10])
-    pg.click('#lang-btn'); pg.wait_for_timeout(300)
+    pg.click('#lang-btn'); pg.wait_for_timeout(150); pg.click('#da-langmenu button[data-l="ar"]'); pg.wait_for_timeout(300)
     login(pg, 'w2@example.com', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
     check('V9 a view permission given to a worker opens its pages (growth / plan)', pg.evaluate("canAccessView('farm-plan') && canAccessView('twin') && !canAccessView('wq-sheet')"))
     pg.evaluate("doLogout(true)"); pg.wait_for_timeout(500)
