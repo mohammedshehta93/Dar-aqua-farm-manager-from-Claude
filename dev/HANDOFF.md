@@ -135,6 +135,18 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- FH2 REAL PHOTOS (2026-11-09; dev/tests/data/fh2_page{1,2}_real.jpg + fh2_real_truth.json read by eye, test
+  `e2e_paper_f2_real`). The farm feeds meal 1 and the last meal; X = not fed (empty tank or fish not fed) → meal {x:true},
+  row fast when only X; a note written across a row (16.3 "176kg 600g 343PES") must not become feed. FINDINGS: the
+  PRINTED form is a newer revision than FH2_Feed_Log docx (headers "7|11|3", "6:30|9:15|12:15|3:30", front "7:00|11:00|3:00")
+  → column widths differ; photos taken at an angle (keystone). Grid now: table top edges = ends of the black header
+  band measured over its thickness with ABSOLUTE darkness (g < 0.5) and gaps ≤ 2 % W; columns = every long straight
+  line across the table on the RAW dark mask D2 (VM misses tilted lines), slope s0 ± 0.06; used when exactly as many as
+  the form has (colsFull), else per-column search from the template. Page chosen by colFit + 1.5 × rowFit (both 0–1).
+  TRUST RULE: reading trusted only if rowFit ≥ 0.6 AND colsFull; else every cell yellow + alert. FH1 real photo:
+  rowFit .85, 15/15 cols → trusted (27–30/48 exact, 0 wrong unflagged). FH2 real: page detection right, 0 wrong
+  unflagged, but rows drift (front rowFit .45, back .80 with 10/14 cols) → all yellow. NEXT: rows by the same "every
+  long line" search (perspective), ask the owner for the CURRENT FH2 Word form (the printed revision).
 - FH2 PAPER READING (owner 2026-11-08; paper_ocr.js, test `e2e_paper_f2` on SYNTHETIC photos in dev/tests/data — the
   farm's FH2 Word form filled with values via LibreOffice, rotated/blurred; truth in fh2_synthetic_truth.json).
   DA_PAPER_TPL is now {farm:{pages:[{cols, rows, headH, rowH, unit, maxV, halves:[{c0, meals, labels[], maxV?}]}]}},
@@ -360,7 +372,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-48 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+49 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

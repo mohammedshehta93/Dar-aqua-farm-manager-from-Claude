@@ -51,7 +51,7 @@ function daPaperGrid(I, tpl){
   var W = I.W, H = I.H, D1 = daPaperDark(I), D2 = daPaperDark(I, 0.9, 0.86);
   var HM = daPaperRunMask(D2, W, H, true, Math.round(W * 0.02)), VM = daPaperRunMask(D2, W, H, false, Math.round(H * 0.012));
   // ── rows: two half-page strips, each with its own skew (perspective) ──
-  var strips = [[Math.round(W * 0.08), Math.round(W * 0.48)], [Math.round(W * 0.52), Math.round(W * 0.92)]], rowPts = [], rowHits = 0, colScore = 0;
+  var strips = [[Math.round(W * 0.08), Math.round(W * 0.48)], [Math.round(W * 0.52), Math.round(W * 0.92)]], rowPts = [], rowHits = 0, colScore = 0, bandHs = [];
   for(var si = 0; si < 2; si++){
     var a0 = strips[si][0], a1 = strips[si][1], xc = (a0 + a1) / 2, pr = daPaperProfile(HM, W, H, true, a0, a1), t = pr.t;
     // header band = the darkest block of rows in the strong mask at the same skew
@@ -62,7 +62,7 @@ function daPaperGrid(I, tpl){
       var b0 = blocks[bi][0], b1 = blocks[bi][1];
       while(bi + 1 < blocks.length && blocks[bi + 1][0] - b1 <= Math.max(12, (b1 - b0) * 2.2)){ bi++; b1 = blocks[bi][1]; }
       if(b1 - b0 >= 12){ bandStart = b0; bandEnd = b1; } }
-    if(bandEnd < 0) return {err:'مش لاقي صف العناوين الأسود'};
+    if(bandEnd < 0) return {err:'مش لاقي صف العناوين الأسود'}; bandHs.push(bandEnd - bandStart);
     var peaks = daPaperPeaks(pr.P, 0.12).filter(function(p){ return p.k > bandEnd + 4; }), s = (bandEnd - bandStart) * (tpl.rowH || 396) / (tpl.headH || 372), cur = bandEnd, ys = [bandEnd];
     for(var r = 0; r < tpl.rows; r++){ var target = cur + s, best = null;
       peaks.forEach(function(p){ if(Math.abs(p.k - target) < s * 0.3 && (!best || Math.abs(p.k - target) < Math.abs(best.k - target))) best = p; });
@@ -71,6 +71,26 @@ function daPaperGrid(I, tpl){
   var rows = rowPts[0].map(function(p, i){ var q = rowPts[1][i], a = (q.y - p.y) / (q.x - p.x); return {a:a, b:p.y - a * p.x}; });
   // ── columns: top and bottom halves of the table, matched to the form's column widths ──
   var yA = rows[0].a * W / 2 + rows[0].b, yZ = rows[rows.length - 1].a * W / 2 + rows[rows.length - 1].b, ym = (yA + yZ) / 2;
+  // where does the black header band start and end? (walk along its middle from the page centre; white header text leaves short gaps)
+  var bh = Math.max(4, Math.min.apply(null, bandHs)), edges = null, gapMax = W * 0.02;   // only the gaps between header letters
+  (function(){ var f = rows[0], yAt = function(x){ return f.a * x + f.b - bh / 2; }, dark = function(x){   // over the band's whole thickness: white header letters are thin
+      var y1 = Math.round(f.a * x + f.b - bh * 0.9), y2 = Math.round(f.a * x + f.b - bh * 0.1), n = 0, m = 0; for(var yy = y1; yy <= y2; yy++){ if(yy < 0 || yy >= H) continue; m++; if(I.g[yy * W + Math.round(x)] < 0.5) n++; } return m > 0 && n >= m * 0.5; };   // absolute darkness: inside a wide black band "darker than around" fails
+    var c = Math.round(W / 2), L = c, R = c, gap = 0;
+    for(var x = c; x > 2; x--){ if(dark(x)){ L = x; gap = 0; } else if(++gap > gapMax) break; }
+    gap = 0; for(var x2 = c; x2 < W - 3; x2++){ if(dark(x2)){ R = x2; gap = 0; } else if(++gap > gapMax) break; }
+    if(R - L > W * 0.45) edges = {L:L, R:R, y:yAt(W / 2)};
+    // and where the table's last line starts and ends (thin printed line: the sensitive mask)
+    var g0 = rows[rows.length - 1], bestDy = 0, bestHits = -1;   // the table's bottom border: the strongest full line near where the rows say it is
+    if(edges){ for(var dy0 = -Math.round(H * 0.04); dy0 <= Math.round(H * 0.04); dy0++){ var hits = 0, tot = 0;
+        for(var xs = edges.L; xs <= edges.R; xs += 4){ var ys = Math.round(g0.a * xs + g0.b + dy0); tot++; if(ys >= 0 && ys < H && (D2[ys * W + xs] || (ys + 1 < H && D2[(ys + 1) * W + xs]))) hits++; }
+        if(hits > bestHits){ bestHits = hits; bestDy = dy0; } } }
+    var g = {a:g0.a, b:g0.b + bestDy}, yB = function(x){ return g.a * x + g.b; }, line = function(x){ var y = Math.round(yB(x)), n = 0; for(var dy = -3; dy <= 3; dy++){ var yy = y + dy; if(yy >= 0 && yy < H && D2[yy * W + Math.round(x)]) n++; } return n >= 1; };
+    if(edges){ var Lb = edges.L, Rb = edges.R, gp = 0, lo = Math.max(2, edges.L - W * 0.08), hi = Math.min(W - 3, edges.R + W * 0.08);
+      Lb = null; for(var x3 = Math.round((edges.L + edges.R) / 2); x3 > lo; x3--){ if(line(x3)){ Lb = x3; gp = 0; } else if(++gp > W * 0.03) break; }
+      Rb = null; gp = 0; for(var x4 = Math.round((edges.L + edges.R) / 2); x4 < hi; x4++){ if(line(x4)){ Rb = x4; gp = 0; } else if(++gp > W * 0.03) break; }
+      edges.tryB = [Lb, Rb, Math.round(yB(W / 2))];
+      if(Lb !== null && Rb !== null && Rb - Lb > (edges.R - edges.L) * 0.85 && Rb - Lb < (edges.R - edges.L) * 1.15){ edges.Lb = Lb; edges.Rb = Rb; edges.yb = yB(W / 2); } } })();
+  var edgeAt = function(y){ if(!edges) return null; if(edges.Lb === undefined) return null; var f = (y - edges.y) / (edges.yb - edges.y); return {L:edges.L + (edges.Lb - edges.L) * f, R:edges.R + (edges.Rb - edges.R) * f}; };
   var tot = tpl.cols.reduce(function(a, b){ return a + b; }, 0), cum = [0]; tpl.cols.forEach(function(w){ cum.push(cum[cum.length - 1] + w / tot); });
   var colPts = [];
   [[yA, ym], [ym, yZ]].forEach(function(yr){
@@ -78,6 +98,11 @@ function daPaperGrid(I, tpl){
     var pr = daPaperProfile(VM, W, H, false, Math.round(yr[0]), Math.round(yr[1]), -rowT), yc = (yr[0] + yr[1]) / 2, pk = daPaperPeaks(pr.P, 0.08);
     // borders: the pair of strong peaks whose template prediction fits the most peaks
     var strong = pk.slice().sort(function(a, b){ return b.s - a.s; }).slice(0, 30), best = null;
+    var ea = edgeAt(yc);
+    if(ea){   // the table's edges at this height, from the header band's ends (top) and the last line's ends (bottom): snap to a line nearby
+      var tol = (ea.R - ea.L) * 0.02, snap = function(xe){ var k = xe - yc * pr.t + 200, nb = null; pk.forEach(function(p){ if(Math.abs(p.k - k) < tol && (!nb || Math.abs(p.k - k) < Math.abs(nb.k - k))) nb = p; }); return nb ? nb.k : k; };
+      best = {sc:1, L:snap(ea.L), R:snap(ea.R)};
+    } else
     strong.forEach(function(L){ strong.forEach(function(R){ var span = R.k - L.k; if(span < W * 0.5) return; var sc = 0;
       cum.forEach(function(c){ var ex = L.k + span * c, nb = null; pk.forEach(function(p){ if(Math.abs(p.k - ex) < span * 0.012 && (!nb || p.s > nb.s)) nb = p; }); if(nb) sc += 1 + nb.s / strong[0].s; });
       if(!best || sc > best.sc) best = {sc:sc, L:L.k, R:R.k}; }); });
@@ -90,9 +115,38 @@ function daPaperGrid(I, tpl){
     ks.push(best.R);
     colPts.push(ks.map(function(k){ return {y:yc, x:k - 200 + yc * pr.t}; }));
   });
-  if(!colPts[0] || !colPts[1]) return {err:'مش لاقي أعمدة الجدول', dbg:[yA, ym, yZ, rows.length]};
-  var colsV = colPts[0].map(function(p, i){ var q = colPts[1][i], a = (q.x - p.x) / (q.y - p.y); return {a:a, b:p.x - a * p.y}; });
-  return {rows:rows, cols:colsV, score:colScore / cum.length + rowHits / (2 * tpl.rows), rowFit:rowHits / (2 * tpl.rows)};   // how well this page's form fits the photo
+  var colsV = null, colFitLS = 0, colsFull = false;
+  if(edges){   // each column line on its own: from where the header band says it starts, the straight line (small angle range)
+    // crossing the most printed-line pixels over the table's height — long grid lines win over short pen strokes; perspective-proof
+    var yT = edges.y, yE = Math.min(H - 2, (rows[rows.length - 1].a * W / 2 + rows[rows.length - 1].b)), span0 = edges.R - edges.L, fits = [], prevOff = 0;
+    cum.forEach(function(c, j){
+      var ex = edges.L + span0 * c + prevOff, tol = Math.max(6, span0 * (j === 0 || j === cum.length - 1 ? 0.015 : 0.02)), bestF = null;
+      for(var sl = -0.07; sl <= 0.0701; sl += 0.005) for(var x0 = Math.round(ex - tol); x0 <= Math.round(ex + tol); x0++){
+        var hits = 0; for(var y = Math.round(yT + 3); y < yE; y += 3){ var x = Math.round(x0 + (y - yT) * sl); if(x < 1 || x >= W - 1) continue; var z = y * W + x; if(VM[z] || VM[z - 1] || VM[z + 1]) hits++; }
+        if(!bestF || hits > bestF.h) bestF = {h:hits, x0:x0, sl:sl}; }
+      fits.push(bestF); prevOff = bestF.x0 - (edges.L + span0 * c); });
+    var need = (yE - yT) / 3 * 0.35, good = fits.filter(function(f){ return f.h >= need; }).length;
+    var samples = Math.max(1, (yE - yT) / 3), colFit = fits.reduce(function(a, f){ return a + Math.min(1, f.h / samples); }, 0) / fits.length;
+    // the printout may not have the Word form's exact widths (the farm prints newer revisions): find every long straight
+    // vertical line across the table at the table's own tilt, and if there are exactly as many as the form has, use those
+    var sls = fits.map(function(f){ return f.sl; }).sort(function(a, b){ return a - b; }), s0 = sls[Math.floor(sls.length / 2)], hx = [];
+    for(var x0b = Math.round(edges.L - span0 * 0.02); x0b <= Math.round(edges.R + span0 * 0.02); x0b++){ var bh0 = 0, bs0 = s0;
+      // (a photo taken at an angle: the table's edges lean more than its middle)
+      for(var sl2 = s0 - 0.06; sl2 <= s0 + 0.0601; sl2 += 0.005){ var h2 = 0; for(var y2 = Math.round(yT + 3); y2 < yE; y2 += 3){ var xx = Math.round(x0b + (y2 - yT) * sl2); if(xx < 1 || xx >= W - 1) continue; var zz = y2 * W + xx; if(D2[zz] || D2[zz - 1] || D2[zz + 1]) h2++; } if(h2 > bh0){ bh0 = h2; bs0 = sl2; } }
+      hx.push({x0:x0b, h:bh0, sl:bs0}); }
+    var minGap = span0 * Math.min.apply(null, cum.slice(1).map(function(c, i){ return c - cum[i]; })) * 0.55, lines = [];
+    hx.slice().sort(function(a, b){ return b.h - a.h; }).forEach(function(c){ if(c.h < samples * 0.45) return; if(lines.every(function(l){ return Math.abs(l.x0 - c.x0) >= minGap; })) lines.push(c); });
+    lines.sort(function(a, b){ return a.x0 - b.x0; });
+    edges.auto = [lines.length, cum.length, lines.map(function(l){ return l.x0 + ':' + l.h; }).join(' '), Math.round(samples), Math.round(minGap)];
+    if(lines.length === cum.length){ colsFull = true; fits = lines; good = cum.length; colFit = lines.reduce(function(a, f){ return a + Math.min(1, f.h / samples); }, 0) / lines.length; }
+    colFitLS = colFit; if(good >= cum.length * 0.6) colsV = fits.map(function(f){ return {a:f.sl, b:f.x0 - f.sl * yT}; });
+  }
+  if(!colsV){
+    if(!colPts[0] || !colPts[1]) return {err:'مش لاقي أعمدة الجدول', dbg:[yA, ym, yZ, rows.length]};
+    colsV = colPts[0].map(function(p, i){ var q = colPts[1][i], a = (q.x - p.x) / (q.y - p.y); return {a:a, b:p.x - a * p.y}; });
+  }
+  var rowFit = rowHits / (2 * tpl.rows), cf = colFitLS;   // both on a 0–1 scale, the same for every page tried
+  return {edges:edges, rows:rows, cols:colsV, score:cf + rowFit * 1.5, rowFit:rowFit, colFit:cf, colsFull:colsFull};   // how well this page's form fits the photo   // how well this page's form fits the photo
 }
 // sample one cell (quad between two horizontals and two verticals) → grey patch
 function daPaperCell(I, G, r, c, CW, CH){
@@ -147,7 +201,8 @@ function daPaperPieces(patch, CW, CH){
       if(sub.px.length > 8){ var Ls = daOcrLogits(daPaperDigit(ink, sub, CW)), ms = Math.max.apply(null, Ls), es = Ls.map(function(v){ return Math.exp(v - ms); }), ss = es.reduce(function(a2, b2){ return a2 + b2; }, 0); left = {P:es.map(function(v){ return v / ss; })}; } }
     var img = daPaperDigit(ink, c, CW), L = daOcrLogits(img), mx = Math.max.apply(null, L), e = L.map(function(v){ return Math.exp(v - mx); }), s = e.reduce(function(p, q){ return p + q; }, 0), P = e.map(function(v){ return v / s; }), d = 0;
     for(var k = 1; k < 10; k++) if(P[k] > P[d]) d = k;
-    return {d:d, p:P[d], P:P, x:c.x0, w:w, h:h, left:left, edge:c.x0 <= 1 || c.x1 >= CW - 2 || c.y0 <= 1 || c.y1 >= CH - 2};
+    var dg = 0; c.px.forEach(function(z){ var zx = (z % CW - c.x0 + 0.5) / w, zy = ((z - z % CW) / CW - c.y0 + 0.5) / h; if(Math.abs(zx - zy) < 0.2 || Math.abs(zx + zy - 1) < 0.2) dg++; });
+    return {diag:dg / c.px.length, ar:w / h, d:d, p:P[d], P:P, x:c.x0, w:w, h:h, left:left, edge:c.x0 <= 1 || c.x1 >= CW - 2 || c.y0 <= 1 || c.y1 >= CH - 2};
   });
 }
 function daPaperDigit(ink, c, CW){   // component → MNIST-style 28×28 (20×20 box, centred by mass)
@@ -163,6 +218,8 @@ function daPaperDigit(ink, c, CW){   // component → MNIST-style 28×28 (20×20
 }
 function daPaperMeal(pcs, maxKg, unit){   // pieces → {v, text, conf}
   if(!pcs.length) return null; var t = '', conf = 1, digits = 0, ink = pcs.some(function(p){ return !p.dot; });
+  var big = pcs.filter(function(p){ return !p.dot; });   // X = not fed: two crossing strokes lying on the box's diagonals
+  if(big.length === 1 && big[0].diag >= 0.8 && big[0].ar > 0.55 && big[0].ar < 1.8) return {v:null, x:true, text:'X', conf:0.9};
   pcs.forEach(function(p){ if(p.dot){ if(t.indexOf('.') < 0) t += '.'; } else { t += p.d; conf = Math.min(conf, p.p); digits++; } });
   if(!digits) return ink ? {v:null, text:'', conf:0} : null;
   var dp = t.indexOf('.'); if(dp >= 0 && t.length - dp > 2){ t = t.slice(0, dp + 2); conf = Math.min(conf, 0.7); }   // trimmed → always checked   // the farm writes one decimal: more = a line sliver
@@ -210,7 +267,8 @@ function daPaperRead(I, farm, date){
       row.total.conf = 0.95; row.total.sameAsYesterday = true; row.meals.forEach(function(m){ if(m) m.conf = Math.max(m.conf, 0.9); }); }
     out.push(row); }); });
   // safety: if most row lines were not seen in the photo (the grid is mostly guessed), nothing is trusted — every cell yellow
-  var weak = G.rowFit !== undefined && G.rowFit < 0.45;
+  // trusted only when the photo itself showed most row lines AND every column line of the form; otherwise all yellow
+  var weak = !(G.rowFit >= 0.6 && G.colsFull);
   // an "empty" cell may just be a misplaced grid: check it too
   if(weak) out.forEach(function(r){ r.meals = r.meals.map(function(m){ return m ? Object.assign(m, {conf:Math.min(m.conf, 0.5)}) : {v:null, text:'', conf:0}; }); if(r.total) r.total.conf = Math.min(r.total.conf, 0.5); if(r.size) r.size.conf = Math.min(r.size.conf, 0.6); });
   return {rows:out, grid:G, page:best.k, unit:page.unit, weak:weak};
@@ -220,7 +278,8 @@ function daSheetRowsFor(farm){   // the paper lists the farm's tanks in order (1
     .map(function(r){ return {unit:r.unit, label:daTankNo(r.unit).label, no:daTankNo(r.unit)}; }).sort(function(a, b){ return a.no.s - b.no.s || a.no.t - b.no.t; });
 }
 function daPaperAsPage(P){   // same shape as a printed-sheet page, so the screen is filled the same way
-  return {paper:true, weak:!!P.weak, date:null, rows:P.rows.map(function(r){ return {unit:r.unit, fast:false,
-    meals:r.meals.map(function(m){ return !m ? null : {text:m.v === null ? '' : String(m.v), conf:m.v === null ? 0 : m.conf}; }),
+  return {paper:true, weak:!!P.weak, date:null, rows:P.rows.map(function(r){ return {unit:r.unit,
+    fast:r.meals.some(function(m){ return m && m.x; }) && !r.meals.some(function(m){ return m && !m.x && m.v > 0; }),
+    meals:r.meals.map(function(m){ return !m ? null : m.x ? {text:'X', conf:m.conf} : {text:m.v === null ? '' : String(m.v), conf:m.v === null ? 0 : m.conf}; }),
     size:r.size ? {v:r.size.v, conf:r.size.conf} : null, dead:r.dead && r.dead.v ? [{text:r.dead.text || String(r.dead.v), conf:r.dead.conf}] : []}; })};
 }
