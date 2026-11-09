@@ -39,14 +39,16 @@ async function daLayApply(){
   if(!plan.length){ toast('الترتيب ده هو الحالي'); return; }
   if(!confirm('هيتغير اسم ' + plan.length + ' تانك في ' + farm + ' وكل سجلاتهم هتنتقل معاهم. تكمل؟')) return;
   var _cf = window.confirm; window.confirm = function(){ return true; };   // one confirmation for the whole layout
+  daUnitsBusySet(true);   // no sync touches the tank list until this is done (any tab)
   try{
     var tmp = plan.map(function(x, i){ return {from:x.from, mid:farm + '.TMP' + Date.now() + '_' + i, to:x.to}; });
     for(var i = 0; i < tmp.length; i++) await daRenameUnit(tmp[i].from, tmp[i].mid);
     for(var j = 0; j < tmp.length; j++){ await daRenameUnit(tmp[j].mid, tmp[j].to); var u = daRawUnit(tmp[j].to); if(u){ u.farm = farm; u.section = tmp[j].to.split('T')[0]; } }
     var del = daUDel(); tmp.forEach(function(x){ [x.from, x.mid].forEach(function(n){ if(del.indexOf(n) < 0 && !tmp.some(function(y){ return y.to === n; })) del.push(n); }); });
     del = del.filter(function(n){ return !tmp.some(function(y){ return y.to === n; }); }); daUDelSet(del);
-    await daPersistUnitsLocal(); try{ await saveUnitsToCloud(tmp.map(function(x){ return daRawUnit(x.to); }).filter(Boolean)); }catch(e){} await daUnitsFlush();
-  } finally { window.confirm = _cf; }
+    await daPersistUnitsLocal(); try{ await saveUnitsToCloud(tmp.map(function(x){ return daRawUnit(x.to); }).filter(Boolean)); }catch(e){}
+  } finally { window.confirm = _cf; daUnitsBusySet(false); }
+  await daTmpCleanup(); await daUnitsFlush();
   _dataVer++; toast('✅ اتظبطت سكاشن ' + farm + ' — ' + plan.length + ' تانك'); show('farm-setup', true);
 }
 function daSettingsTanksCard(){   // Settings → Tanks: the farm's real tanks

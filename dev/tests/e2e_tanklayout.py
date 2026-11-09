@@ -35,6 +35,17 @@ with sync_playwright() as p:
     pg.evaluate("show('farm-setup',true)"); pg.wait_for_timeout(1300); pg.click('.lay-btn[data-farm="F4"]'); pg.wait_for_timeout(200)
     pg.check('input[name="lay-m"][value="n"]'); pg.fill('#lay-n', '2'); pg.dispatch_event('#lay-n', 'input'); pg.wait_for_timeout(100)
     check('L11 "2 tanks per section" → 4 sections planned', '4 سكشن' in pg.inner_text('#lay-prev'))
+    # what the owner saw: a temporary tank left behind (device + cloud + upload queue) → cleaned up by the next sync
+    pg.evaluate("(() => { const u={unit:'F3.TMP1794219039640_3',farm:'F3',section:'F3.S01',fishNo:0,startWt:0,avgWt:0,volume:2}; RAW.push(u); daPersistUnitsLocal(); const q=daUPend(); q[u.unit]=u; daUPendSet(q); })()")
+    sb.units['farm-main:F3.TMP1794219039640_3'] = {'id': 'farm-main:F3.TMP1794219039640_3', 'farm_id': 'farm-main', 'unit': 'F3.TMP1794219039640_3', 'data': {'unit': 'F3.TMP1794219039640_3', 'farm': 'F3'}}
+    pg.evaluate("daRealtimePull()"); pg.wait_for_timeout(1500)
+    check('L11b a leftover temporary tank is removed by itself (device, cloud, queue) — no records on it', not pg.evaluate("RAW.some(u=>/TMP/.test(u.unit))") and not any('TMP' in k for k in sb.units) and not pg.evaluate("Object.keys(daUPend()).some(n=>/TMP/.test(n))"))
+    pg.evaluate("(() => { const q=daUPend(); q['F3.TMP9_1']={unit:'F3.TMP9_1',farm:'F3'}; daUPendSet(q); })()"); pg.evaluate("daUnitsFlush()"); pg.wait_for_timeout(800)
+    check('L11c a temporary name in a queue (e.g. from another tab) is never uploaded', not any('TMP' in k for k in sb.units))
+    pg.evaluate("daUnitsBusySet(true)"); n0 = pg.evaluate("RAW.length"); sb.units['farm-main:F9.S01T01'] = {'id': 'farm-main:F9.S01T01', 'farm_id': 'farm-main', 'unit': 'F9.S01T01', 'data': {'unit': 'F9.S01T01', 'farm': 'F9', 'section': 'F9.S01'}}
+    pg.evaluate("daRealtimePull()"); pg.wait_for_timeout(800)
+    check('L11d while sections are being rearranged no sync touches the tank list', pg.evaluate("RAW.length") == n0 and not pg.evaluate("RAW.some(u=>u.unit==='F9.S01T01')"))
+    pg.evaluate("daUnitsBusySet(false)"); pg.evaluate("daRealtimePull()"); pg.wait_for_timeout(800); del sb.units['farm-main:F9.S01T01']
     pg.evaluate("settingsTab='units'; show('settings')"); pg.wait_for_timeout(400)
     st = pg.inner_text('#st-tanks') if pg.query_selector('#st-tanks') else ''
     check('L12 Settings → Tanks shows the real tanks per farm (no "no tanks added")', 'F3' in st and 'F4' in st and 'S07' in st and 'لا توجد أحواض مضافة' not in pg.inner_text('#content'), st[:200])

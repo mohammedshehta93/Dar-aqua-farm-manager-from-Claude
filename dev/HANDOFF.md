@@ -141,7 +141,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   one section · each tank its own · N per section → plan old → new shown, ONE confirm, daRenameUnit through temporary
   names (no clashes; records move with the tank), old + temporary names queued for cloud deletion, units re-uploaded.
   Settings → Tanks: card #st-tanks lists every farm's real tanks by section (+ add / manage buttons); the old Settings
-  list is hidden when empty, else titled as old with its add button hidden.
+  list is hidden when empty, else titled as old with its add button hidden. 2026-11-09: owner saw a leftover
+  "F3.TMP<ms>_3" tank after rearranging (not reproduced locally; likely the shared upload queue across browser tabs or a
+  sync landing mid-rename). Closed every way back: localStorage lock daracqua_units_busy (90 s, all tabs) during
+  daLayApply — pulls and flushes skip; temporary names (DA_TMP_RE) are never uploaded from the queue; daRenameUnit wrapper
+  drops the old name from the upload queue and queues it for deletion; daTmpCleanup after every pull deletes temporary
+  tanks with no records everywhere (fixes the owner's leftover by itself).
 - DAILY ENTRY STATUS (owner 2026-11-09; module `entry_status.js`, test `e2e_entrystatus`): view 'entry-status' (Home menu,
   perm approve_data — the supervisors; workers with view_dashboard must NOT see it, e2e_nav N3). Per farm for a day
   (daEsFarm): feed = stocked tanks (daFsRows fish > 0) with a feeding record that day (fasted X counts) + missing labels +

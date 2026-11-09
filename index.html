@@ -15676,9 +15676,20 @@ function daUPend(){ try{ return JSON.parse(localStorage.getItem(DA_UPEND) || '{}
 function daUPendSet(o){ try{ localStorage.setItem(DA_UPEND, JSON.stringify(o)); }catch(e){} }
 function daUDel(){ try{ return JSON.parse(localStorage.getItem(DA_UDEL) || '[]') || []; }catch(e){ return []; } }
 function daUDelSet(a){ try{ localStorage.setItem(DA_UDEL, JSON.stringify(a)); }catch(e){} }
+async function daTmpCleanup(){   // a temporary tank left behind (no records on it) is deleted everywhere
+  if(daUnitsBusy()) return 0; var used = {}; getTX().forEach(function(t){ if(t.unit) used[t.unit] = 1; });
+  var left = RAW.filter(function(u){ return DA_TMP_RE.test(u.unit) && !used[u.unit]; }).map(function(u){ return u.unit; });
+  var p = daUPend(), ch = false; Object.keys(p).forEach(function(n){ if(DA_TMP_RE.test(n)){ delete p[n]; ch = true; } }); if(ch) daUPendSet(p);
+  for(var i = 0; i < left.length; i++) await daUnitDeleteEverywhere(left[i]);
+  return left.length;
+}
+function daUnitsBusySet(on){ try{ if(on) localStorage.setItem(DA_UBUSY, String(Date.now())); else localStorage.removeItem(DA_UBUSY); }catch(e){} }
+function daUnitsBusy(){ var t = 0; try{ t = parseInt(localStorage.getItem(DA_UBUSY) || '0', 10); }catch(e){} return Date.now() - t < 90000; }
+var DA_UBUSY = 'daracqua_units_busy', DA_TMP_RE = /\.TMP\d+_\d+$/;   // temporary names used while rearranging sections
 async function daUnitsFlush(){   // retry what did not reach the cloud (adds, then deletions)
-  if(!sbReady || !SB_FARM_ID || !navigator.onLine) return false;
-  var p = daUPend(), names = Object.keys(p), ok = true;
+  if(!sbReady || !SB_FARM_ID || !navigator.onLine || daUnitsBusy()) return false;
+  var p = daUPend(); Object.keys(p).forEach(function(n){ if(DA_TMP_RE.test(n)) delete p[n]; }); daUPendSet(p);   // a temporary name is never uploaded again
+  var names = Object.keys(p), ok = true;
   if(names.length){ var list = names.map(function(n){ return RAW.filter(function(u){ return u.unit === n; })[0] || p[n]; });
     try{ await _saveUnitsPreUS(list); daUPendSet({}); }catch(e){ ok = false; } }
   var d = daUDel(), left = [];
@@ -15741,12 +15752,18 @@ if(!window._daUsWrapped){
   };
   var _pullUnitsPreUS = daPullUnitsIfChanged;
   daPullUnitsIfChanged = async function(){
+    if(daUnitsBusy()) return false;   // sections being rearranged (here or in another tab): leave the list alone
     await daUnitsFlush();
     var r = await _pullUnitsPreUS.apply(this, arguments);
     var p = daUPend(), d = daUDel(), add = Object.keys(p).filter(function(n){ return !RAW.some(function(u){ return u.unit === n; }); }), drop = RAW.filter(function(u){ return d.indexOf(u.unit) >= 0; });
     if(add.length || drop.length){ add.forEach(function(n){ RAW.push(p[n]); }); drop.forEach(function(u){ RAW.splice(RAW.indexOf(u), 1); }); _valCache = {t:0, map:{}}; await daPersistUnitsLocal(); r = true; }
+    if(await daTmpCleanup()) r = true;
     return r;
   };
+  var _renamePreUS = daRenameUnit;   // a renamed tank: its old name leaves the upload queue and is deleted in the cloud
+  daRenameUnit = async function(oldU, newU){ var ok = await _renamePreUS.apply(this, arguments);
+    if(ok){ var p = daUPend(); if(p[oldU]){ delete p[oldU]; daUPendSet(p); } var d = daUDel(); if(d.indexOf(oldU) < 0) d.push(oldU); d = d.filter(function(n){ return n !== newU; }); daUDelSet(d); }
+    return ok; };
   daDeleteUnit = async function(unit){
     if(!confirm('حذف التانك ' + unit + '؟ المعاملات بتاعته هتفضل في السجل.')) return;
     await daUnitDeleteEverywhere(unit); toast('🗑 اتحذف ' + unit); show('farm-setup', true);
@@ -15893,14 +15910,16 @@ async function daLayApply(){
   if(!plan.length){ toast('الترتيب ده هو الحالي'); return; }
   if(!confirm('هيتغير اسم ' + plan.length + ' تانك في ' + farm + ' وكل سجلاتهم هتنتقل معاهم. تكمل؟')) return;
   var _cf = window.confirm; window.confirm = function(){ return true; };   // one confirmation for the whole layout
+  daUnitsBusySet(true);   // no sync touches the tank list until this is done (any tab)
   try{
     var tmp = plan.map(function(x, i){ return {from:x.from, mid:farm + '.TMP' + Date.now() + '_' + i, to:x.to}; });
     for(var i = 0; i < tmp.length; i++) await daRenameUnit(tmp[i].from, tmp[i].mid);
     for(var j = 0; j < tmp.length; j++){ await daRenameUnit(tmp[j].mid, tmp[j].to); var u = daRawUnit(tmp[j].to); if(u){ u.farm = farm; u.section = tmp[j].to.split('T')[0]; } }
     var del = daUDel(); tmp.forEach(function(x){ [x.from, x.mid].forEach(function(n){ if(del.indexOf(n) < 0 && !tmp.some(function(y){ return y.to === n; })) del.push(n); }); });
     del = del.filter(function(n){ return !tmp.some(function(y){ return y.to === n; }); }); daUDelSet(del);
-    await daPersistUnitsLocal(); try{ await saveUnitsToCloud(tmp.map(function(x){ return daRawUnit(x.to); }).filter(Boolean)); }catch(e){} await daUnitsFlush();
-  } finally { window.confirm = _cf; }
+    await daPersistUnitsLocal(); try{ await saveUnitsToCloud(tmp.map(function(x){ return daRawUnit(x.to); }).filter(Boolean)); }catch(e){}
+  } finally { window.confirm = _cf; daUnitsBusySet(false); }
+  await daTmpCleanup(); await daUnitsFlush();
   _dataVer++; toast('✅ اتظبطت سكاشن ' + farm + ' — ' + plan.length + ' تانك'); show('farm-setup', true);
 }
 function daSettingsTanksCard(){   // Settings → Tanks: the farm's real tanks
