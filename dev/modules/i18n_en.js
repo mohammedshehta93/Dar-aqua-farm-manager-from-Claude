@@ -20,8 +20,8 @@ var DA_EN_RULES = [
   [/فيه بيانات اتكتبت في "(.+?)" ومتحفظتش\. (.+)/g, 'Unsaved input in "$1". $2'], [/(\d+) تاب فيهم بيانات متحفظتش\. تقفلهم برضه؟/g, '$1 tabs have unsaved input. Close them anyway?'],
   [/✅ اتحفظت عينات (\d+) تانك/g, '✅ Samples saved for $1 tank(s)'], [/⚠️ أوزان مش منطقية: (.+)/g, '⚠️ Impossible weights: $1'],
   [/الوزن نازل عن العينة اللي فاتت أو زاد أكتر من الضعف في: (.+?)\s*متأكد من الأرقام؟/g, 'Lower than the last sample, or more than double, in: $1\nAre the numbers right?'],
-  [/متاح يومها: ([\d,]+) سمكة · (\d+)g/g, 'Available that day: $1 fish · $2 g'], [/^(\d+) سجل$/g, '$1 records'], [/حصاد (\S+): ([\d,]+) سمكة · ([\d.]+) كجم/g, 'Harvest $1: $2 fish · $3 kg'],
-  [/نقل من (\S+) لـ (\d+) تانك · ([\d,]+) سمكة/g, 'Transfer from $1 to $2 tank(s) · $3 fish'], [/(\S+) يومها فيه ([\d,]+) سمكة بس — مينفعش تنقل ([\d,]+)/g, '$1 had only $2 fish that day — cannot transfer $3'],
+  [/متاح يومها: ([\d,]+) سمكة · (\d+)g/g, 'Available that day: $1 fish · $2 g'], [/^(\d+) سجل$/g, '$1 records'], [/حصاد ([^\s]{1,40}): ([\d,]+) سمكة · ([\d.]+) كجم/g, 'Harvest $1: $2 fish · $3 kg'],
+  [/نقل من ([^\s]{1,40}) لـ (\d+) تانك · ([\d,]+) سمكة/g, 'Transfer from $1 to $2 tank(s) · $3 fish'], [/([^\s]{1,40}) يومها فيه ([\d,]+) سمكة بس — مينفعش تنقل ([\d,]+)/g, '$1 had only $2 fish that day — cannot transfer $3'],
   [/التانك يومها فيه ([\d,]+) سمكة بس — مينفعش تحصد ([\d,]+)/g, 'The tank had only $1 fish that day — cannot harvest $2'],
   [/فيه أرقام اتكتبت ومتحفظتش في الشيت ده\. تغيّر (.+?)؟/g, 'Numbers typed in this sheet are not saved. Change $1?'], [/فيه قرايات اتكتبت ومتحفظتش\. تغيّر (.+?)؟/g, 'Readings typed are not saved. Change $1?']];
 var DA_EN = [
@@ -85,21 +85,34 @@ var DA_EN = [
   ['هروب', 'Escape'], ['سرقة / فقد', 'Theft / loss'], ['أخرى', 'Other'], ['نقل / فرز', 'Transfer / grading'], ['ملاحظات', 'Notes'], ['المدة', 'Period']];
 DA_EN.sort(function(a, b){ return b[0].length - a[0].length; });
 var _daArRe = /[\u0600-\u06FF]/;
+var _daEnMemo = {}, _daEnMemoN = 0, _daEnKeys = null, _daEnPhraseRe = null;
 function daEn(s){
-  if(isAr || !s || !_daArRe.test(s)) return s; var t = String(s);
-  DA_EN_RULES.forEach(function(r){ t = t.replace(r[0], r[1]); });
+  if(isAr || !s || !_daArRe.test(s)) return s;
+  if(_daEnMemo.hasOwnProperty(s)) return _daEnMemo[s];
+  if(_daEnMemoN > 5000){ _daEnMemo = {}; _daEnMemoN = 0; }
+  var r0 = daEnCore(s); _daEnMemo[s] = r0; _daEnMemoN++; return r0;
+}
+function daRuleKey(re){   // the longest fixed piece of a rule's pattern: the rule is tried only if the text contains it
+  var parts = re.source.replace(/\\./g, ' ').split(/[\^$.*+?()[\]{}|]+/).map(function(x){ return x.trim(); }).filter(Boolean);
+  return parts.sort(function(a, b){ return b.length - a.length; })[0] || '';
+}
+function daEnCore(s){
+  var t = String(s); if(!_daEnKeys) _daEnKeys = DA_EN_RULES.map(function(r){ return daRuleKey(r[0]); });
+  DA_EN_RULES.forEach(function(r, i){ if(_daEnKeys[i] && t.indexOf(_daEnKeys[i]) < 0) return; r[0].lastIndex = 0; t = t.replace(r[0], r[1]); });
   if(!_daArRe.test(t)) return t; var trimmed = t.trim();
   for(var i = 0; i < DA_EN.length; i++){ if(trimmed === DA_EN[i][0]) return t.replace(trimmed, DA_EN[i][1]); }
   // whole phrases inside a longer text, only at word boundaries; if Arabic is still left, keep the original (never mixed)
-  var u = t; for(var j = 0; j < DA_EN.length; j++){ var a = DA_EN[j][0]; if(a.length < 4 || u.indexOf(a) < 0) continue;
-    u = u.replace(new RegExp('(^|[^\u0600-\u06FF])' + a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\u0600-\u06FF])', 'g'), function(m, pre){ return pre + DA_EN[j][1]; }); }
+  if(!_daEnPhraseRe) _daEnPhraseRe = DA_EN.map(function(x){ return x[0].length < 4 ? null : new RegExp('(^|[^\\u0600-\\u06FF])' + x[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\u0600-\\u06FF])', 'g'); });   // built once
+  var u = t; for(var j = 0; j < DA_EN.length; j++){ var re = _daEnPhraseRe[j]; if(!re || u.indexOf(DA_EN[j][0]) < 0) continue; re.lastIndex = 0; var rep = DA_EN[j][1]; u = u.replace(re, function(m, pre){ return pre + rep; }); }
   return _daArRe.test(u) ? s : u;
 }
 function daEnNode(root){
   if(isAr || !root) return;
-  if(root.nodeType === 3){ var v = daEn(root.nodeValue); if(v !== root.nodeValue) root.nodeValue = v; return; }
+  if(root.nodeType === 3){ if(root.parentElement && /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(root.parentElement.tagName)) return; var v = daEn(root.nodeValue); if(v !== root.nodeValue) root.nodeValue = v; return; }
+  if(/^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(root.tagName || '')) return;
   if(root.nodeType !== 1) return;
-  var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), n, list = []; while((n = w.nextNode())) if(_daArRe.test(n.nodeValue)) list.push(n);
+  var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), n, list = [];   // never the page's own code / styles (1.3 MB of script text)
+  while((n = w.nextNode())) if(n.parentElement && !/^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(n.parentElement.tagName) && _daArRe.test(n.nodeValue)) list.push(n);
   list.forEach(function(t){ var v = daEn(t.nodeValue); if(v !== t.nodeValue) t.nodeValue = v; });
   var els = root.querySelectorAll ? [root].concat(Array.prototype.slice.call(root.querySelectorAll('[placeholder],[title]'))) : [];
   els.forEach(function(e){ ['placeholder', 'title'].forEach(function(a){ var x = e.getAttribute && e.getAttribute(a); if(x && _daArRe.test(x)) e.setAttribute(a, daEn(x)); }); });

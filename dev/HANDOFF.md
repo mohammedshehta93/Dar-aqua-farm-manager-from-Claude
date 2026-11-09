@@ -135,6 +135,21 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- LANGUAGE SPEED (owner 2026-11-09 "very slow on the phone, especially choosing the language"; benchmark
+  `dev/tests/perf_lang.py`, 4× CPU): switching to English took 110 s. Causes: daEnNode walked the page's own <script>
+  text (1.3 MB) and one rule "(\S+) يومها فيه …" backtracked catastrophically on it. Now daEnNode / the Urdu walker skip
+  SCRIPT / STYLE / TEXTAREA / NOSCRIPT; rules run only when their fixed words are in the text (daRuleKey); open-ended
+  \S+ pieces bounded ([^\s]{1,40}); phrase patterns built once (_daEnPhraseRe / _daUrKeyRe); results memoised
+  (_daEnMemo / _daUrMemo, reset at 5000). Switch now ≈ 0.15 s at phone speed.
+- INSTALL AS AN APP (module `install_app.js`, test `e2e_install`): sw.js is now REGISTERED — with NO fetch handler (a
+  pass-through handler made Playwright mocks miss requests and adds latency for nothing); it only clears old caches.
+  beforeinstallprompt → "📲 install" button (login card #inst-login, worker bar #inst-bar) opens the phone's prompt; else
+  (iPhone / no prompt) a bottom sheet with 3 steps; texts per language in DA_INST_T (not translated afterwards: <b>
+  splits sentences); hidden in standalone mode.
+- AQUAMANAGER IMPORT = TODAY'S PICTURE (module `aqm_replace.js`, test `e2e_aqmreplace` on 2510.xls + a "today" copy
+  without 3 tanks and one at 0 fish): tanks of the file's farms that are not in it (or with 0 fish) and have fish in the
+  tool get an opening balance of 0 at the file's date (open:{fish:0 …}); preview lists them with a tick box (on by
+  default); farms not in the file untouched; nothing deleted. daParseAquaManager now also returns emptyNames.
 - FCR ONLY FROM REAL GAIN (owner 2026-11-09: Site Overview showed FCR 317,901,150,167,329 for nursery tanks stocked that
   day with one dead; module `fcr_safe.js`, test `e2e_fcrsafe`): daFcrSafe(feed, gain, base) = null unless gain ≥ max(0.1 kg,
   1 % of starting biomass), and null above 50 — used in daAllocAt (fcr/lfcr), daUnitCycles (efcr), daCycleTo + batch lot
@@ -436,7 +451,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-56 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+58 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

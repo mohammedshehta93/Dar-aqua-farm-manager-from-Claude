@@ -72,12 +72,20 @@ DA_MONTHS.ur = ['جنوری', 'فروری', 'مارچ', 'اپریل', 'مئی', 
 function daLangNow(){ var l = 'ar'; try{ l = localStorage.getItem(DA_LANG_KEY) || (isAr ? 'ar' : 'en'); }catch(e){} if(l === 'ur' && currentUser && currentUserRole !== 'worker') l = 'en'; return l; }
 function daUrOn(){ return !isAr && daLangNow() === 'ur'; }
 var DA_UR_DONE = /[ٹڈڑںےۓہیکگ۔]/;   // letters Urdu has and Arabic does not: the text is already Urdu
+var _daUrMemo = {}, _daUrMemoN = 0, _daUrRuleKeys = null, _daUrKeyRe = null;
 function daUrText(s){
   if(!s || DA_UR_DONE.test(s)) return s;   // never translate twice (some translations keep a Latin symbol such as "DO (mg/L)")
+  if(_daUrMemo.hasOwnProperty(s)) return _daUrMemo[s];
+  if(_daUrMemoN > 5000){ _daUrMemo = {}; _daUrMemoN = 0; }
+  var r0 = daUrCore(s); _daUrMemo[s] = r0; _daUrMemoN++; return r0;
+}
+function daUrCore(s){
   var t = _daEnPreUr(s); if(!t || !/[A-Za-z]/.test(t)) return t;
   var trimmed = t.trim(); if(DA_UR[trimmed] !== undefined) return t.replace(trimmed, DA_UR[trimmed]);
-  DA_UR_RULES.forEach(function(r){ t = t.replace(r[0], r[1]); });
-  DA_UR_KEYS.forEach(function(k){ if(t.indexOf(k) >= 0) t = t.replace(new RegExp('(^|[^A-Za-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z])', 'g'), function(m, pre){ return pre + DA_UR[k]; }); });
+  if(!_daUrRuleKeys){ _daUrRuleKeys = DA_UR_RULES.map(function(r){ return daRuleKey(r[0]); });
+    _daUrKeyRe = DA_UR_KEYS.map(function(k){ return new RegExp('(^|[^A-Za-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z])', 'g'); }); }
+  DA_UR_RULES.forEach(function(r, i){ if(_daUrRuleKeys[i] && t.indexOf(_daUrRuleKeys[i]) < 0) return; r[0].lastIndex = 0; t = t.replace(r[0], r[1]); });
+  DA_UR_KEYS.forEach(function(k, i){ if(t.indexOf(k) < 0) return; _daUrKeyRe[i].lastIndex = 0; t = t.replace(_daUrKeyRe[i], function(m, pre){ return pre + DA_UR[k]; }); });
   return t;
 }
 function daWorkerGuideUr(){
@@ -111,8 +119,9 @@ if(!window._daUrWrapped){
   var _enNodePreUr = daEnNode;
   daEnNode = function(root){
     if(!daUrOn()) return _enNodePreUr.apply(this, arguments); if(!root) return;
-    if(root.nodeType === 3){ var v = daUrText(root.nodeValue); if(v !== root.nodeValue) root.nodeValue = v; return; } if(root.nodeType !== 1) return;
-    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), n, list = []; while((n = w.nextNode())) if(/[A-Za-z\u0600-\u06FF]/.test(n.nodeValue) && n.parentElement && !/^(SCRIPT|STYLE)$/.test(n.parentElement.tagName)) list.push(n);
+    if(root.nodeType === 3){ if(root.parentElement && /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(root.parentElement.tagName)) return; var v = daUrText(root.nodeValue); if(v !== root.nodeValue) root.nodeValue = v; return; }
+    if(root.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(root.tagName)) return;
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), n, list = []; while((n = w.nextNode())) if(/[A-Za-z\u0600-\u06FF]/.test(n.nodeValue) && n.parentElement && !/^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(n.parentElement.tagName)) list.push(n);
     list.forEach(function(t){ var v = daUrText(t.nodeValue); if(v !== t.nodeValue) t.nodeValue = v; });
     var els = root.querySelectorAll ? [root].concat(Array.prototype.slice.call(root.querySelectorAll('[placeholder],[title]'))) : [];
     els.forEach(function(e){ ['placeholder', 'title'].forEach(function(a){ var x = e.getAttribute && e.getAttribute(a); if(x) e.setAttribute(a, daUrText(x)); }); });

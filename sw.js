@@ -1,4 +1,5 @@
-// Clear all caches and unregister
+// Registered so phones offer "install as an app". It caches NOTHING and does not touch any request (no fetch handler):
+// the app always loads fresh from the network and updates work as before. On activation it clears old caches.
 self.addEventListener('install', function(){ self.skipWaiting(); });
 self.addEventListener('activate', function(e){
   e.waitUntil(
@@ -6,8 +7,4 @@ self.addEventListener('activate', function(e){
       return Promise.all(keys.map(function(k){ return caches.delete(k); }));
     }).then(function(){ return self.clients.claim(); })
   );
-});
-// No caching - always fetch from network
-self.addEventListener('fetch', function(e){
-  e.respondWith(fetch(e.request));
 });
