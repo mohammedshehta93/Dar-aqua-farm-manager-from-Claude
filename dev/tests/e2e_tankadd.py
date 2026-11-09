@@ -35,7 +35,7 @@ with sync_playwright() as p:
     pg.fill('#ta-fix-F3', '2'); pg.click('#ta-fix button'); pg.wait_for_timeout(500)
     check('A12 one click puts them in the chosen section, names kept', pg.evaluate("getFarmUnits().filter(u=>u.name==='N1'||u.name==='N2').map(u=>u.section)") == ['F3.S02', 'F3.S02'] and not pg.evaluate("!!document.getElementById('ta-fix')"))
     pg.evaluate("window._fs={farm:'F3'}; show('feed-sheet',true)"); pg.wait_for_timeout(300)
-    check('A13 the feed sheet now shows them in section 2', sorted(pg.evaluate("window._fs.rows.filter(r=>r.unit[0]==='N').map(r=>r.no.label)")) == ['2.1', '2.2'])
+    check('A13 the feed sheet now shows them in section 2', sorted(pg.evaluate("window._fs.rows.filter(r=>r.unit[0]==='N').map(r=>r.no.s+':'+r.no.label)")) == ['2:N1', '2:N2'])
     check('A14 no page errors', not pg._errs, pg._errs)
     ctx.close()
     fails = [r for r in RESULTS if not r[1]]

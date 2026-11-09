@@ -135,6 +135,17 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- TANKS REACH THE CLOUD · DELETED EVERYWHERE (owner 2026-11-09: nursery tanks re-added, still "no tanks" on the phone;
+  module `units_sync.js`, test `e2e_unitsync`). ROOT CAUSES: saveUnitsToCloud returned SILENTLY when !sbReady and a
+  failed upload was never retried; the next daPullUnitsIfChanged then replaced RAW with the cloud list (tanks vanished),
+  or — when the device list matched at start — kept them local forever (computer yes, phones never). farmRegDelete kept
+  the farm's tanks; deleting in one list left the other. NOW: saveUnitsToCloud queues every unit (with its data) in
+  localStorage daracqua_units_pending BEFORE uploading, throws when not ready, clears on success; daUnitsFlush retries
+  adds + queued deletes (daracqua_units_pending_del) before every pull; after a pull queued adds are put back and queued
+  deletes dropped. daDeleteUnit / unitDeleteFromSetup / farmRegDelete delete from RAW + settings list + cloud (farm
+  delete offers its tanks). Farm setup "📋 حالة التانكات": per farm tanks / ☁️ in the cloud (live query) / ⏳ waiting /
+  ⚠️ old Settings tanks, with "⬆️ ارفع دلوقتي" and "🔄 انقل التانكات القديمة" (moves them to RAW + cloud, same names).
+  Names: daTankNo label = "s.t" for standard names (as on paper), the tank's OWN name otherwise (owner saw "1.1" for N1).
 - ADDING TANKS (owner 2026-11-09 "fix it at the root"; module `tank_add.js`, test `e2e_tankadd`): there were two places
   with free-text names — Farm setup "add a unit by hand" (section optional, no empty tanks) and Settings "➕ new tank"
   (NO section → the nursery). Now ONE card "➕ Add tanks" replaces the manual card in Farm setup (DOM swap after render
@@ -391,7 +402,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-51 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+52 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

@@ -43,7 +43,7 @@ function daTankNo(unit){   // F1.S01T01 · HA.S01.T01 · HA.S1-T1 · and ANY oth
   var rest = sec && u.indexOf(sec) === 0 ? u.slice(sec.length) : u, tm = /(\d+)\D*$/.exec(rest), t;
   if(tm) t = +tm[1];
   else { var mates = Object.keys(map).filter(function(k){ return map[k] === sec; }).sort(function(a, b){ return a.localeCompare(b, undefined, {numeric:true}); }); t = mates.indexOf(u) + 1; }
-  return t > 0 ? {s:+sm[1], t:t, label:(+sm[1]) + '.' + t} : null;
+  return t > 0 ? {s:+sm[1], t:t, label:u} : null;   // a name not in the standard form is shown as it was given
 }
 function daSizeOf(feed){ var m = /(\d+(?:\.\d+)?)\s*mm/i.exec(String(feed || '')); return m ? m[1] : ''; }
 function daSheetProducts(size){

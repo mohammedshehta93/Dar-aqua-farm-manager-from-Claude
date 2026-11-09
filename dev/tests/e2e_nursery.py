@@ -11,7 +11,7 @@ with sync_playwright() as p:
     pc.wait_for_timeout(2500)
     c2, ph = new_page(p, sb); ph.set_viewport_size({'width': 390, 'height': 844}); login(ph, 'sajed@workers.dar-aqua.app', 'work123'); ph.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); ph.wait_for_timeout(600)
     rows = ph.evaluate("(window._fs.rows||[]).map(r=>r.unit+'='+r.no.label)")
-    check('U1 the nursery\'s tanks without sections appear in the worker\'s feed sheet (one section, numbered by name)', sorted(rows) == sorted(['N1=1.1', 'N2=1.2', 'N3=1.3', 'Tank A=1.4']) and 'No tanks' not in ph.inner_text('#content') and 'مفيش تانكات' not in ph.inner_text('#content'), rows)
+    check('U1 the nursery\'s tanks without sections appear in the worker\'s feed sheet (one section, shown by their own names)', sorted(rows) == sorted(['N1=N1', 'N2=N2', 'N3=N3', 'Tank A=Tank A']) and 'No tanks' not in ph.inner_text('#content') and 'مفيش تانكات' not in ph.inner_text('#content'), rows)
     i = ph.evaluate("window._fs.rows.find(r=>r.unit==='N2').i"); ph.fill(f'#fs-{i}-m0', '0.3'); ph.fill(f'#fs-{i}-sz', '1'); ph.click('#fs-save'); ph.wait_for_timeout(600)
     check('U2 feed saved on a nursery tank', ph.evaluate("getTX().some(t=>t.type==='feeding'&&t.unit==='N2'&&t.kg===0.3)"))
     ph.click('#da-wbar button[data-v="wq-sheet"]'); ph.wait_for_timeout(400)
