@@ -22,7 +22,7 @@ if(!window._daPerfWrapped){
     var r = daRawIndex()[u]; if(r) return r;
     var c = daCustomIndex()[u]; if(!c) return null;
     var aw = parseFloat(c.avgWt) || parseFloat(c.startWt) || 0;
-    return {unit:c.name, farm:c.farm || String(c.name).split('.')[0], section:c.section || String(c.name).split('.').slice(0, 2).join('.'), fishNo:parseInt(c.fishNo) || 0,
+    return {unit:c.name, farm:c.farm || String(c.name).split('.')[0], section:daSecFix(c.section || String(c.name).split('.').slice(0, 2).join('.'), c.farm || String(c.name).split('.')[0]), fishNo:parseInt(c.fishNo) || 0,
       avgWt:aw, startWt:parseFloat(c.startWt) || aw, startDate:c.stockDate || c.startDate || '', vol:parseFloat(c.vol || c.volume) || 0, custom:true};
   };
   // farm alerts: one result per data version (the dashboard and the alert monitor asked for it separately)

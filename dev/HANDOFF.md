@@ -138,7 +138,11 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - HATCHERY ON THE PHONE (2026-11-09): owner saw no sections on the phone, yes on the computer. Reproduced both add paths
   (setup form → farm_units cloud table; settings units → synced key): the CURRENT version delivers them to an open phone
   after 🔄 and both sheets list them → the phone was most likely an older version. 🔄 (daTabRefresh) now also runs
-  daCheckUpdate so pressing it brings a newer version at once.
+  daCheckUpdate so pressing it brings a newer version at once. REAL CAUSE (worker Sajed, site F3 "Nursery"): its tanks
+  were added from the settings units list WITHOUT sections (names like "N1") → no section number → feed sheet "no
+  tanks". daSecFix(sec, farm): a section without "S<n>" = the farm's single section "<farm>.S01" — applied in
+  _txLiveRows (wrapper, custom_units.js), daRawUnit (perf_tune.js) and daUnitSecMap; daTankNo then numbers by the name's
+  last number, or the order in the section. Test `e2e_nursery` (worker on a phone: feed, daily/weekly log, sampling).
 - FH2 REAL PHOTOS (2026-11-09; dev/tests/data/fh2_page{1,2}_real.jpg + fh2_real_truth.json read by eye, test
   `e2e_paper_f2_real`). The farm feeds meal 1 and the last meal; X = not fed (empty tank or fish not fed) → meal {x:true},
   row fast when only X; a note written across a row (16.3 "176kg 600g 343PES") must not become feed. FINDINGS: the
@@ -379,7 +383,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-49 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+50 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

@@ -32,7 +32,7 @@ var _daUnitSecVer = -1, _daUnitSecMap = {};
 function daUnitSecMap(){   // every tank → its section, the way the daily testing log sees it (imported list + tanks added in setup)
   if(_daUnitSecVer === _dataVer && Object.keys(_daUnitSecMap).length) return _daUnitSecMap;
   var m = {}; RAW.forEach(function(r){ if(r.unit) m[r.unit] = r.section || ''; });
-  (typeof getFarmUnits === 'function' ? getFarmUnits() : []).forEach(function(u){ if(u && u.name && !(u.name in m)) m[u.name] = u.section || String(u.name).split('.').slice(0, 2).join('.'); });
+  (typeof getFarmUnits === 'function' ? getFarmUnits() : []).forEach(function(u){ if(u && u.name && !(u.name in m)) m[u.name] = daSecFix(u.section || String(u.name).split('.').slice(0, 2).join('.'), u.farm); });
   _daUnitSecMap = m; _daUnitSecVer = _dataVer; return m;
 }
 function daTankNo(unit){   // F1.S01T01 · HA.S01.T01 · HA.S1-T1 · and ANY other name: section from the tank's data, number from its name (or its place in the section)
