@@ -33,7 +33,7 @@ function daUnitPeriods(unit, list){
     pend.rem.forEach(function(x){ var w = w1 + (w2 - w1) * Math.min(1, Math.max(0, daDaysBetween(anchor.date, x.d) / span)); if(x.dead) dead += x.n * w / 1000; else outKg += x.n * w / 1000; });
     var b1 = anchor.fish * w1 / 1000, b2 = fishEnd * w2 / 1000, gB = b2 - b1 + dead + outKg - pend.add, gE = b2 - b1 + outKg - pend.add;
     out.push({unit:unit, from:anchor.date, to:d, days:daDaysBetween(anchor.date, d), w1:w1, w2:w2, mid:(w1 + w2) / 2, feed:pend.feed,
-      feedDays:Object.keys(pend.feedDays).length, gain:gB, gainE:gE, deadKg:dead, fcr:pend.feed > 0 && gB > 0 ? pend.feed / gB : null, efcr:pend.feed > 0 && gE > 0 ? pend.feed / gE : null});
+      feedDays:Object.keys(pend.feedDays).length, gain:gB, gainE:gE, deadKg:dead, fcr:daFcrSafe(pend.feed, gB, b1), efcr:daFcrSafe(pend.feed, gE, b1)});
   }
   Object.keys(byDate).sort().forEach(function(d){
     var ev = byDate[d], sampleW = 0, sub = 0, outW = 0;
@@ -92,7 +92,7 @@ function daFcrSum(periods, st){
   periods.forEach(function(p){ if((daPeriodIssue(p, st) || {}).drop) return;
     s.feed += p.feed; s.gain += p.gain; s.gainE += p.gainE; s.n++; s.units[p.unit] = 1; s.expW += st[p.stage].exp * Math.max(0, p.gain); });
   s.tanks = Object.keys(s.units).length;
-  s.fcr = s.gain > 0 ? s.feed / s.gain : null; s.efcr = s.gainE > 0 ? s.feed / s.gainE : null;
+  s.fcr = daFcrSafe(s.feed, s.gain, 0); s.efcr = daFcrSafe(s.feed, s.gainE, 0);
   var gp = periods.filter(function(p){ return !(daPeriodIssue(p, st) || {}).drop; }).reduce(function(a, p){ return a + Math.max(0, p.gain); }, 0);
   s.exp = gp > 0 ? s.expW / gp : null;
   return s;
@@ -267,10 +267,6 @@ function renderWeeklyReport(){
     + (d.missing.length ? '<div style="font-size:12px;color:var(--muted);margin-top:4px">تانكات من غير علف متسجل: ' + d.missing.slice(0, 15).map(function(m){ return daEsc(m.unit) + ' (' + m.days + 'ي)'; }).join('، ') + (d.missing.length > 15 ? ' … و' + (d.missing.length - 15) + ' كمان' : '') + '</div>' : '') + '</div>';
   h += '<div class="card"><div id="wr-text" style="white-space:pre-wrap;line-height:1.9;font-size:13px">' + daEsc(txt.replace(/\*/g, '')) + '</div></div>';
   return h;
-}
-function daCopyText(text){
-  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ toast('✅ اتنسخ'); }, function(){ daCopyFallback(text); });
-  else daCopyFallback(text);
 }
 
 // dashboard card: last closed week's report, until it has been opened on this device

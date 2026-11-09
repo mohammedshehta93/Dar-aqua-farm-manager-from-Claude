@@ -21,7 +21,11 @@ function daLoginMsg(name, user, pass){   // in English (owner, 2026-11-08): the 
     + '\n\nOpen the link → type your username and password → Login.\nThen, from the browser menu, choose “Add to Home Screen” to open it like an app.';
 }
 function daWhatsApp(text){ window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); }
-async function daCopyText(text){ try{ await navigator.clipboard.writeText(text); toast('📋 اتنسخت الرسالة'); }catch(e){ toast('⚠️ مقدرتش أنسخ'); } }
+async function daCopyText(text){   // the one copy helper (weekly report, WhatsApp message …): clipboard, else a hidden text box
+  try{ await navigator.clipboard.writeText(text); toast('📋 اتنسخ'); return true; }
+  catch(e){ var ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+    var ok = false; try{ ok = document.execCommand('copy'); }catch(x){} ta.remove(); toast(ok ? '📋 اتنسخ' : '⚠️ مقدرتش أنسخ — انسخ يدوي'); return ok; }
+}
 function daShareCard(name, user, pass){
   var c = document.getElementById('content'); if(!c) return; var old = document.getElementById('um-share'); if(old) old.remove();
   var msg = daLoginMsg(name, user, pass), d = document.createElement('div'); d.id = 'um-share'; d.className = 'card'; d.style.cssText = 'margin-bottom:12px;border:2px solid #25d366';

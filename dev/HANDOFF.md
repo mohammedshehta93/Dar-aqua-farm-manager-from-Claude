@@ -135,6 +135,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- FCR ONLY FROM REAL GAIN (owner 2026-11-09: Site Overview showed FCR 317,901,150,167,329 for nursery tanks stocked that
+  day with one dead; module `fcr_safe.js`, test `e2e_fcrsafe`): daFcrSafe(feed, gain, base) = null unless gain ≥ max(0.1 kg,
+  1 % of starting biomass), and null above 50 — used in daAllocAt (fcr/lfcr), daUnitCycles (efcr), daCycleTo + batch lot
+  (overview_am), daUnitPeriods + daFcrSum (fcr_weekly), sampling sheet. Site Overview totals row = Σfeed ÷ Σgain ("FCR=")
+  per UTD and LTD (rows now carry lfeed), not the mean of tank ratios. e2e_aqm (real AquaManager file) unchanged.
+  Also found two daCopyText (fcr_weekly + username_login; the first called the removed daCopyFallback) → one helper in
+  username_login.js with a hidden-textarea fallback; no function is defined in two modules any more.
 - URDU FOR WORKERS (owner 2026-11-09; module `i18n_ur.js`, test `e2e_urdu`): workers and the login page get a 3-way language
   menu (عربي · English · اردو) from #lang-btn; office users keep the Arabic / English toggle (a stored "ur" reads as "en"
   for them). Urdu = the English rendering (isAr false) + English → Urdu (DA_UR exact phrases, DA_UR_KEYS ≥ 4 chars at word
@@ -429,7 +436,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-55 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+56 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

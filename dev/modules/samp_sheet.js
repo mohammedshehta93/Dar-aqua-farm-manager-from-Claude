@@ -51,7 +51,7 @@ function daSpSave(){
     var rec = {avgWt:avg, sampleN:N, biomass:(s.fish || 0) * avg / 1000, sgr:0, fcr:0, daysSinceLast:0, feedSinceLast:0};
     if(L){ rec.daysSinceLast = Math.max(1, daDaysBetween(L.date, date)); rec.sgr = computeSGR(L.avgWt, avg, rec.daysSinceLast);
       rec.feedSinceLast = (daTxByUnit()[u] || []).filter(function(t){ return t.type === 'feeding' && !t.deleted && t.date >= L.date && t.date <= date; }).reduce(function(a, t){ return a + (parseFloat(t.kg) || 0); }, 0);
-      var wg = (avg - L.avgWt) / 1000 * (s.fish || 0); if(wg > 0 && rec.feedSinceLast > 0) rec.fcr = rec.feedSinceLast / wg; }
+      var wg = (avg - L.avgWt) / 1000 * (s.fish || 0), f1 = daFcrSafe(rec.feedSinceLast, wg, (s.fish || 0) * L.avgWt / 1000); if(f1 !== null) rec.fcr = f1; }
     if(cur){ if(+cur.avgWt !== avg || (+cur.sampleN || 0) !== N){ updateTX(cur.id, rec); upd++; } }
     else { addTX(Object.assign({id:'sp-' + u + '-' + date, type:'sampling', date:date, unit:u, source:'sheet', _skipValidation:true}, rec)); n++; } });
   if(window._daActiveTab) window._daActiveTab.dirty = false;

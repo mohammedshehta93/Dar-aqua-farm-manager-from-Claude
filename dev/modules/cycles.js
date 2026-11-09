@@ -41,7 +41,7 @@ function daUnitCycles(unit){
     if(cur && fish <= 0 && by){ cur.end = d; cur.endBy = {harvesting:'حصاد', transfer_out:'نقل خارج', mortality:'نفوق', adjustment:'قفل يدوي'}[by] || by; cur.fish1 = 0; cur.wt1 = wt; cur = null; }
   });
   if(cur){ cur.fish1 = fish; cur.wt1 = wt; }
-  cyc.forEach(function(c){ c.days = daDaysBetween(c.start, c.end || daToday()); var gain = c.outKg + (c.end ? 0 : c.fish1 * c.wt1 / 1000) - c.fish0 * c.wt0 / 1000 - c.inKg; c.efcr = c.feed > 0 && gain > 0 ? c.feed / gain : null; });
+  cyc.forEach(function(c){ c.days = daDaysBetween(c.start, c.end || daToday()); var gain = c.outKg + (c.end ? 0 : c.fish1 * c.wt1 / 1000) - c.fish0 * c.wt0 / 1000 - c.inKg; c.efcr = daFcrSafe(c.feed, gain, c.fish0 * c.wt0 / 1000 + c.inKg); });
   return cyc;
 }
 function daCycleOn(unit, date){ var c = daUnitCycles(unit); for(var i = c.length - 1; i >= 0; i--) if(c[i].start <= date && (!c[i].end || c[i].end >= date)) return c[i]; return null; }

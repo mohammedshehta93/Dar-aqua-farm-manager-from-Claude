@@ -52,5 +52,5 @@ function daAllocAt(unit, D){
   var s = (daAlloc().series[unit] || []), z = null; for(var i = s.length - 1; i >= 0; i--) if(s[i].date <= D){ z = s[i]; break; }
   if(!z || !(z.fish > 0)) return null;
   var bio = z.fish * z.wt / 1000, g = bio - z.S + z.Dk, gl = bio - z.S0 + z.Dk + z.Di;
-  return {fish:z.fish, wt:z.wt, bio:bio, feed:z.F, stock:z.S, fcr:z.F > 0 && g > 0 ? z.F / g : null, lfcr:z.F + z.Fi > 0 && gl > 0 ? (z.F + z.Fi) / gl : null, lfeed:z.F + z.Fi};
+  return {fish:z.fish, wt:z.wt, bio:bio, feed:z.F, stock:z.S, fcr:daFcrSafe(z.F, g, z.S), lfcr:daFcrSafe(z.F + z.Fi, gl, z.S0), lfeed:z.F + z.Fi, gain:g, lgain:gl};
 }
