@@ -12,8 +12,10 @@ function daTaPad(n){ return ('0' + n).slice(-2); }
 function daTaNames(){
   var f = daTaFarm(), sec = parseInt(daVal('ta-sec'), 10), n = parseInt(daVal('ta-n'), 10), t0 = parseInt(daVal('ta-t0'), 10);
   if(!f || !(sec > 0) || !(n > 0) || !(t0 > 0)) return [];
-  var out = []; for(var i = 0; i < Math.min(n, 60); i++) out.push(f + '.S' + daTaPad(sec) + 'T' + daTaPad(t0 + i)); return out;
+  var each = daTaEach(), out = [];
+  for(var i = 0; i < Math.min(n, 60); i++) out.push(each ? f + '.S' + daTaPad(sec + i) + 'T01' : f + '.S' + daTaPad(sec) + 'T' + daTaPad(t0 + i)); return out;
 }
+function daTaEach(){ var e = document.getElementById('ta-each'); return !!(e && e.checked); }   // every tank its own section
 function daTaFarm(){ var v = daVal('ta-farm'); return v === '__new' ? daVal('ta-newcode').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : v; }
 function daTaNextTank(farm, sec){ var mx = 0; _txLiveRows().forEach(function(r){ if(r.farm === farm && daSecNo(r.section || '') === sec){ var t = daTankNo(r.unit); if(t && t.t > mx) mx = t.t; } }); return mx + 1; }
 function daTaExisting(){ var e = {}; RAW.forEach(function(u){ e[u.unit] = 1; }); getFarmUnits().forEach(function(u){ if(u.name) e[u.name] = 1; }); return e; }
@@ -24,6 +26,8 @@ function daTaRefresh(changed){
   var secEl = document.getElementById('ta-sec'), t0El = document.getElementById('ta-t0');
   if(changed === 'farm' && secEl){ secEl.value = keys.length ? keys[keys.length - 1] + 1 : 1; }
   if((changed === 'farm' || changed === 'sec') && t0El){ var sv = parseInt(daVal('ta-sec'), 10); t0El.value = sv > 0 && f ? daTaNextTank(f, sv) : 1; }
+  var t0f = t0El && t0El.closest('.field'); if(t0f) t0f.style.display = daTaEach() ? 'none' : '';
+  var secLbl = document.getElementById('ta-sec') && document.getElementById('ta-sec').closest('.field').querySelector('label'); if(secLbl) secLbl.textContent = daTaEach() ? 'أول سكشن *' : 'السكشن *';
   var fishOn = document.getElementById('ta-hasfish') && document.getElementById('ta-hasfish').checked, fb = document.getElementById('ta-fishbox'); if(fb) fb.style.display = fishOn ? 'grid' : 'none';
   var names = daTaNames(), ex = daTaExisting(), pv = document.getElementById('ta-preview');
   if(pv){ if(!names.length){ pv.innerHTML = '<span style="color:var(--muted)">اختار المزرعة والسكشن والعدد.</span>'; }
@@ -37,6 +41,9 @@ function daTaCard(){
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end">'
     + fld('المزرعة *', '<select id="ta-farm" style="' + inp + '" onchange="daTaRefresh(\'farm\')"><option value="">— اختار —</option>' + farms.map(function(f){ return '<option value="' + daEsc(f) + '">' + daEsc(f) + (reg[f] && reg[f] !== f ? ' — ' + daEsc(reg[f]) : '') + '</option>'; }).join('') + '<option value="__new">➕ مزرعة جديدة…</option></select>')
     + '<div id="ta-new" style="display:none;gap:8px;grid-column:1/-1">' + fld('كود المزرعة الجديدة *', '<input id="ta-newcode" placeholder="مثلاً F3" style="' + inp + '" oninput="daTaRefresh(\'farm\')"/>') + fld('اسمها', '<input id="ta-newname" placeholder="مثلاً Nursery" style="' + inp + '"/>') + '</div>'
+    + '<div style="grid-column:1/-1;display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#f8fafc;border-radius:8px"><b>ترتيب التانكات:</b>'
+    + '<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="radio" name="ta-lay" id="ta-one" checked onchange="daTaRefresh(\'sec\')"/> كلها في سكشن واحد</label>'
+    + '<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="radio" name="ta-lay" id="ta-each" onchange="daTaRefresh(\'sec\')"/> كل تانك في سكشن لوحده</label></div>'
     + fld('السكشن *', '<input id="ta-sec" type="number" min="1" step="1" style="' + inp + '" oninput="daTaRefresh(\'sec\')"/>')
     + fld('عدد التانكات *', '<input id="ta-n" type="number" min="1" max="60" value="1" style="' + inp + '" oninput="daTaRefresh()"/>')
     + fld('أول رقم تانك', '<input id="ta-t0" type="number" min="1" value="1" style="' + inp + '" oninput="daTaRefresh()"/>')
@@ -58,13 +65,13 @@ async function daTaSave(){
   if(hasFish){ fish = parseInt(daVal('ta-fish'), 10); wt = parseFloat(daVal('ta-wt')); d = daParseDate(daVal('ta-date') || daToday());
     if(!(fish > 0) || !(wt > 0) || !d){ toast('⚠️ عدد السمك والوزن والتاريخ مطلوبين لو فيها سمك'); return; } }
   if(daVal('ta-farm') === '__new'){ var reg = getFarmsRegistry(); reg[f] = daVal('ta-newname').trim() || f; saveFarmsRegistry(reg); }
-  var secId = f + '.S' + daTaPad(sec), list = add.map(function(nm){ var bio = fish * wt / 1000;
-    return {unit:nm, farm:f, section:secId, batch:hasFish ? daVal('ta-batch').trim() : '', species:'Silver Tilapia', hatchery:'', startDate:d, fishNo:fish, startWt:wt, avgWt:wt,
+  var secId = f + '.S' + daTaPad(sec), list = add.map(function(nm){ var bio = fish * wt / 1000, sm = nm.match(/\.S(\d+)T/);
+    return {unit:nm, farm:f, section:sm ? f + '.S' + sm[1] : secId, batch:hasFish ? daVal('ta-batch').trim() : '', species:'Silver Tilapia', hatchery:'', startDate:d, fishNo:fish, startWt:wt, avgWt:wt,
       biomass:bio, density:vol ? bio / vol : 0, volume:vol, mortality:0, survival:100, feedKg:0, alarm:false, warn:false}; });
   list.forEach(function(u){ RAW.push(u); }); _valCache = {t:0, map:{}};
   await daPersistUnitsLocal();
   try{ await saveUnitsToCloud(list); }catch(e){ toast('⚠️ اتحفظت على الجهاز — هتترفع لما الاتصال يرجع'); }
-  toast('✅ اتضاف ' + list.length + ' تانك في ' + secId); show('farm-setup', true);
+  toast('✅ اتضاف ' + list.length + ' تانك' + (daTaEach() ? ' — كل تانك في سكشن' : ' في ' + secId)); show('farm-setup', true);
 }
 // tanks already added without a section: put them in one, names unchanged (their records stay linked)
 function daTaNoSec(){
