@@ -23,6 +23,13 @@ with sync_playwright() as p:
     check('S4 Sajed\'s phone (F3 only) shows the nursery tanks in the feed sheet', ph.evaluate("(window._fs.rows||[]).length") == 3 and 'No tanks' not in ph.inner_text('#content'))
     ph.click('#da-wbar button[data-v="wq-sheet"]'); ph.wait_for_timeout(300)
     check('S5 and the testing log (section S-01)', 'S-01' in ph.inner_text('#content'))
+    # a tank on the computer that never reached the cloud (added before this update): "upload now" sends it
+    pc.evaluate("RAW.push({unit:'F3.S01T09',farm:'F3',section:'F3.S01',fishNo:0,startWt:0,avgWt:0,volume:2}); daPersistUnitsLocal()")
+    pc.evaluate("show('farm-setup',true)"); pc.wait_for_timeout(1200)
+    check('S5b a tank missing from the cloud shows as waiting, "upload now" sends it', '⏳ 1' in pc.inner_text('#us-card'))
+    pc.click('#us-flush'); pc.wait_for_timeout(1000)
+    check('S5c … and it is in the cloud', 'F3.S01T09' in cloudF3())
+    pc.evaluate("daUnitDeleteEverywhere('F3.S01T09')"); pc.wait_for_timeout(500)
     # not ready at all (the cloud link not up yet): never silent
     pc.evaluate("window.__sbr = sbReady; sbReady = false"); pc.evaluate("show('farm-setup',true)"); pc.wait_for_timeout(300)
     pc.select_option('#ta-farm', 'F3'); pc.fill('#ta-sec', '2'); pc.dispatch_event('#ta-sec', 'input'); pc.fill('#ta-n', '2'); pc.click('#ta-save'); pc.wait_for_timeout(600)

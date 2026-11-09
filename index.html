@@ -15718,7 +15718,10 @@ async function daUnitsStatusCard(){
     + (anyOld ? '<button id="us-move" class="savebtn" style="width:auto;padding:8px 16px;background:var(--amber)" onclick="daUsMoveNow()">🔄 انقل التانكات القديمة للقايمة الأساسية</button>' : '') + '</div>'
     + (cloud === null ? '<div style="font-size:12px;color:var(--amber);margin-top:6px">مش متصل بالسحابة دلوقتي — الحالة هتبان لما الاتصال يرجع.</div>' : '');
 }
-async function daUsFlushNow(){ var ok = await daUnitsFlush(); toast(ok ? '✅ اترفعت — هتظهر في الموبايلات بعد 🔄' : '⚠️ لسه مش قادر يرفع — اتأكد من الإنترنت وجرب تاني'); show('farm-setup', true); }
+async function daUsFlushNow(){   // also the tanks on this computer that never reached the cloud (added before the queue existed)
+  try{ if(sbReady && SB_FARM_ID){ var cloud = (await sbFetch('farm_units?farm_id=eq.' + encodeURIComponent(SB_FARM_ID) + '&select=unit') || []).map(function(r){ return r.unit; }), q = daUPend(), del = daUDel();
+    RAW.forEach(function(u){ if(cloud.indexOf(u.unit) < 0 && del.indexOf(u.unit) < 0) q[u.unit] = u; }); daUPendSet(q); } }catch(e){}
+  var ok = await daUnitsFlush(); toast(ok ? '✅ اترفعت — هتظهر في الموبايلات بعد 🔄' : '⚠️ لسه مش قادر يرفع — اتأكد من الإنترنت وجرب تاني'); show('farm-setup', true); }
 async function daUsMoveNow(){ var n = await daMoveOldTanks(null); toast(n ? '✅ اتنقل ' + n + ' تانك للقايمة الأساسية — نفس الأسماء، والسجلات زي ما هي' : 'مفيش تانكات قديمة'); show('farm-setup', true); }
 if(!window._daUsWrapped){
   window._daUsWrapped = true;

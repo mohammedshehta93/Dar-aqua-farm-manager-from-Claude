@@ -144,7 +144,7 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   adds + queued deletes (daracqua_units_pending_del) before every pull; after a pull queued adds are put back and queued
   deletes dropped. daDeleteUnit / unitDeleteFromSetup / farmRegDelete delete from RAW + settings list + cloud (farm
   delete offers its tanks). Farm setup "📋 حالة التانكات": per farm tanks / ☁️ in the cloud (live query) / ⏳ waiting /
-  ⚠️ old Settings tanks, with "⬆️ ارفع دلوقتي" and "🔄 انقل التانكات القديمة" (moves them to RAW + cloud, same names).
+  ⚠️ old Settings tanks, with "⬆️ ارفع دلوقتي" (also uploads ANY tank of this device missing from the cloud) and "🔄 انقل التانكات القديمة" (moves them to RAW + cloud, same names).
   Names: daTankNo label = "s.t" for standard names (as on paper), the tank's OWN name otherwise (owner saw "1.1" for N1).
 - ADDING TANKS (owner 2026-11-09 "fix it at the root"; module `tank_add.js`, test `e2e_tankadd`): there were two places
   with free-text names — Farm setup "add a unit by hand" (section optional, no empty tanks) and Settings "➕ new tank"
