@@ -135,6 +135,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- HATCHERY ON THE PHONE (2026-11-09): owner saw no sections on the phone, yes on the computer. Reproduced both add paths
+  (setup form → farm_units cloud table; settings units → synced key): the CURRENT version delivers them to an open phone
+  after 🔄 and both sheets list them → the phone was most likely an older version. 🔄 (daTabRefresh) now also runs
+  daCheckUpdate so pressing it brings a newer version at once.
 - FH2 REAL PHOTOS (2026-11-09; dev/tests/data/fh2_page{1,2}_real.jpg + fh2_real_truth.json read by eye, test
   `e2e_paper_f2_real`). The farm feeds meal 1 and the last meal; X = not fed (empty tank or fish not fed) → meal {x:true},
   row fast when only X; a note written across a row (16.3 "176kg 600g 343PES") must not become feed. FINDINGS: the
@@ -249,7 +253,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   in the clipboard, real date in the Excel. Button "📤 للأكوامانجر" on the testing log. WHOLE SITE in one sheet (owner:
   AquaManager has every farm in one Site Measurements sheet) — `daAqwAll(date)` gathers every farm, rows in the learned
   order of AquaManager's own file (`order` = names in file order; AquaManager sorts by parameter name, houses inside);
-  panel shows per farm "sections recorded of total" + its average temperature. NOT YET CONFIRMED that the paste
+  panel shows per farm "sections recorded of total" + its average temperature. 2026-11-09 (owner): the daily copy sends
+  the WEEKLY readings (TOTAL AMMONIA, Nitrite, Nitrate) as 0 for every section measured that day when they were not
+  measured (alkalinity never); AquaManager's extra temperature parameters not tied to a house ("Temperature Holding",
+  "Temperature Nursery" = the hatchery) are learned as c.tempExtra and get FH1's average temperature. NOT YET CONFIRMED that the paste
   accepts these 5 columns (the feeding export had 5 but the paste wanted 8) — owner testing.
 - FEEDING → AQUAMANAGER (module `aqm_export.js`, test `e2e_aqx` on the owner's 2.xls): AquaManager's Feeding "Paste From
   Clipboard" demands the columns Unit / Batch / Store / Feed / Feed Batch Code / Qty / Feeder / Feeding Method (its own error

@@ -29,6 +29,11 @@ with sync_playwright() as p:
     ordr = pg.evaluate("daAqwCfg().order"); idx = [ordr.index(r[0]) for r in A['rows']]
     check('W3b the whole site in ONE sheet (F1 + F2 together), in exactly the order of AquaManager\'s file', idx == sorted(idx) and any(r[0].startswith('Oxygen FH2') for r in A['rows']) and any(r[0] == 'Temperature FH2' for r in A['rows']), [r[0] for r in A['rows']][:12])
     check('W3c FH2 temperature = average of its sections (27, 25 → 26); each farm shown with its sections recorded', ['Temperature FH2', 'Dar Aqua', pg.evaluate("daAqwDate(window._wqs.date)"), '', 26] in A['rows'] and pg.evaluate("!!document.getElementById('aqw-per-F1') && !!document.getElementById('aqw-per-F2')"), A['per'])
+    nm = {r[0]: r[4] for r in A['rows']}
+    check('W3d a daily-only section: its weekly readings go to AquaManager as 0 (not measured)', nm.get('TOTAL AMMONIA FH1.S02') == 0 and nm.get('Nitrite(NO2) FH1.S02') == 0 and nm.get('Nitrate(NO3) FH1.S02') == 0, {k: v for k, v in nm.items() if 'S02' in k})
+    check('W3e a weekly reading that WAS measured keeps its value', nm.get('TOTAL AMMONIA FH1.S01') == 0.2)
+    check('W3f the hatchery\'s two temperatures (Holding, Nursery) take FH1\'s temperature', nm.get('Temperature Holding') == nm.get('Temperature FH1') == nm.get('Temperature Nursery') == 29.5, {k: v for k, v in nm.items() if k.startswith('Temperature')})
+    check('W3g sections not measured that day are not sent at all', not any('FH1.S05' in k for k in nm))
     R = pg.evaluate("daAqwRows('F1', window._wqs.date)")
     d = pg.evaluate("daAqwDate(window._wqs.date)")
     check('W3 rows: one temperature for the house = average of sections (29.5), then each section\'s readings with AquaManager\'s names',

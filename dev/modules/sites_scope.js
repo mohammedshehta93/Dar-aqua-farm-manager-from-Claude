@@ -60,7 +60,9 @@ if(!window._daSitesWrapped){
   setFarm = function(f){ if(f !== 'all' && !daSiteOk(f)) return; if(f === 'all' && daUserFarms() && daUserFarms().length === 1) return; return _setFarmPreSite.apply(this, arguments); };
   // new farms / tanks reach the phones
   if(typeof daTabRefresh === 'function'){ var _refPreSite = daTabRefresh;
-    daTabRefresh = async function(){ try{ if(typeof daPullSettings === 'function' && sbReady && navigator.onLine) await daPullSettings(); }catch(e){} return _refPreSite.apply(this, arguments); }; }
+    daTabRefresh = async function(){ try{ if(typeof daPullSettings === 'function' && sbReady && navigator.onLine) await daPullSettings(); }catch(e){}
+      try{ if(typeof daCheckUpdate === 'function'){ if(_verTag === null) await daCheckUpdate(); await daCheckUpdate(); } }catch(e){}   // 🔄 also brings a newer version of the tool
+      return _refPreSite.apply(this, arguments); }; }
   var _pullPreSite = daRealtimePull;
   daRealtimePull = async function(){ var v0 = _dataVer, r = await _pullPreSite.apply(this, arguments);
     if(_dataVer !== v0 && ['feed-sheet', 'wq-sheet', 'tx-sampling'].indexOf(currentView) >= 0 && !(window._daActiveTab && window._daActiveTab.dirty)){

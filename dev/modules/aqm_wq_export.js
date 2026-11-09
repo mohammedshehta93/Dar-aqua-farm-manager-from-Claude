@@ -25,19 +25,28 @@ async function daAqwLearn(file){
   var hd = (aoa[0] || []).map(function(x){ return String(x).trim().toLowerCase(); }), ip = hd.indexOf('parameter'), is = hd.indexOf('site');
   if(ip < 0){ alert('⚠️ الملف ده مش Site Measurements من الأكوامانجر (مش لاقي عمود Parameter).'); return; }
   var c = daAqwCfg(), names = c.names || {}, temp = c.temp || {}, n = 0, order = [];
-  aoa.slice(1).forEach(function(r){ var nm = String(r[ip] || '').trim(), p = daAqwParse(nm); if(is >= 0 && r[is]) c.site = String(r[is]).trim(); if(nm && order.indexOf(nm) < 0) order.push(nm); if(!p) return; n++;
+  var extraT = [];
+  aoa.slice(1).forEach(function(r){ var nm = String(r[ip] || '').trim(), p = daAqwParse(nm); if(is >= 0 && r[is]) c.site = String(r[is]).trim(); if(nm && order.indexOf(nm) < 0) order.push(nm);
+    if(!p && /^\s*temperature\b/i.test(nm) && extraT.indexOf(nm) < 0) extraT.push(nm);
+    if(!p) return; n++;
     if(p.kind === 'temp') temp[p.farm] = nm; else { ((names[p.farm] = names[p.farm] || {})[p.sec] = names[p.farm][p.sec] || {})[p.kind] = nm; } });
-  c.names = names; c.temp = temp; c.order = order; localStorage.setItem(DA_AQW_KEY, JSON.stringify(c));   // AquaManager's own row order
+  c.names = names; c.temp = temp; c.order = order; c.tempExtra = extraT; localStorage.setItem(DA_AQW_KEY, JSON.stringify(c));   // AquaManager's own row order
   toast('✅ اتعلمت أسماء ' + n + ' قياس من الأكوامانجر'); daAqwOpen();
 }
 function daAqwDate(d){ var p = String(d).split('-'); return (+p[1]) + '/' + (+p[2]) + '/' + p[0]; }   // AquaManager shows M/D/YYYY
 function daAqwRows(farm, date){
-  var c = daAqwCfg(), map = (c.names || {})[farm] || {}, out = [], temps = [], miss = {}, site = c.site || '';
+  var c = daAqwCfg(), map = (c.names || {})[farm] || {}, out = [], temps = [], miss = {}, site = c.site || '', bySec = {};
   getTX().forEach(function(t){
     if(t.type !== 'water_quality' || t.deleted || t.date !== date || t.scope !== 'section' || !daInFarm(t.unit, farm)) return;
-    var sec = daSecNo(t.unit); if(parseFloat(t.temp) > 0) temps.push(parseFloat(t.temp));
-    Object.keys(DA_AQW_FIELD).forEach(function(k){ var v = t[DA_AQW_FIELD[k]]; if(v === undefined || v === null || v === '' || isNaN(parseFloat(v))) return;
-      var nm = (map[sec] || {})[k]; if(!nm){ if(k !== 'alk') miss[k + ' S' + sec] = 1; return; } out.push([nm, site, daAqwDate(date), '', +parseFloat(v)]); }); });   // alkalinity: kept in the tool only (not an AquaManager parameter at this farm)
+    var sec = daSecNo(t.unit), v = bySec[sec] = bySec[sec] || {}; if(parseFloat(t.temp) > 0) temps.push(parseFloat(t.temp));
+    Object.keys(DA_AQW_FIELD).forEach(function(k){ var x = t[DA_AQW_FIELD[k]]; if(x !== undefined && x !== null && x !== '' && !isNaN(parseFloat(x))) v[k] = +parseFloat(x); }); });
+  Object.keys(bySec).forEach(function(sec){ var v = bySec[sec];
+    Object.keys(DA_AQW_FIELD).forEach(function(k){
+      var nm = (map[sec] || {})[k], has = v[k] !== undefined;
+      if(!has && ['tan', 'no2', 'no3'].indexOf(k) < 0) return;   // a daily reading not taken: nothing
+      if(!nm){ if(has && k !== 'alk') miss[k + ' S' + sec] = 1; return; }
+      out.push([nm, site, daAqwDate(date), '', has ? v[k] : 0]); });   // weekly readings not measured that day go as 0 (owner)
+  });
   out.sort(function(a, b){ return a[0].localeCompare(b[0]); });
   var avg = temps.length ? +(temps.reduce(function(a, b){ return a + b; }, 0) / temps.length).toFixed(1) : null;
   if(avg !== null){ var tn = (c.temp || {})[farm]; if(tn) out.unshift([tn, site, daAqwDate(date), '', avg]); else miss['temp'] = 1; }
@@ -51,6 +60,9 @@ function daAqwAll(date){   // AquaManager keeps the whole site in one sheet: eve
       if(['ammonia', 'nitrite', 'nitrate', 'alkalinity'].some(function(k){ return t[k] !== undefined && t[k] !== null && t[k] !== ''; })) wk[t.unit] = 1; });
     var all = {}; _txLiveRows().forEach(function(r){ if(daInFarm(r.unit, f) && daSecOf(r.unit)) all[daSecOf(r.unit)] = 1; });   // the farm's sections
     rows = rows.concat(R.rows); per.push({farm:f, secs:Object.keys(secs).length, weekly:Object.keys(wk).length, total:Object.keys(all).length || null, avg:R.avgTemp, n:R.nTemp}); R.miss.forEach(function(m){ miss.push(f + ' ' + m); }); });
+  var f1 = per.filter(function(p){ return p.avg !== null; })[0];   // AquaManager's extra temperatures (hatchery: Holding, Nursery) = FH1's (owner)
+  var f1p = per.filter(function(p){ return p.farm === 'F1' && p.avg !== null; })[0] || f1;
+  if(f1p) (c.tempExtra || []).forEach(function(nm){ rows.push([nm, c.site || '', daAqwDate(date), '', f1p.avg]); });
   var key = function(n){ var i = ord.indexOf(n); return i >= 0 ? i : 1e6; };
   rows.sort(function(a, b){ return key(a[0]) - key(b[0]) || a[0].toLowerCase().localeCompare(b[0].toLowerCase()); });
   return {rows:rows, per:per, miss:miss};
