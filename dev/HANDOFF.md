@@ -135,6 +135,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- DAILY ENTRY STATUS (owner 2026-11-09; module `entry_status.js`, test `e2e_entrystatus`): view 'entry-status' (Home menu,
+  perm approve_data — the supervisors; workers with view_dashboard must NOT see it, e2e_nav N3). Per farm for a day
+  (daEsFarm): feed = stocked tanks (daFsRows fish > 0) with a feeding record that day (fasted X counts) + missing labels +
+  "open the feed sheet" (window._fs {farm, date}); mortality total; daily testing = daWqSections with temp/pH/DO that
+  day + missing; weekly = sections with a weekly reading in the last 7 days; who (byName); pending reviews. Colours
+  green / amber / red (past day, or today after DA_ES_CUTOFF = 16 h) / grey. Dashboard strip #es-strip lists what is
+  missing today. es-date uses the app's date control.
 - TANKS REACH THE CLOUD · DELETED EVERYWHERE (owner 2026-11-09: nursery tanks re-added, still "no tanks" on the phone;
   module `units_sync.js`, test `e2e_unitsync`). ROOT CAUSES: saveUnitsToCloud returned SILENTLY when !sbReady and a
   failed upload was never retried; the next daPullUnitsIfChanged then replaced RAW with the cloud list (tanks vanished),
@@ -402,7 +409,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-52 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+53 suites (+9 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
