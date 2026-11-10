@@ -135,6 +135,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- FEED BATCH CODE (2026-11-10): AquaManager has TWO feeds named "Maram 40% cp 1mm" (one without stock) and matches the
+  paste by name, so it picked the empty one ("no stock"). Root fix is in AquaManager (rename / deactivate the empty
+  duplicate). The tool now has an optional Feed Batch code per farm per size (c.fbatch[farm][size], paste column 5) to
+  point at the stocked lot (e2e_aqx X12c).
 - FEED SIZE PER TANK (owner 2026-11-10; module `feed_size.js`, test `e2e_fsize`): the sheet no longer suggests the pellet
   size from fish weight (daFwDefaultFeed). daFsDefSize(unit, date) = the size last fed before the day (daTxByUnit()[unit]),
   unless a supervisor pinned a newer one (synced DA_FSIZE_KEY 'daracqua_plan_v1_fsize' {unit:{size, from}}; pin wins when
