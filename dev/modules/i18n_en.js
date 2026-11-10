@@ -25,6 +25,7 @@ var DA_EN_RULES = [
   [/التانك يومها فيه ([\d,]+) سمكة بس — مينفعش تحصد ([\d,]+)/g, 'The tank had only $1 fish that day — cannot harvest $2'],
   [/فيه أرقام اتكتبت ومتحفظتش في الشيت ده\. تغيّر (.+?)؟/g, 'Numbers typed in this sheet are not saved. Change $1?'], [/فيه قرايات اتكتبت ومتحفظتش\. تغيّر (.+?)؟/g, 'Readings typed are not saved. Change $1?']];
 var DA_EN = [
+  ['📌 ثبّت الأحجام دي','📌 Pin these sizes'], ['حجم السكشن:','Section size:'], ['📌 الحجم الثابت','📌 Pinned size'],
   ['نفس ترتيب الشيت الورق — الكميات بالكيلو لكل وجبة، والأداة بتجمعها', 'Same order as the paper sheet — amounts in kg per meal; the app adds them up'],
   ['الحجم بيتكتب في كل سطر (1 أو 2 أو 3)، والشركة بتتاخد من هنا. الأصناف من مخزون العلف.', 'Write the size on every line (1, 2 or 3).'],
   ['= متأكلش الوجبة (أو ✕ آخر السطر لليوم كله) · النافق يتكتب زي الورق', '= not fed this meal (or ✕ at the end of the line for the whole day) · dead written like on paper'],

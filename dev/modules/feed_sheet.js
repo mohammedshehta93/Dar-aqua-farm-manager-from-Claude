@@ -143,12 +143,12 @@ function renderFeedSheet(){
     gr.forEach(function(r){
       var i = idx++, ft = r.feedTx, mt = r.mortTx, meals = (ft && ft.meals) || {}, off = !(r.fish > 0) && !ft && !mt;
       r.i = i; r.meals = g.meals; r.gunit = g.unit || '';
-      var size = ft ? (ft.size || daSizeOf(ft.feed)) : daSizeOf(daFwDefaultFeed({unit:r.unit, avgWt:(daStateAt(r.unit, st.date) || {}).wt || 0}));
+      var dz = ft ? null : daFsDefSize(r.unit, st.date), size = ft ? (ft.size || daSizeOf(ft.feed)) : dz.size;   // the size the tank is on (or pinned) — no formula
       if(tot && ft){ meals = {}; meals[g.meals[0]] = ft.fasted ? 'x' : ft.kg; }   // daily total of whatever was recorded
       else if(ft && !Object.keys(meals).length && ft.kg) meals[g.meals[0]] = ft.kg;   // old record without breakdown
       h += '<tr' + (off ? ' class="fs-off" title="التانك فاضي في التاريخ ده"' : '') + '><td class="fs-tank">' + r.no.label + '</td>'
         + g.meals.map(function(m, k){ return '<td><input type="text" inputmode="decimal" autocomplete="off" class="fs-m" id="fs-' + i + '-m' + k + '" value="' + daFsCell(meals[m], r.gunit) + '"' + (off || !canFeed ? ' disabled' : '') + '/></td>'; }).join('')
-        + '<td><input type="number" inputmode="numeric" min="1" max="3" step="1" class="fs-sz" id="fs-' + i + '-sz" value="' + daEsc(size || '') + '"' + (off || !canFeed ? ' disabled' : '') + '/></td>'
+        + '<td><input type="number" inputmode="numeric" min="1" max="3" step="1" class="fs-sz" id="fs-' + i + '-sz" value="' + daEsc(size || '') + '"' + (dz && dz.pinned ? ' title="📌 الحجم الثابت"' : '') + (off || !canFeed ? ' disabled' : '') + '/></td>'
         + '<td><input type="text" inputmode="tel" autocomplete="off" class="fs-d" id="fs-' + i + '-d" value="' + (mt ? daEsc(mt.countRaw || mt.count) : '') + '"' + (off || !canMort ? ' disabled' : '') + '/></td>'
         + '<td class="fs-sum" id="fs-' + i + '-sum"></td>'
         + '<td class="fs-note" title="' + daEsc(Object.keys(r.otherWho).length ? 'سجّلها: ' + Object.keys(r.otherWho).join('، ') : '') + '">' + (off ? '' : '<button class="fs-fast" title="متأكلش النهارده (صايم)" onclick="daFsFast(' + i + ')">✕</button> ')

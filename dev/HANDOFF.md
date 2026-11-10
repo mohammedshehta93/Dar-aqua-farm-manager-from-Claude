@@ -135,6 +135,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- FEED SIZE PER TANK (owner 2026-11-10; module `feed_size.js`, test `e2e_fsize`): the sheet no longer suggests the pellet
+  size from fish weight (daFwDefaultFeed). daFsDefSize(unit, date) = the size last fed before the day (daTxByUnit()[unit]),
+  unless a supervisor pinned a newer one (synced DA_FSIZE_KEY 'daracqua_plan_v1_fsize' {unit:{size, from}}; pin wins when
+  from ≥ the last fed date). Nothing → empty (written once). Supervisors (not workers): "حجم السكشن: 1 · 2 · 3" per group
+  (fills, not saved) and "📌 ثبّت الأحجام دي" (pins the sheet's sizes from its date). A worker's change, once saved, is
+  the tank's normal from the next day. Pinned sizes carry title "📌 الحجم الثابت".
 - ALL FARMS IN ONE AQUAMANAGER COPY (owner 2026-11-09: AquaManager keeps the whole site in one Feeding / Mortality screen;
   aqm_export.js): daAqxFarms = farms whose tank names were learned (others e.g. the nursery F3: "not in AquaManager — not
   copied"); daAqxAll / daAqxMortAll concatenate every such farm; panel shows each farm (tanks · kg · dead, amber when its
@@ -467,7 +473,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-58 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+59 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
