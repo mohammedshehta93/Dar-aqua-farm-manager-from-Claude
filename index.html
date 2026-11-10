@@ -14712,7 +14712,8 @@ function daAqxRows(farm, date){
       if(!(kg > 0)) return;
       var feed = (c.feeds || []).indexOf(fname) >= 0 ? fname : ((c.feed || {})[farm] || {})[size] || '';
       if(!feed) miss['حجم ' + (size || '؟')] = 1;
-      out.push([(c.units || {})[r.unit] || r.unit, '', (c.store || {})[farm] || '', feed, '', +kg.toFixed(3), '', '']); });
+      var code = ((c.fbatch || {})[farm] || {})[size] || '';   // which lot of that feed (two AquaManager feeds can share one name)
+      out.push([(c.units || {})[r.unit] || r.unit, '', (c.store || {})[farm] || '', feed, code, +kg.toFixed(3), '', '']); });
   return {rows:out, miss:Object.keys(miss)};
 }
 var DA_AQX_MCOLS = ['Unit', 'Batch', 'Mortality No', 'Cause'];
@@ -14767,7 +14768,8 @@ async function daAqxCopy(){
 }
 function daAqxSaveNames(){ var c = daAqxCfg(); c.store = c.store || {}; c.feed = c.feed || {};
   daAqxFarms().inAqm.forEach(function(f){ var se = document.getElementById('aqx-store-' + f); if(se) c.store[f] = String(se.value || '').trim(); c.feed[f] = c.feed[f] || {};
-    ['1', '2', '3'].forEach(function(z){ var e = document.getElementById('aqx-f' + z + '-' + f); if(e) c.feed[f][z] = e.value || ''; }); });
+    c.fbatch = c.fbatch || {}; c.fbatch[f] = c.fbatch[f] || {};
+    ['1', '2', '3'].forEach(function(z){ var e = document.getElementById('aqx-f' + z + '-' + f); if(e) c.feed[f][z] = e.value || ''; var b = document.getElementById('aqx-b' + z + '-' + f); if(b) c.fbatch[f][z] = String(b.value || '').trim(); }); });
   daAqxSave(c); toast('✅ اتحفظت الأسماء'); daAqxOpen(); }
 function daAqxOpen(){
   var st = window._fs; if(!st) return; var box = document.getElementById('fs-copybox'); if(!box) return;
@@ -14790,7 +14792,8 @@ function daAqxOpen(){
   if(c.units){
     h += '<details style="margin-bottom:8px"' + (A.miss.length ? ' open' : '') + '><summary style="cursor:pointer;font-size:12px;font-weight:700">⚙️ أسماء المخازن والعلف في الأكوامانجر (لكل مزرعة)</summary><div style="overflow-x:auto;margin-top:6px"><table style="border-collapse:collapse;font-size:12px">'
       + daAqxFarms().inAqm.map(function(f){ return '<tr><td style="padding:4px 8px"><b>' + daEsc(f) + '</b></td><td style="padding:4px"><input id="aqx-store-' + daEsc(f) + '" data-nodirty="1" value="' + daEsc((c.store || {})[f] || '') + '" placeholder="Store" style="' + inp + ';width:120px"/></td>'
-        + ['1', '2', '3'].map(function(z){ return '<td style="padding:4px"><select id="aqx-f' + z + '-' + daEsc(f) + '" title="Feed — حجم ' + z + ' مم" style="' + inp + ';max-width:170px"><option value="">' + z + ' مم —</option>' + (c.feeds || []).map(function(o){ return '<option' + (((c.feed || {})[f] || {})[z] === o ? ' selected' : '') + '>' + daEsc(o) + '</option>'; }).join('') + '</select></td>'; }).join('') + '</tr>'; }).join('')
+        + ['1', '2', '3'].map(function(z){ return '<td style="padding:4px"><select id="aqx-f' + z + '-' + daEsc(f) + '" title="Feed — حجم ' + z + ' مم" style="' + inp + ';max-width:170px"><option value="">' + z + ' مم —</option>' + (c.feeds || []).map(function(o){ return '<option' + (((c.feed || {})[f] || {})[z] === o ? ' selected' : '') + '>' + daEsc(o) + '</option>'; }).join('') + '</select>'
+          + '<br><input id="aqx-b' + z + '-' + daEsc(f) + '" data-nodirty="1" value="' + daEsc(((c.fbatch || {})[f] || {})[z] || '') + '" placeholder="Feed Batch code (اختياري)" title="كود دفعة العلف اللي عليها ستوك في الأكوامانجر — لو فيه صنفين بنفس الاسم" style="' + inp + ';width:150px;margin-top:3px;font-size:11px"/></td>'; }).join('') + '</tr>'; }).join('')
       + '</table></div><button onclick="daAqxSaveNames()" style="' + inp + ';background:#fff;cursor:pointer;margin-top:6px">💾 حفظ الأسماء</button></details>';
     if(A.miss.length) h += '<div style="color:var(--amber);font-size:12px;margin-bottom:6px">⚠️ مفيش اسم علف في الأكوامانجر لـ: ' + A.miss.join('، ') + ' — اختاره في الإعدادات فوق.</div>';
     h += daAqxStatus('feed', A.rows, 'العلف', 'Feeding') + daAqxStatus('mort', M, 'النفوق', 'Mortality');
