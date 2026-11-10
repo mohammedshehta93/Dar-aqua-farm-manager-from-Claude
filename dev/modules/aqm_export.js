@@ -47,9 +47,13 @@ function daAqxMortRows(farm, date){
   _txLiveRows().filter(function(r){ return (r.farm === farm || String(r.unit).indexOf(farm + '.') === 0) && daTankNo(r.unit); })
     .sort(function(a, b){ var x = daTankNo(a.unit), y = daTankNo(b.unit); return x.s - y.s || x.t - y.t; })
     .forEach(function(r){ var n = 0; (daTxByUnit()[r.unit] || []).forEach(function(t){ if(t.type === 'mortality' && !t.deleted && t.date === date) n += parseInt(t.count) || 0; });
-      if(n > 0) out.push([(c.units || {})[r.unit] || r.unit, '', n, c.mcause || '']); });   // Cause: AquaManager refuses a blank one on paste → the default cause chosen in the panel
+      if(n > 0) out.push([(c.units || {})[r.unit] || r.unit, '', n, daAqxCause(n)]); });   // Cause: AquaManager refuses a blank one on paste → the default cause chosen in the panel
   return out;
 }
+function daAqxCause(n){   // like AquaManager does by hand: the cause follows the count (up to the limit = the usual one)
+  var c = daAqxCfg(), lim = parseFloat(c.mthr) || 100; return n > lim && c.mcause2 ? c.mcause2 : (c.mcause || '');
+}
+function daAqxSaveCause2(){ var c = daAqxCfg(); c.mcause2 = String(daVal('aqx-mcause2') || '').trim(); c.mthr = parseFloat(daVal('aqx-mthr')) || 100; daAqxSave(c); toast('✅ اتحفظ'); }
 function daAqxSaveCause(v){ var c = daAqxCfg(); c.mcause = String(v || '').trim(); daAqxSave(c); toast(c.mcause ? '✅ النفوق هيتنسخ بالسبب: ' + c.mcause : 'السبب هيتنسخ فاضي'); }
 async function daAqxCopyMort(){
   var st = window._fs, rows = daAqxMortAll(st.date), txt = daAqxTSV(rows, DA_AQX_MCOLS); window._aqxLast = txt;
@@ -103,7 +107,8 @@ function daAqxOpen(){
     + A.notIn.map(function(f){ return '<span style="padding:5px 10px;border-radius:8px;background:#f1f5f9;color:var(--muted)"><b>' + daEsc(f) + '</b>: مش في الأكوامانجر — مش بيتنسخ</span>'; }).join('') + '</div>';
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px"><button id="aqx-learn" onclick="daAqxPickLearn()" style="' + inp + ';background:#fff;cursor:pointer">📥 ' + (c.units ? 'حدّث الأسماء من ملف الأكوامانجر' : 'ارفع ملف الأكوامانجر') + '</button>';
   if(c.units) h += '<button id="aqx-copy" class="savebtn" style="width:auto;padding:8px 16px"' + (A.rows.length ? '' : ' disabled title="مفيش علف محفوظ في اليوم ده"') + ' onclick="daAqxCopy()">📋 انسخ العلف (' + A.rows.length + ' تانك · ' + tot.toFixed(1) + ' كجم)</button><button onclick="daAqxExcel()" style="' + inp + ';background:#fff;cursor:pointer">⬇️ Excel</button>'
-    + '<span style="width:12px"></span><div class="field" style="margin:0"><label style="font-size:11px">سبب النفوق في الأكوامانجر (Cause)</label><input id="aqx-mcause" value="' + daEsc(c.mcause || '') + '" placeholder="اسم السبب زي الأكوامانجر" style="' + inp + ';width:170px" onchange="daAqxSaveCause(this.value)"/></div>'
+    + '<span style="width:12px"></span><div class="field" style="margin:0"><label style="font-size:11px">سبب النفوق — لحد <input id="aqx-mthr" value="' + daEsc(String(c.mthr || 100)) + '" style="width:44px;padding:1px 4px;border:1px solid var(--line);border-radius:5px;font-size:11px" onchange="daAqxSaveCause2()"/> سمكة (مرة واحدة)</label><input id="aqx-mcause" value="' + daEsc(c.mcause || '') + '" placeholder="مثلاً Natural" style="' + inp + ';width:140px" onchange="daAqxSaveCause(this.value)"/></div>'
+    + '<div class="field" style="margin:0"><label style="font-size:11px">أكتر من كده (اختياري)</label><input id="aqx-mcause2" value="' + daEsc(c.mcause2 || '') + '" placeholder="سبب تاني" style="' + inp + ';width:120px" onchange="daAqxSaveCause2()"/></div>'
     + '<button id="aqx-copy-m" class="savebtn" style="width:auto;padding:8px 16px;background:#7c2d12"' + (M.length ? '' : ' disabled') + ' onclick="daAqxCopyMort()">📋 انسخ النفوق (' + M.length + ' تانك · ' + md + ' سمكة)</button><button onclick="daAqxExcelMort()" style="' + inp + ';background:#fff;cursor:pointer"' + (M.length ? '' : ' disabled') + '>⬇️ Excel</button>';
   h += '</div>';
   if(c.units){
