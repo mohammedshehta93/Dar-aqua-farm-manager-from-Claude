@@ -339,7 +339,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   Unit/Batch": F1.S09T01, F2.S04T01/T07/T10/T14) — blank Batch works only when the tank has exactly ONE batch on that date
   (test file was 31-10 data pasted on another day → likely empty then; else mixed batches → would need AquaManager's
   batch name). Waiting for the owner's check. MORTALITY too (same panel, from the feed sheet's dead column): AquaManager
-  Mortality paste = Unit / Batch / Mortality No / Cause; Cause left blank (AquaManager has its own cause names — map later
+  Mortality paste = Unit / Batch / Mortality No / Cause. 2026-11-09: owner got "cause missing" on paste (the tool never
+  requires a cause — AquaManager refuses a blank Cause in a paste) → panel field "سبب النفوق في الأكوامانجر" (synced
+  c.mcause) fills Cause for every row; copying without it asks first. Was: Cause left blank (AquaManager has its own cause names — map later
   if wanted). Harvest / transfer export not wanted (owner). Panel UX (owner confused, 2026-11-07): numbered steps
   (save → copy → paste + Save in AquaManager; the tool sends nothing by itself), copy disabled with a plain reason when
   nothing is saved that day, "save first" when the sheet is dirty, per-day copy log on this device (`daaqx_copied`) →
