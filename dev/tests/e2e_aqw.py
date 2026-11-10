@@ -45,7 +45,7 @@ with sync_playwright() as p:
     pg.click('#aqw-copy'); pg.wait_for_timeout(300)
     clip = pg.evaluate("navigator.clipboard.readText()")
     L = clip.split('\r\n')
-    check('W4 copied WITHOUT a header row (Site Measurements reads it as a reading: "Please check the value format") — readings only, both farms, a number in every Value', L[0].split('\t')[0] != 'Parameter' and len(L) == len(A['rows']) and all(len(l.split('\t')) == 5 and l.split('\t')[4].replace('.', '', 1).isdigit() for l in L), clip[:160])
+    check('W4 AquaManager\'s paste template: header Parameter / Site / Time / Value (no Zone) + 4 columns, a number in every Value, both farms', L[0] == 'Parameter\tSite\tTime\tValue' and len(L) == len(A['rows']) + 1 and all(len(l.split('\t')) == 4 and l.split('\t')[3].replace('.', '', 1).isdigit() for l in L[1:]), clip[:200])
     check('W5 the average temperature is shown before copying', '29.5' in content(pg))
     with pg.expect_download() as dl: pg.evaluate("daAqwExcel()")
     check('W6 or as an Excel file (real dates)', dl.value.suggested_filename.startswith('AquaManager_SiteMeasurements_2'), dl.value.suggested_filename)

@@ -14824,10 +14824,11 @@ function daAqxFarms(){   // farms AquaManager knows (its tank names were learned
 // temperature per house ("Temperature FH1"). The exact names are learned once from the farm's Site Measurements Excel.
 // Temperature sent = the average of the sections' readings that day (shown before copying).
 var DA_AQW_KEY = 'daracqua_plan_v1_aqmwq';   // synced: {site, names:{farm:{sec:{do,ph,tan,no2,no3}}}, temp:{farm:name}}
-var DA_AQW_COLS = ['Parameter', 'Site', 'Time', 'Zone', 'Value'];
+var DA_AQW_COLS = ['Parameter', 'Site', 'Time', 'Value'];   // AquaManager's paste template (it said so: "must be Parameter/Site/Time/Value" — no Zone)
 var DA_AQW_KIND = [[/oxygen|\bdo\b/i, 'do'], [/^\s*ph\b/i, 'ph'], [/ammonia|\btan\b|nh3|nh4/i, 'tan'], [/nitrite|no2/i, 'no2'], [/nitrate|no3/i, 'no3'], [/alkal/i, 'alk']];
 var DA_AQW_FIELD = {do:'do', ph:'ph', tan:'ammonia', no2:'nitrite', no3:'nitrate', alk:'alkalinity'};
 function daAqwCfg(){ try{ return JSON.parse(localStorage.getItem(DA_AQW_KEY) || '{}') || {}; }catch(e){ return {}; } }
+function daAqwOut(r){ return [r[0], r[1], r[2], r[4]]; }
 function daInFarm(unit, farm){   // a tank / section belongs to a farm by its own data (not only by its name's prefix)
   if(String(unit || '').indexOf(farm + '.') === 0) return true; var r = typeof daRawUnit === 'function' ? daRawUnit(unit) : null; if(r && r.farm) return r.farm === farm;
   var c = (typeof getFarmUnits === 'function' ? getFarmUnits() : []).filter(function(u){ return u.section === unit; })[0]; return !!(c && c.farm === farm);
@@ -14908,20 +14909,20 @@ function daAqwOpen(){
     if(R.per.some(function(p){ return p.weekly; })) h += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">القلوية بتتسجل في الأداة بس — مش موجودة في الأكوامانجر.</div>';
     if(!R.rows.length) h += '<div style="color:var(--amber);font-size:14px;font-weight:700">مفيش قياسات محفوظة يوم ' + st.date + ' لسه.</div>';
     else h += '<div style="overflow:auto;max-height:30vh" dir="ltr"><table id="aqw-t" style="border-collapse:collapse;font-size:11px"><tr style="background:#f1f5f9">' + DA_AQW_COLS.map(function(x){ return '<th style="padding:3px 6px;text-align:left">' + x + '</th>'; }).join('') + '</tr>'
-      + R.rows.map(function(r){ return '<tr>' + r.map(function(v){ return '<td style="padding:2px 6px;border-top:1px solid #e2e8f0">' + daEsc(String(v)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table></div>';
+      + R.rows.map(function(r){ return '<tr>' + daAqwOut(r).map(function(v){ return '<td style="padding:2px 6px;border-top:1px solid #e2e8f0">' + daEsc(String(v)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table></div>';
   }
   box.innerHTML = h + '</div>';
 }
 function daAqwPick(){ var i = document.createElement('input'); i.type = 'file'; i.accept = '.xls,.xlsx'; i.id = 'aqw-file'; i.onchange = function(){ if(i.files[0]) daAqwLearn(i.files[0]); }; document.body.appendChild(i); i.click(); setTimeout(function(){ i.remove(); }, 60000); }
 async function daAqwCopy(){
-  var st = window._wqs, R = daAqwAll(st.date), txt = R.rows.map(function(r){ return r.join('\t'); }).join('\r\n');   // no header row: Site Measurements reads it as a reading ("Please check the value format")
+  var st = window._wqs, R = daAqwAll(st.date), txt = [DA_AQW_COLS].concat(R.rows.map(daAqwOut)).map(function(r){ return r.join('\t'); }).join('\r\n');   // header + 4 columns, AquaManager's template
   try{ await navigator.clipboard.writeText(txt); toast('📋 اتنسخ ' + R.rows.length + ' قياس — الزق في الأكوامانجر: Site Measurements ← Paste From Clipboard'); }
   catch(e){ toast('⚠️ المتصفح منعني أنسخ — استخدم ⬇️ Excel وانسخ منه'); }
 }
 function daAqwExcel(){
   if(typeof XLSX === 'undefined'){ toast('مكتبة Excel مش جاهزة — جرّب تاني'); return; }
   var st = window._wqs, R = daAqwAll(st.date), p = st.date.split('-'), d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
-  var ws = XLSX.utils.aoa_to_sheet([DA_AQW_COLS].concat(R.rows.map(function(r){ return [r[0], r[1], d, r[3], r[4]]; })), {cellDates:true});
+  var ws = XLSX.utils.aoa_to_sheet([DA_AQW_COLS].concat(R.rows.map(function(r){ return [r[0], r[1], d, r[4]]; })), {cellDates:true});
   var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sheet'); XLSX.writeFile(wb, 'AquaManager_SiteMeasurements_' + st.date + '.xlsx');
 }
 
