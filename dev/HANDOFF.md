@@ -135,6 +135,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- READINGS PASTE (2026-11-10): Site Measurements "Paste from Clipboard" said "Please check the value format" and filled
+  nothing: it reads the header row as a reading (the Feeding screen skips it). daAqwCopy now copies the readings only,
+  no header (the Excel download keeps its header). Time stays M/D/YYYY — same as AquaManager's own 588.xls (cell format
+  "M/d/yyyy"). Owner fixed the 1 mm feed in AquaManager (duplicate made inactive) → feed paste saves.
 - FEED BATCH CODE (2026-11-10): AquaManager has TWO feeds named "Maram 40% cp 1mm" (one without stock) and matches the
   paste by name, so it picked the empty one ("no stock"). Root fix is in AquaManager (rename / deactivate the empty
   duplicate). The tool now has an optional Feed Batch code per farm per size (c.fbatch[farm][size], paste column 5) to

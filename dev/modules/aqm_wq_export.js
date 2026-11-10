@@ -96,7 +96,7 @@ function daAqwOpen(){
 }
 function daAqwPick(){ var i = document.createElement('input'); i.type = 'file'; i.accept = '.xls,.xlsx'; i.id = 'aqw-file'; i.onchange = function(){ if(i.files[0]) daAqwLearn(i.files[0]); }; document.body.appendChild(i); i.click(); setTimeout(function(){ i.remove(); }, 60000); }
 async function daAqwCopy(){
-  var st = window._wqs, R = daAqwAll(st.date), txt = [DA_AQW_COLS].concat(R.rows).map(function(r){ return r.join('\t'); }).join('\r\n');
+  var st = window._wqs, R = daAqwAll(st.date), txt = R.rows.map(function(r){ return r.join('\t'); }).join('\r\n');   // no header row: Site Measurements reads it as a reading ("Please check the value format")
   try{ await navigator.clipboard.writeText(txt); toast('📋 اتنسخ ' + R.rows.length + ' قياس — الزق في الأكوامانجر: Site Measurements ← Paste From Clipboard'); }
   catch(e){ toast('⚠️ المتصفح منعني أنسخ — استخدم ⬇️ Excel وانسخ منه'); }
 }
