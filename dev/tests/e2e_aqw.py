@@ -34,6 +34,9 @@ with sync_playwright() as p:
     check('W3e a weekly reading that WAS measured keeps its value', nm.get('TOTAL AMMONIA FH1.S01') == 0.2)
     check('W3f the hatchery\'s two temperatures (Holding, Nursery) take FH1\'s temperature', nm.get('Temperature Holding') == nm.get('Temperature FH1') == nm.get('Temperature Nursery') == 29.5, {k: v for k, v in nm.items() if k.startswith('Temperature')})
     check('W3g sections not measured that day are not sent at all', not any('FH1.S05' in k for k in nm))
+    pg.evaluate("RAW.push({unit:'F3.S01T01',farm:'F3',section:'F3.S01',startDate:daAddDays(daToday(),-5),fishNo:300,startWt:2,avgWt:2,volume:2}); _dataVer++; addTX({id:'wf3',type:'water_quality',unit:'F3.S01',scope:'section',date:window._wqs.date,temp:28,ph:7,do:6,_skipValidation:true}); daAqwOpen()"); pg.wait_for_timeout(200)
+    A3 = pg.evaluate("daAqwAll(window._wqs.date)")
+    check('W3h the nursery (not in AquaManager) is noted, not copied, no "name missing" warning', not any('F3' in r[0] for r in A3['rows']) and not any('F3' in m for m in A3['miss']) and 'مش في الأكوامانجر' in pg.inner_text('#aqw-per-F3'), A3['miss'])
     R = pg.evaluate("daAqwRows('F1', window._wqs.date)")
     d = pg.evaluate("daAqwDate(window._wqs.date)")
     check('W3 rows: one temperature for the house = average of sections (29.5), then each section\'s readings with AquaManager\'s names',

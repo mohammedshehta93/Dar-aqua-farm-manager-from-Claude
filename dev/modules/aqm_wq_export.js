@@ -54,7 +54,9 @@ function daAqwRows(farm, date){
 }
 function daAqwAll(date){   // AquaManager keeps the whole site in one sheet: every farm, its own row order
   var c = daAqwCfg(), ord = c.order || [], rows = [], per = [], miss = [];
-  daFarms().forEach(function(f){ var R = daAqwRows(f, date), secs = {};
+  daFarms().forEach(function(f){
+    if(c.names && !(c.names[f] || (c.temp || {})[f])){ per.push({farm:f, notIn:true, secs:0, weekly:0, total:null, avg:null, n:0}); return; }   // not an AquaManager farm (e.g. the nursery): not copied, no warning
+    var R = daAqwRows(f, date), secs = {};
     var wk = {}; getTX().forEach(function(t){ if(t.type !== 'water_quality' || t.deleted || t.date !== date || t.scope !== 'section' || !daInFarm(t.unit, f)) return;
       if(['temp', 'ph', 'do'].some(function(k){ return t[k] !== undefined && t[k] !== null && t[k] !== ''; })) secs[t.unit] = 1;
       if(['ammonia', 'nitrite', 'nitrate', 'alkalinity'].some(function(k){ return t[k] !== undefined && t[k] !== null && t[k] !== ''; })) wk[t.unit] = 1; });
@@ -79,6 +81,7 @@ function daAqwOpen(){
   if(!c.names) h += '<div style="font-size:13px">أول مرة: صدّر Site Measurements من الأكوامانجر (أي يوم) وارفعه — الأداة بتتعلم منه أسماء القياسات لكل سكشن زي ما هي عندكم.</div>';
   else {
     h += '<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin-bottom:6px">' + R.per.map(function(p){ var full = p.total && p.secs >= p.total;
+      if(p.notIn) return '<span id="aqw-per-' + p.farm + '" style="padding:5px 10px;border-radius:8px;background:#f1f5f9;color:var(--muted)"><b>' + daEsc(p.farm) + '</b>: مش في الأكوامانجر — مش بيتنسخ</span>';
       return '<span id="aqw-per-' + p.farm + '" style="padding:5px 10px;border-radius:8px;background:' + (p.secs ? (full ? '#dcfce7' : '#fef9c3') : '#fee2e2') + '"><b>' + daEsc(p.farm) + '</b>: يومي ' + p.secs + (p.total ? ' من ' + p.total : '') + ' سكشن' + (p.weekly ? ' · 🧪 أسبوعي ' + p.weekly + ' سكشن' : '')
         + (p.avg !== null ? ' · 🌡️ ' + p.avg + '° (متوسط ' + p.n + ')' : '') + (p.secs ? '' : ' — <b>متسجلش لسه</b>') + '</span>'; }).join('') + '</div>'
       + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">الأكوامانجر بياخد حرارة واحدة لكل عنبر = متوسط سكاشنه. الترتيب نفس ترتيب ملف الأكوامانجر.</div>';

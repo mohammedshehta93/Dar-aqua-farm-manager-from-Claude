@@ -135,6 +135,15 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- ALL FARMS IN ONE AQUAMANAGER COPY (owner 2026-11-09: AquaManager keeps the whole site in one Feeding / Mortality screen;
+  aqm_export.js): daAqxFarms = farms whose tank names were learned (others e.g. the nursery F3: "not in AquaManager — not
+  copied"); daAqxAll / daAqxMortAll concatenate every such farm; panel shows each farm (tanks · kg · dead, amber when its
+  feed is not saved) and asks before copying when a farm is missing; store / feed names per farm in one table; files
+  AquaManager_Feeding_<date>.xlsx; copy log key "ALL|date|kind". Testing copy: farms with no learned names are noted
+  (not copied, no "name missing" warning). e2e_aqx X11–X13, e2e_aqw W3h.
+  LESSON: removing a module's LAST function by hand also cut the next module's header vars (DA_AQW_*) → new
+  `dev/tools/verify_modules.py index.html` checks every module function / var / wrapper block is in the app — RUN IT
+  BEFORE EVERY PUSH.
 - LANGUAGE SPEED (owner 2026-11-09 "very slow on the phone, especially choosing the language"; benchmark
   `dev/tests/perf_lang.py`, 4× CPU): switching to English took 110 s. Causes: daEnNode walked the page's own <script>
   text (1.3 MB) and one rule "(\S+) يومها فيه …" backtracked catastrophically on it. Now daEnNode / the Urdu walker skip
