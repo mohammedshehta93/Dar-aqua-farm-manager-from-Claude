@@ -353,7 +353,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   c.mcause) fills Cause for every row; copying without it asks first. Owner then: typing by hand, AquaManager picks the
   cause from the count (≤ 100 = the usual one) and asked to paste "numbers only" — NOT done: a numbers-only column pastes
   by row order and AquaManager's Mortality grid rows change daily (125 rows vs 132 known tanks) → dead could land on the
-  wrong tank. Instead daAqxCause(n): ≤ c.mthr (default 100) → c.mcause, above → c.mcause2 (if set) — typed ONCE. Was: Cause left blank (AquaManager has its own cause names — map later
+  wrong tank. Instead daAqxCause(n): ≤ c.mthr (default 100) → c.mcause, above → c.mcause2 (if set) — typed ONCE.
+  Owner's test: Ctrl+V of 3 cells into one Quantity cell gave "123" (no multi-cell paste), and AquaManager picked
+  Cause "Normal" by itself even for 123 → c.mcause defaults to "Normal" (no setup, no warning); fields stay to override. Was: Cause left blank (AquaManager has its own cause names — map later
   if wanted). Harvest / transfer export not wanted (owner). Panel UX (owner confused, 2026-11-07): numbered steps
   (save → copy → paste + Save in AquaManager; the tool sends nothing by itself), copy disabled with a plain reason when
   nothing is saved that day, "save first" when the sheet is dirty, per-day copy log on this device (`daaqx_copied`) →
