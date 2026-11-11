@@ -135,6 +135,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- AQUAMANAGER OPENING DATE (owner 2026-11-11; module `aqm_opendate.js`, test `e2e_aqmopen`): today's Site Overview
+  import made today the opening date, so yesterday's feed (not in AquaManager yet) was refused as "before the opening
+  balance" (daSimulateUnit probs key "pre|"). The import preview now asks "الأرقام دي لحد أول يوم" (#imp-opendate, max
+  the file's date; applied to p.units + p.emptied in daRunImport); Farm setup card #aqo-card moves the LAST import's
+  group (units with open.source ^AquaManager at the latest open.date) to an earlier date (daAqmShiftOpen) — records on
+  the days in between then count. NOTE: the container was reset this session; setup steps at the top of this file.
 - READINGS PASTE (2026-11-10): AquaManager finally said it: "The columns in excel must be: Parameter/Site/Time/Value" —
   its PASTE template has NO Zone column (its EXPORT 588.xls does). With 5 columns it read the empty Zone as the Value →
   "Please check the value format" (header removal and 4 time formats were not the cause). DA_AQW_COLS = 4 columns; rows
@@ -482,7 +488,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-59 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+60 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
