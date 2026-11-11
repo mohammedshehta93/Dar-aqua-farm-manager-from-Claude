@@ -25,6 +25,18 @@ with sync_playwright() as p:
     check('O4 moved: the last import\'s tanks now stand at the start of the day before (none left at the old date)', pg.evaluate(f"RAW.find(r=>r.unit==='{u}').open.date") == prev and not pg.evaluate(f"RAW.some(r=>r.open && /^AquaManager/.test(r.open.source||'') && r.open.date==='{od}')"))
     check('O5 … so that day\'s feed is accepted now (no longer a problem)', not pre())
     check('O6 the stock itself is unchanged (same fish as in the file)', pg.evaluate(f"(daStateAt('{u}', daToday())||{{}}).fish") == pg.evaluate(f"RAW.find(r=>r.unit==='{u}').open.fish"))
+    # going back a week in the feed sheet: a banner offers to start the balance there; tanks stocked later are left alone
+    wk = pg.evaluate(f"daAddDays('{od}',-7)"); fm = pg.evaluate(f"RAW.find(r=>r.unit==='{u}').farm")
+    late = pg.evaluate(f"(() => {{ const r=RAW.find(r=>r.farm==='{fm}' && r.open && /^AquaManager/.test(r.open.source||'') && r.open.fish>0 && r.open.date>'{wk}' && r.unit!=='{u}'); r.startDate=daAddDays('{wk}',2); _dataVer++; return r.unit; }})()")
+    late_od = pg.evaluate(f"RAW.find(r=>r.unit==='{late}').open.date")
+    pg.evaluate(f"window._fs={{farm:'{fm}',date:'{wk}'}}; show('feed-sheet')"); pg.wait_for_timeout(500)
+    check('O8 a past day before the balance: the sheet itself offers "↩️ start the balance from that day"', pg.evaluate("!!document.getElementById('fs-aqmback')") and wk in pg.inner_text('#fs-aqmback'))
+    pg.click('#fs-aqmback-go'); pg.wait_for_timeout(1500)
+    check('O9 the tanks that had fish then now start at that day', pg.evaluate(f"RAW.find(r=>r.unit==='{u}').open.date") == wk)
+    check('O10 a tank stocked after that day is left alone (it did not exist then)', pg.evaluate(f"RAW.find(r=>r.unit==='{late}').open.date") == late_od)
+    rows = pg.evaluate("Object.fromEntries((window._fs.rows||[]).map(r=>[r.unit, r.fish]))")
+    check('O11 the sheet that day: existing tanks open with fish, the later one empty', (rows.get(u) or 0) > 0 and not (rows.get(late) or 0), (rows.get(u), rows.get(late)))
+    check('O12 the banner is gone (nothing left to move for that day)', not pg.evaluate("!!document.getElementById('fs-aqmback')"))
     check('O7 no page errors', not pg._errs, pg._errs)
     ctx.close()
     fails = [r for r in RESULTS if not r[1]]

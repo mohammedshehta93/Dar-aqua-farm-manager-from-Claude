@@ -140,7 +140,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   balance" (daSimulateUnit probs key "pre|"). The import preview now asks "الأرقام دي لحد أول يوم" (#imp-opendate, max
   the file's date; applied to p.units + p.emptied in daRunImport); Farm setup card #aqo-card moves the LAST import's
   group (units with open.source ^AquaManager at the latest open.date) to an earlier date (daAqmShiftOpen) — records on
-  the days in between then count. NOTE: the container was reset this session; setup steps at the top of this file.
+  the days in between then count. In the FEED SHEET (not workers): a day before a tank's AquaManager balance shows a
+  banner #fs-aqmback "↩️ ابدأ الرصيد من <day>" (daAqmShiftFarm: that farm's AquaManager tanks that already had fish
+  then — startDate ≤ day, not the "empty" ones — start at that day). daFsRows wrapper: a tank with an opening balance
+  is EMPTY on days before its startDate. NOTE: the container was reset this session — after cloning also fetch
+  /tmp/mnist.pkl.gz (raw.githubusercontent.com/mnielsen/neural-networks-and-deep-learning/master/data/mnist.pkl.gz)
+  for the OCR suites.
 - READINGS PASTE (2026-11-10): AquaManager finally said it: "The columns in excel must be: Parameter/Site/Time/Value" —
   its PASTE template has NO Zone column (its EXPORT 588.xls does). With 5 columns it read the empty Zone as the Value →
   "Please check the value format" (header removal and 4 time formats were not the cause). DA_AQW_COLS = 4 columns; rows
