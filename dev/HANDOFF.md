@@ -135,6 +135,18 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- WORK ORDERS (owner 2026-11-11; module `work_orders.js`, test `e2e_workorders`): admin / manager / engineer
+  (daWoCanIssue) give dated orders per site on "📋 أوامر الشغل" (Home menu, view work-orders): 🚫 don't feed (a day),
+  🌾 change feed (kg/day from a day), 🔄 transfer (tank → tanks), 📝 text; tanks picked from daFsRows. Each order = one
+  transactions record {type:'work_order', unit:'' (no engine counts it), farm, kind, tanks, to, kg, text, status
+  open|done|notdone, reply, doneBy…} — its own status keeps it out of the review queue (addTX sets "pending" only when
+  status is empty); workers answer through updateTX (RLS tx_update allows them). Workers: 🔔 in #da-wbar (count of open
+  orders due ≤ today for daUserFarms; new ones → toast + vibrate + beep, seen ids in localStorage da_wo_seen), page
+  wo-mine with ✔ / ✖ + reason; texts in DA_WO_T ar/en/ur. Feed sheet: nofeed → m0 "X" + reason tag + banner; feed →
+  m0 = kg (total mode only) + tag. daWoSweep closes nofeed (all tanks saved fasted that day) and transfer
+  (transfer_out from the tank on/after the day) — after daFsSave, after daRealtimePull, every 10 s. Entry status board
+  card #es-wo lists open / not-done orders up to the day. Phase 2 (agreed): push notifications with the app closed
+  (needs the Cloudflare Worker + VAPID keys).
 - AQUAMANAGER OPENING DATE (owner 2026-11-11; module `aqm_opendate.js`, test `e2e_aqmopen`): today's Site Overview
   import made today the opening date, so yesterday's feed (not in AquaManager yet) was refused as "before the opening
   balance" (daSimulateUnit probs key "pre|"). The import preview now asks "الأرقام دي لحد أول يوم" (#imp-opendate, max
@@ -493,7 +505,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-60 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+61 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

@@ -1,0 +1,57 @@
+# Work orders: an engineer gives dated orders per site; only that site's workers get them (bell, count); they answer
+# done / not done; "don't feed" marks the tank X in the feed sheet; "change feed" fills the new amount; a transfer order
+# closes itself when the transfer is recorded; open orders past their day show on the entry status board.
+import os; os.environ['E2E_PORT'] = '8879'
+import harness
+harness.DEFAULT_UNITS[:] = [(f'F1.S01T{t:02d}', 500, 100) for t in range(1, 5)] + [(f'F3.S{s:02d}T01', 300, 5) for s in range(1, 4)]
+from harness import *
+with sync_playwright() as p:
+    BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
+    sb = MockSB(); sb.add_user('eng@example.com', 'eng123', role='engineer')
+    sb.add_user('sajed@workers.dar-aqua.app', 'work123', role='worker', perms=['input_feeding', 'input_mortality', 'input_harvest', 'farm:F3'])
+    sb.add_user('irfan@workers.dar-aqua.app', 'work123', role='worker', perms=['input_feeding', 'input_mortality', 'farm:F1'])
+    c1, pe = new_page(p, sb); login(pe, 'eng@example.com', 'eng123'); pe.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)
+    pe.on('dialog', lambda d: d.accept())
+    check('W1 engineers have "📋 أوامر الشغل" under Home', pe.evaluate("canAccessView('work-orders') && DA_NAV.find(g=>g.id==='home').items.some(i=>i[0]==='work-orders')"))
+    pe.evaluate("window._wo={kind:'nofeed',farm:'F3',date:daToday(),tab:'open'}; show('work-orders')"); pe.wait_for_timeout(300)
+    pe.check('input[name="wo-tanks"][value="F3.S02T01"]'); pe.fill('#wo-text', 'هننقله بكره الصبح'); pe.click('#wo-save'); pe.wait_for_timeout(400)
+    pe.evaluate("window._wo.kind='feed'; show('work-orders',true)"); pe.wait_for_timeout(200)
+    pe.check('input[name="wo-tanks"][value="F3.S01T01"]'); pe.fill('#wo-kg', '1.5'); pe.click('#wo-save'); pe.wait_for_timeout(300)
+    pe.evaluate("window._wo.kind='transfer'; show('work-orders',true)"); pe.wait_for_timeout(200)
+    pe.check('input[name="wo-tanks"][value="F3.S03T01"]'); pe.check('input[name="wo-to"][value="F3.S02T01"]'); pe.click('#wo-save'); pe.wait_for_timeout(300)
+    pe.evaluate("window._wo.kind='text'; window._wo.farm='F1'; show('work-orders',true)"); pe.wait_for_timeout(200)
+    pe.fill('#wo-text', 'نضّف فلتر سكشن 1'); pe.click('#wo-save'); pe.wait_for_timeout(500)
+    check('W2 four orders saved as records of their own kind (not stock, not for review)', pe.evaluate("daWoAll().length") == 4 and pe.evaluate("daWoAll().every(o=>o.status==='open' && o.unit==='')"))
+    c2, ps = new_page(p, sb); ps.set_viewport_size({'width': 390, 'height': 844}); login(ps, 'sajed@workers.dar-aqua.app', 'work123'); ps.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); ps.wait_for_timeout(700); ps.evaluate('daRealtimePull()'); ps.wait_for_timeout(800)
+    check('W3 Sajed (F3) gets the bell with 3 orders — not F1\'s', ps.evaluate("document.getElementById('wo-bell') && document.getElementById('wo-bell').textContent") == '🔔 3')
+    c3, pi = new_page(p, sb); pi.set_viewport_size({'width': 390, 'height': 844}); login(pi, 'irfan@workers.dar-aqua.app', 'work123'); pi.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pi.wait_for_timeout(700); pi.evaluate('daRealtimePull()'); pi.wait_for_timeout(800)
+    check('W4 Irfan (F1) gets only F1\'s order', pi.evaluate("document.getElementById('wo-bell').textContent") == '🔔 1')
+    ps.evaluate("window._fs={farm:'F3'}; show('feed-sheet',true)"); ps.wait_for_timeout(400)
+    v = lambda u: ps.evaluate(f"(r => document.getElementById('fs-'+r.i+'-m0').value)(window._fs.rows.find(r=>r.unit==='{u}'))")
+    check('W5 "don\'t feed": the tank shows X in the sheet with the reason', v('F3.S02T01') == 'X' and 'هننقله' in ps.inner_text('#content'))
+    check('W6 "change feed": the new amount is filled for that tank', v('F3.S01T01') == '1.5')
+    ps.click('#wo-bell'); ps.wait_for_timeout(300)
+    check('W7 the worker\'s orders page lists them with done / not done', ps.evaluate("document.querySelectorAll('.wo-mine .wo-ok').length") == 3)
+    i = ps.evaluate("window._fs.rows.find(r=>r.unit==='F3.S01T01').i")
+    ps.evaluate("window._fs={farm:'F3'}; show('feed-sheet',true)"); ps.wait_for_timeout(300); ps.fill(f'#fs-{i}-sz', '1'); ps.click('#fs-save'); ps.wait_for_timeout(700)
+    check('W8 saving the sheet with the X closes the "don\'t feed" order by itself', ps.evaluate("daWoAll().find(o=>o.kind==='nofeed').status") == 'done')
+    ps.evaluate("addTX({id:'tr1',type:'transfer_out',date:daToday(),unit:'F3.S03T01',fishNo:100,avgWt:5,txGroup:'g1',_skipValidation:true})"); ps.wait_for_timeout(300)
+    check('W9 recording the transfer closes the transfer order by itself', ps.evaluate("daWoAll().find(o=>o.kind==='transfer').status") == 'done')
+    ps.evaluate("show('wo-mine',true)"); ps.wait_for_timeout(200)
+    ps.once('dialog', lambda d: d.accept('الطلمبة عطلانة'))
+    ps.click('.wo-mine .wo-no'); ps.wait_for_timeout(500)
+    check('W10 "not done" with the reason', ps.evaluate("daWoAll().find(o=>o.kind==='feed')") ['status'] == 'notdone' and ps.evaluate("daWoAll().find(o=>o.kind==='feed').reply") == 'الطلمبة عطلانة')
+    check('W11 nothing went to the review queue', not ps.evaluate("getTX().some(t=>t.type==='work_order' && t.status==='pending')"))
+    pe.evaluate("daRealtimePull()"); pe.wait_for_timeout(1500); pe.evaluate("window._wo.tab='all'; show('work-orders',true)"); pe.wait_for_timeout(300)
+    txt = pe.inner_text('#content')
+    check('W12 the engineer sees the answers (done / not done + the reason)', 'الطلمبة عطلانة' in txt and 'اتنفذ' in txt)
+    pe.evaluate("addTX({id:'wo-old',type:'work_order',date:daAddDays(daToday(),-1),unit:'',farm:'F1',kind:'text',tanks:[],text:'قديم',status:'open',_skipValidation:true}); show('entry-status')"); pe.wait_for_timeout(400)
+    check('W13 open orders past their day show red on the entry status board', pe.evaluate("!!document.getElementById('es-wo')") and 'قديم' in pe.inner_text('#es-wo'))
+    pi.click('#lang-btn'); pi.wait_for_timeout(150); pi.click('#da-langmenu button[data-l="ur"]'); pi.wait_for_timeout(400); pi.evaluate("show('wo-mine',true)"); pi.wait_for_timeout(300)
+    check('W14 in Urdu for the worker', 'ہو گیا' in pi.inner_text('#content'))
+    check('W15 workers cannot give orders', not ps.evaluate("canAccessView('work-orders')"))
+    check('W16 no page errors', not pe._errs and not ps._errs and not pi._errs, pe._errs + ps._errs + pi._errs)
+    for c in (c1, c2, c3): c.close()
+    fails = [r for r in RESULTS if not r[1]]
+    for nm, ok, dt in RESULTS: print(('✅ ' if ok else '❌ ') + nm + ('' if ok else f'  → {str(dt)[:300]}'))
+    print(f'\n{len(RESULTS)-len(fails)}/{len(RESULTS)} passed')
