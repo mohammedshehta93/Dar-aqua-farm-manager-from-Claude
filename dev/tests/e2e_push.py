@@ -16,6 +16,13 @@ with sync_playwright() as p:
       navigator.serviceWorker.getRegistration = async () => reg; Object.defineProperty(navigator.serviceWorker, 'ready', {get:()=>Promise.resolve(reg), configurable:true}); }""")
     ps.evaluate("show('wo-mine',true)"); ps.wait_for_timeout(500)
     check('P1 the worker\'s orders page offers "🔔 فعّل الإشعارات"', ps.evaluate("!!document.getElementById('push-on')"))
+    nosql = {'on': True}
+    ps.unroute('**/rest/v1/push_subs*')
+    ps.route('**/rest/v1/push_subs*', lambda r: r.fulfill(status=404, body='{"code":"42P01","message":"relation \\"public.push_subs\\" does not exist"}') if nosql['on'] else (saved.append(json.loads(r.request.post_data or '{}')), r.fulfill(status=201, body='[]')))
+    ps.click('#push-on'); ps.wait_for_timeout(800)
+    t0 = ps.evaluate("[...document.querySelectorAll('.toast,#toast')].map(e=>e.textContent).join(' ')")
+    check('P1b the table not set up in Supabase yet: the message says so (and which step)', 'push_notifications.sql' in t0 and '[save]' in t0, t0)
+    nosql['on'] = False
     ps.click('#push-on'); ps.wait_for_timeout(800)
     s0 = saved[-1] if saved else {}
     check('P2 turned on: the phone\'s subscription is kept with his role, sites and language (VAPID key 65 bytes)', s0.get('role') == 'worker' and s0.get('sites') == ['F3'] and s0.get('lang') == 'ar' and s0.get('endpoint', '').startswith('https://fcm') and ps.evaluate("window.__fakeSub.key") == 65, s0)

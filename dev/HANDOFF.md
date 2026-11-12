@@ -144,7 +144,8 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   Worker: /notify (supervisors; workers of that site, not the sender; 404/410 subs deleted), /test (own phones), cron
   */10 → routine items due in the last 10 min (Bahrain UTC+3) per site. VAPID public key in DA_VAPID_PUBLIC; the private
   JWK was given to the owner ONLY (outputs/farm-push-SECRETS.txt), never in the repo. iPhone: needs the home-screen app.
-  OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. Worker URL assumed
+  OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
+  toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
 - WORK ORDERS v2 + DAILY ROUTINE (owner 2026-11-12; module `work_orders.js` rewritten, test `e2e_workorders`).
   v1 lost the ticks: the page is redrawn by the background sync (daBgRefresh) — so EVERY choice lives in window._wo
