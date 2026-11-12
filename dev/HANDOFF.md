@@ -147,6 +147,9 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- NOTIFICATIONS FIRST PHONE (2026-11-12): subscribed while push_subs did not exist yet → the phone kept its subscription,
+  the card said "on", no row → /test total 0. daPushResync() (on open once synced, and before every test) upserts the
+  existing subscription; daPushSaveSub() is the one save. Worker + 3 secrets confirmed by its GET health check.
 - WORK ORDERS v2 + DAILY ROUTINE (owner 2026-11-12; module `work_orders.js` rewritten, test `e2e_workorders`).
   v1 lost the ticks: the page is redrawn by the background sync (daBgRefresh) — so EVERY choice lives in window._wo
   (daWoState) and is painted from it (daWoToggle / daWoPaint, chips not checkboxes). Page tabs: ➕ new · 📋 orders
