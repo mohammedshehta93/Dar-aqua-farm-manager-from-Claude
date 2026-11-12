@@ -147,6 +147,13 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- DAILY RATION + "ALL THE FEED GIVEN?" (owner 2026-11-12; module `feed_daily.js`, test `e2e_feedday`): card #fd-card above
+  the feed sheet: "✅ Full" → daFdFill writes each tank's daily ration (daFsRation: newest of the pinned DA_FRATION_KEY
+  'daracqua_plan_v1_fration' {unit:{kg, from}} and a "feed" work order's kgs, by date) — kg, or grams ×1000 in a grams
+  table (r.gunit), split evenly over r.meals in per-meal mode; X rows / empty tanks untouched; missing rations named.
+  "⚠️ Less" → reason required (daFsSave wrapper refuses without it). On save a transactions record {type:'feed_day',
+  id fd-<farm>-<date>, full, reason, status:'ok'} (upserted). Supervisors: "📌 ثبّت الكميات دي كعلف يومي" (#fd-pin,
+  daFsCanPin) pins the sheet's amounts from its day. Entry status card #es-fd lists sites whose feed was less + reason.
 - NOTIFICATIONS FIRST PHONE (2026-11-12): subscribed while push_subs did not exist yet → the phone kept its subscription,
   the card said "on", no row → /test total 0. daPushResync() (on open once synced, and before every test) upserts the
   existing subscription; daPushSaveSub() is the one save. Worker + 3 secrets confirmed by its GET health check.
@@ -522,7 +529,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-62 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+63 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
