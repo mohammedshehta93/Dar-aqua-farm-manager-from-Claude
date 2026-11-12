@@ -19,6 +19,7 @@ export default {
     const cors = { 'Access-Control-Allow-Origin': allowed ? origin : ALLOWED_ORIGINS[0], 'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Vary': 'Origin' };
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    if (request.method === 'GET') return reply({ ok: true, service: 'farm-push', secrets: { VAPID_PUBLIC: !!env.VAPID_PUBLIC, VAPID_PRIVATE_JWK: !!env.VAPID_PRIVATE_JWK, SUPABASE_SERVICE_KEY: !!env.SUPABASE_SERVICE_KEY } }, 200, cors);
     if (request.method !== 'POST') return reply({ error: 'POST only' }, 405, cors);
     if (!allowed) return reply({ error: 'origin not allowed' }, 403, cors);
     const auth = request.headers.get('Authorization') || '';
@@ -62,13 +63,14 @@ async function routineReminders(env) {   // items whose time fell in the last 10
 }
 
 async function sendAll(env, subs) {
-  let sent = 0, gone = 0;
+  let sent = 0, gone = 0; const codes = [];
   for (const s of subs) {
-    const r = await pushOne(env, s.endpoint);
+    let r; try { r = await pushOne(env, s.endpoint); } catch (e) { codes.push('ERR ' + String(e && e.message || e).slice(0, 60)); continue; }
+    codes.push(r.status);
     if (r.status === 404 || r.status === 410) { gone++; await fetch(SUPABASE_URL + '/rest/v1/push_subs?id=eq.' + encodeURIComponent(s.id), { method: 'DELETE', headers: svc(env) }); }
     else if (r.ok) sent++;
   }
-  return { sent: sent, removed: gone, total: subs.length };
+  return { sent: sent, removed: gone, total: subs.length, codes: codes.slice(0, 5) };
 }
 
 async function pushOne(env, endpoint) {   // Web Push with no payload: only the VAPID signature (RFC 8292)

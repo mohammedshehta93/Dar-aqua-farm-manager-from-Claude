@@ -16671,12 +16671,25 @@ async function daPushEnable(){   // each step says what failed, so a setup probl
     var m = String((e && e.message) || e), why = step === 'save' && /push_subs|relation|42P01|404|PGRST2/i.test(m) ? T.nosql : step === 'save' && /401|403|42501|row-level/i.test(m) ? T.rls : step === 'subscribe' ? T.nosub : '';
     toast((why || T.fail) + ' [' + step + ']'); window._daPushErr = step + ': ' + m; try{ daReportError && daReportError('push-enable ' + step, e); }catch(x){} return false; }
 }
-async function daPushCall(path, body){
+async function daPushCall(path, body){   // {ok, status, data, err} — so a test can say what went wrong
   try{ if(typeof sbRefreshToken === 'function' && SB_TOKEN) await sbRefreshToken(false);
-    var r = await fetch(DA_PUSH_URL + path, {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + (SB_TOKEN || '')}, body:JSON.stringify(body || {})}); return r.ok ? r.json() : null; }catch(e){ return null; }
+    var r = await fetch(DA_PUSH_URL + path, {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + (SB_TOKEN || '')}, body:JSON.stringify(body || {})});
+    var d = null; try{ d = await r.json(); }catch(x){} return {ok:r.ok, status:r.status, data:d}; }
+  catch(e){ return {ok:false, status:0, err:String((e && e.message) || e)}; }
 }
 function daPushNotify(farm){ daPushCall('/notify', {farm:farm}); }
-async function daPushTest(){ var r = await daPushCall('/test', {}); toast(r && r.sent ? daPushT().sent : daPushT().fail); }
+async function daPushTest(){
+  var T = daPushT(), r = await daPushCall('/test', {}), d = r.data || {}, msg;
+  if(r.ok && d.sent) msg = T.sent;
+  else if(r.status === 0) msg = '⚠️ الخدمة مش بترد — اتأكد إن عنوان الـ Worker هو ' + DA_PUSH_URL.replace('https://', '') + ' وإنه اتعمله Deploy';
+  else if(r.status === 401) msg = '⚠️ الخدمة مش عارفة الحساب — اخرج وادخل تاني وجرّب';
+  else if(r.status === 403 && /profile/.test(d.error || '')) msg = '⚠️ الخدمة مش قادرة تقرا Supabase — SUPABASE_SERVICE_KEY غلط (لازم service_role)';
+  else if(r.status >= 500) msg = '⚠️ الخدمة وقفت: ' + String(d.error || r.status).slice(0, 120) + ' — غالباً سر VAPID_PRIVATE_JWK اتلزق ناقص';
+  else if(r.ok && !d.total) msg = '⚠️ الخدمة مش لاقية اشتراك الموبايل ده — غالباً SUPABASE_SERVICE_KEY غلط (لازم service_role)';
+  else if(r.ok && !d.sent) msg = '⚠️ خدمة الإشعارات رفضت (' + (d.codes || []).join(',') + ') — غالباً VAPID_PUBLIC مش نفس اللي في الملف';
+  else msg = '⚠️ ' + (d.error || ('HTTP ' + r.status));
+  toast(msg); window._daPushTest = r;
+}
 async function daPushCard(){   // the card on the worker's orders page and on "my account"
   var host = document.querySelector('#content .ph'); if(!host || !currentUser) return; var T = daPushT(), st = await daPushState(), old = document.getElementById('push-card'); if(old) old.remove();
   if(currentView !== 'wo-mine' && currentView !== 'account') return; if(st === 'on' && currentView === 'wo-mine') return;
