@@ -135,6 +135,17 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
+- PHONE NOTIFICATIONS (owner 2026-11-12; module `push_notify.js`, Worker `dev/push-worker.js` = "farm-push", SQL
+  `dev/sql/push_notifications.sql`, tests `e2e_push` + `node dev/tests/push_worker_test.mjs`). Web Push WITHOUT payload
+  (only the VAPID ES256 signature, no encryption): sw.js 'push' shows "🔔 Dar Aqua — order or routine, open the app" in
+  the worker's language (cache "da-meta" /lang, written on enable and on daLangPick; activate keeps da-meta), click →
+  ?wo=1 → wo-mine. Table push_subs (id = sha256(endpoint), farm_id, user_id, role, sites, lang, endpoint; RLS own rows).
+  App: card "🔔 فعّل الإشعارات" on wo-mine (until on) and account (on → "test"); daWoSave → POST /notify {farm};
+  Worker: /notify (supervisors; workers of that site, not the sender; 404/410 subs deleted), /test (own phones), cron
+  */10 → routine items due in the last 10 min (Bahrain UTC+3) per site. VAPID public key in DA_VAPID_PUBLIC; the private
+  JWK was given to the owner ONLY (outputs/farm-push-SECRETS.txt), never in the repo. iPhone: needs the home-screen app.
+  OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. Worker URL assumed
+  farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
 - WORK ORDERS v2 + DAILY ROUTINE (owner 2026-11-12; module `work_orders.js` rewritten, test `e2e_workorders`).
   v1 lost the ticks: the page is redrawn by the background sync (daBgRefresh) — so EVERY choice lives in window._wo
   (daWoState) and is painted from it (daWoToggle / daWoPaint, chips not checkboxes). Page tabs: ➕ new · 📋 orders
@@ -507,7 +518,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-61 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+62 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

@@ -16632,6 +16632,66 @@ if(!window._daWoWrapped){
   setInterval(function(){ try{ if(currentUser){ daWoSweep(); daWoBell(); } }catch(e){} }, 10000);
 }
 
+// ══════════════════════════════════════════════════════════
+//  PHONE NOTIFICATIONS (owner, 2026-11-12) — even with the app closed
+// ══════════════════════════════════════════════════════════
+// A worker turns them on once ("🔔 turn on notifications": the phone asks permission, the subscription is kept in
+// Supabase push_subs with the worker's sites and language). When a supervisor gives a work order the app tells the
+// farm-push Worker, which notifies that site's workers; every 10 minutes the Worker also reminds them of routine items
+// whose time came. Tapping the notification opens the orders page. iPhone: only once the app is on the home screen.
+var DA_PUSH_URL = 'https://farm-push.mohammedshehta86.workers.dev';
+var DA_VAPID_PUBLIC = 'BE6TQwMw_89usqeEipmG_KpsDrcXfl0Ruvb66wQfXweRyGoz9jFQpY1RgBDZuouXjL0HjWDnNKhXPvfMnMPeuGw';   // public by design (the private half lives only in the Worker)
+var DA_PUSH_T = {
+  ar:{title:'🔔 الإشعارات على الموبايل', on:'🔔 فعّل الإشعارات', ok:'✅ الإشعارات شغالة على الموبايل ده', test:'جرّب إشعار', denied:'الموبايل رافض الإشعارات — افتح إعدادات المتصفح ← الإشعارات ← اسمح للموقع', ios:'على الآيفون: نزّل التطبيق على الشاشة الرئيسية الأول (📲)، وافتحه منها، وبعدين فعّل الإشعارات', unsup:'المتصفح ده مش بيدعم الإشعارات', why:'بيوصلك إشعار بأوامر الشغل والروتين حتى لو التطبيق مقفول', sent:'📨 اتبعت — هيوصل خلال ثواني', fail:'⚠️ مقدرتش أفعّلها — جرّب تاني'},
+  en:{title:'🔔 Phone notifications', on:'🔔 Turn on notifications', ok:'✅ Notifications are on for this phone', test:'Test', denied:'This phone blocks notifications — browser settings → Notifications → allow this site', ios:'On iPhone: add the app to the home screen first (📲), open it from there, then turn on notifications', unsup:'This browser does not support notifications', why:'Get work orders and routine reminders even when the app is closed', sent:'📨 Sent — it arrives in a few seconds', fail:'⚠️ Could not turn them on — try again'},
+  ur:{title:'🔔 فون پر اطلاعات', on:'🔔 اطلاعات چالو کریں', ok:'✅ اس فون پر اطلاعات چالو ہیں', test:'آزمائیں', denied:'فون نے اطلاعات بند کی ہیں — براؤزر کی سیٹنگ ← اطلاعات ← اجازت دیں', ios:'آئی فون پر: پہلے ایپ ہوم اسکرین پر لگائیں (📲)، وہاں سے کھولیں، پھر اطلاعات چالو کریں', unsup:'یہ براؤزر اطلاعات نہیں دیتا', why:'ایپ بند ہو تب بھی کام کی ہدایات اور روزانہ کام کی اطلاع ملے گی', sent:'📨 بھیج دیا — چند سیکنڈ میں آئے گی', fail:'⚠️ چالو نہیں ہو سکیں — دوبارہ کوشش کریں'}};
+function daPushT(){ var l = typeof daLangNow === 'function' ? daLangNow() : (isAr ? 'ar' : 'en'); return DA_PUSH_T[l] || DA_PUSH_T.ar; }
+function daPushSupported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function daPushIOSNeedsInstall(){ return (typeof daIsIOS === 'function' && daIsIOS()) && !(typeof daIsInstalled === 'function' && daIsInstalled()); }
+function daPushKey(){ var s = DA_VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/'); s += '==='.slice((s.length + 3) % 4); var r = atob(s), a = new Uint8Array(r.length); for(var i = 0; i < r.length; i++) a[i] = r.charCodeAt(i); return a; }
+function daPushUid(){ try{ return JSON.parse(atob(SB_TOKEN.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub; }catch(e){ return currentUser && (currentUser.id || currentUser.uid) || ''; } }
+async function daPushSaveLang(){ try{ var c = await caches.open('da-meta'); await c.put('/lang', new Response(typeof daLangNow === 'function' ? daLangNow() : (isAr ? 'ar' : 'en'))); }catch(e){} }
+async function daPushState(){
+  if(!daPushSupported()) return daPushIOSNeedsInstall() ? 'ios' : 'unsup';
+  if(Notification.permission === 'denied') return 'denied';
+  try{ var reg = await navigator.serviceWorker.getRegistration(); var sub = reg && await reg.pushManager.getSubscription(); return sub && Notification.permission === 'granted' ? 'on' : 'off'; }catch(e){ return 'off'; }
+}
+async function daPushEnable(){
+  var T = daPushT();
+  try{
+    var p = await Notification.requestPermission(); if(p !== 'granted'){ toast(T.denied); daPushCard(); return false; }
+    var reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('sw.js'); reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:daPushKey()});
+    var h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))).map(function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
+    await sbFetch('push_subs?on_conflict=id', {method:'POST', headers:{Prefer:'resolution=merge-duplicates'}, body:JSON.stringify({id:h, farm_id:SB_FARM_ID, user_id:daPushUid(), role:currentUserRole,
+      sites:(typeof daUserFarms === 'function' ? daUserFarms() : null), lang:(typeof daLangNow === 'function' ? daLangNow() : 'ar'), endpoint:sub.endpoint, updated_at:new Date().toISOString()})});
+    await daPushSaveLang(); toast(T.ok); daPushCard(); return true;
+  }catch(e){ toast(T.fail); try{ daReportError && daReportError('push-enable', e); }catch(x){} return false; }
+}
+async function daPushCall(path, body){
+  try{ if(typeof sbRefreshToken === 'function' && SB_TOKEN) await sbRefreshToken(false);
+    var r = await fetch(DA_PUSH_URL + path, {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + (SB_TOKEN || '')}, body:JSON.stringify(body || {})}); return r.ok ? r.json() : null; }catch(e){ return null; }
+}
+function daPushNotify(farm){ daPushCall('/notify', {farm:farm}); }
+async function daPushTest(){ var r = await daPushCall('/test', {}); toast(r && r.sent ? daPushT().sent : daPushT().fail); }
+async function daPushCard(){   // the card on the worker's orders page and on "my account"
+  var host = document.querySelector('#content .ph'); if(!host || !currentUser) return; var T = daPushT(), st = await daPushState(), old = document.getElementById('push-card'); if(old) old.remove();
+  if(currentView !== 'wo-mine' && currentView !== 'account') return; if(st === 'on' && currentView === 'wo-mine') return;
+  var inner = st === 'on' ? '<span style="font-weight:800;color:var(--green)">' + T.ok + '</span> <button id="push-test" onclick="daPushTest()" style="padding:6px 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer">' + T.test + '</button>'
+    : st === 'off' ? '<button id="push-on" class="savebtn" style="width:auto;padding:11px 20px;font-size:15px" onclick="daPushEnable()">' + T.on + '</button><div style="font-size:12px;color:var(--muted);margin-top:4px">' + T.why + '</div>'
+    : '<div style="font-size:13px">' + (st === 'ios' ? T.ios : st === 'denied' ? T.denied : T.unsup) + '</div>';
+  host.insertAdjacentHTML('afterend', '<div class="card" id="push-card" style="margin-bottom:12px;border:2px solid var(--teal)"><div class="card-title">' + T.title + '</div>' + inner + '</div>');
+}
+if(!window._daPushWrapped){
+  window._daPushWrapped = true;
+  var _showPrePush = show;
+  show = function(v){ var r = _showPrePush.apply(this, arguments); if(currentView === 'wo-mine' || currentView === 'account') setTimeout(daPushCard, 0); return r; };
+  if(typeof daWoSave === 'function'){ var _woSavePrePush = daWoSave; daWoSave = function(){ var f = (window._wo || {}).farm, n0 = daWoAll().length; var r = _woSavePrePush.apply(this, arguments); if(daWoAll().length > n0 && f) daPushNotify(f); return r; }; }
+  if(typeof daLangPick === 'function'){ var _lpPrePush = daLangPick; daLangPick = function(){ var r = _lpPrePush.apply(this, arguments); daPushSaveLang(); return r; }; }
+  try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', function(e){ if(e.data && e.data.da === 'open-orders' && currentUser) show('wo-mine'); }); }catch(e){}
+  if(/[?&]wo=1/.test(location.search)){ var _woOpen = setInterval(function(){ if(currentUser && window._cloudSyncDone){ clearInterval(_woOpen); try{ history.replaceState(null, '', location.pathname + location.hash); }catch(e){} show('wo-mine'); } }, 500); setTimeout(function(){ clearInterval(_woOpen); }, 60000); }
+}
+
 // ── Init ──────────────────────────────────────
 (function(){
   var _bc = getSettings();
