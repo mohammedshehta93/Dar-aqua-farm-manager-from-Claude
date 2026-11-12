@@ -28,6 +28,13 @@ with sync_playwright() as p:
     check('P2 turned on: the phone\'s subscription is kept with his role, sites and language (VAPID key 65 bytes)', s0.get('role') == 'worker' and s0.get('sites') == ['F3'] and s0.get('lang') == 'ar' and s0.get('endpoint', '').startswith('https://fcm') and ps.evaluate("window.__fakeSub.key") == 65, s0)
     ps.evaluate("show('account',true)"); ps.wait_for_timeout(500)
     check('P3 my account shows it is on, with a "test" button', ps.evaluate("!!document.getElementById('push-test')"))
+    # Shamim's case: the phone has a subscription but it never reached the table → "test" saves it again first
+    saved.clear(); tcalls = []
+    ps.route('**/farm-push.mohammedshehta86.workers.dev/**', lambda r: (tcalls.append(len(saved)), r.fulfill(status=200, body='{"sent":1,"total":1,"removed":0,"codes":[201]}', headers={'Access-Control-Allow-Origin': '*'})))
+    ps.click('#push-test'); ps.wait_for_timeout(800)
+    check('P3b a phone subscribed before the table existed is saved again before the test (then the test is sent)', len(saved) == 1 and saved[0].get('role') == 'worker' and tcalls == [1], (len(saved), tcalls))
+    saved.clear(); ps.evaluate("daPushResync()"); ps.wait_for_timeout(500)
+    check('P3c … and quietly each time the app opens', len(saved) == 1)
     c1, pe = new_page(p, sb)
     pe.route('**/farm-push.mohammedshehta86.workers.dev/**', lambda r: (calls.append([r.request.url, r.request.headers.get('authorization', ''), r.request.post_data]), r.fulfill(status=200, body='{"sent":1}', headers={'Access-Control-Allow-Origin': '*'})))
     login(pe, 'eng@example.com', 'eng123'); pe.wait_for_function('() => !!window._cloudSyncDone', timeout=10000)

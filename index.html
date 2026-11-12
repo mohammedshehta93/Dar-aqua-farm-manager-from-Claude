@@ -16662,14 +16662,23 @@ async function daPushEnable(){   // each step says what failed, so a setup probl
     var p = await Notification.requestPermission(); if(p !== 'granted'){ toast(T.denied); daPushCard(); return false; }
     step = 'service'; var reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('sw.js'); reg = await navigator.serviceWorker.ready;
     step = 'subscribe'; var sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:daPushKey()});
-    step = 'save'; var h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))).map(function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
-    var r = await sbFetch('push_subs?on_conflict=id', {method:'POST', headers:{Prefer:'resolution=merge-duplicates'}, body:JSON.stringify({id:h, farm_id:SB_FARM_ID, user_id:daPushUid(), role:currentUserRole,
-      sites:(typeof daUserFarms === 'function' ? daUserFarms() : null), lang:(typeof daLangNow === 'function' ? daLangNow() : 'ar'), endpoint:sub.endpoint, updated_at:new Date().toISOString()})});
-    if(r && r.ok === false){ var tx = ''; try{ tx = await r.text(); }catch(x){} throw new Error('HTTP ' + r.status + ' ' + tx.slice(0, 160)); }
+    step = 'save'; await daPushSaveSub(sub);
     await daPushSaveLang(); toast(T.ok); daPushCard(); return true;
   }catch(e){
     var m = String((e && e.message) || e), why = step === 'save' && /push_subs|relation|42P01|404|PGRST2/i.test(m) ? T.nosql : step === 'save' && /401|403|42501|row-level/i.test(m) ? T.rls : step === 'subscribe' ? T.nosub : '';
     toast((why || T.fail) + ' [' + step + ']'); window._daPushErr = step + ': ' + m; try{ daReportError && daReportError('push-enable ' + step, e); }catch(x){} return false; }
+}
+async function daPushResync(){   // a phone subscribed earlier (e.g. before the table existed) is saved again — quietly
+  try{ if(!daPushSupported() || Notification.permission !== 'granted' || !currentUser || !SB_FARM_ID) return false;
+    var reg = await navigator.serviceWorker.getRegistration(), sub = reg && await reg.pushManager.getSubscription(); if(!sub) return false;
+    await daPushSaveSub(sub); await daPushSaveLang(); return true; }catch(e){ return false; }
+}
+async function daPushSaveSub(sub){   // keep this phone's subscription in Supabase (upsert: sites and language stay current)
+  var h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))).map(function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
+  var r = await sbFetch('push_subs?on_conflict=id', {method:'POST', headers:{Prefer:'resolution=merge-duplicates'}, body:JSON.stringify({id:h, farm_id:SB_FARM_ID, user_id:daPushUid(), role:currentUserRole,
+    sites:(typeof daUserFarms === 'function' ? daUserFarms() : null), lang:(typeof daLangNow === 'function' ? daLangNow() : 'ar'), endpoint:sub.endpoint, updated_at:new Date().toISOString()})});
+  if(r && r.ok === false){ var tx = ''; try{ tx = await r.text(); }catch(x){} throw new Error('HTTP ' + r.status + ' ' + tx.slice(0, 160)); }
+  return h;
 }
 async function daPushCall(path, body){   // {ok, status, data, err} — so a test can say what went wrong
   try{ if(typeof sbRefreshToken === 'function' && SB_TOKEN) await sbRefreshToken(false);
@@ -16679,13 +16688,13 @@ async function daPushCall(path, body){   // {ok, status, data, err} — so a tes
 }
 function daPushNotify(farm){ daPushCall('/notify', {farm:farm}); }
 async function daPushTest(){
-  var T = daPushT(), r = await daPushCall('/test', {}), d = r.data || {}, msg;
+  await daPushResync(); var T = daPushT(), r = await daPushCall('/test', {}), d = r.data || {}, msg;
   if(r.ok && d.sent) msg = T.sent;
   else if(r.status === 0) msg = '⚠️ الخدمة مش بترد — اتأكد إن عنوان الـ Worker هو ' + DA_PUSH_URL.replace('https://', '') + ' وإنه اتعمله Deploy';
   else if(r.status === 401) msg = '⚠️ الخدمة مش عارفة الحساب — اخرج وادخل تاني وجرّب';
   else if(r.status === 403 && /profile/.test(d.error || '')) msg = '⚠️ الخدمة مش قادرة تقرا Supabase — SUPABASE_SERVICE_KEY غلط (لازم service_role)';
   else if(r.status >= 500) msg = '⚠️ الخدمة وقفت: ' + String(d.error || r.status).slice(0, 120) + ' — غالباً سر VAPID_PRIVATE_JWK اتلزق ناقص';
-  else if(r.ok && !d.total) msg = '⚠️ الخدمة مش لاقية اشتراك الموبايل ده — غالباً SUPABASE_SERVICE_KEY غلط (لازم service_role)';
+  else if(r.ok && !d.total) msg = '⚠️ الخدمة مش لاقية اشتراك الموبايل ده — اضغط 🔔 فعّل الإشعارات تاني';
   else if(r.ok && !d.sent) msg = '⚠️ خدمة الإشعارات رفضت (' + (d.codes || []).join(',') + ') — غالباً VAPID_PUBLIC مش نفس اللي في الملف';
   else msg = '⚠️ ' + (d.error || ('HTTP ' + r.status));
   toast(msg); window._daPushTest = r;
@@ -16705,6 +16714,7 @@ if(!window._daPushWrapped){
   if(typeof daWoSave === 'function'){ var _woSavePrePush = daWoSave; daWoSave = function(){ var f = (window._wo || {}).farm, n0 = daWoAll().length; var r = _woSavePrePush.apply(this, arguments); if(daWoAll().length > n0 && f) daPushNotify(f); return r; }; }
   if(typeof daLangPick === 'function'){ var _lpPrePush = daLangPick; daLangPick = function(){ var r = _lpPrePush.apply(this, arguments); daPushSaveLang(); return r; }; }
   try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', function(e){ if(e.data && e.data.da === 'open-orders' && currentUser) show('wo-mine'); }); }catch(e){}
+  var _psync = setInterval(function(){ if(currentUser && window._cloudSyncDone){ clearInterval(_psync); daPushResync(); } }, 2000); setTimeout(function(){ clearInterval(_psync); }, 120000);
   if(/[?&]wo=1/.test(location.search)){ var _woOpen = setInterval(function(){ if(currentUser && window._cloudSyncDone){ clearInterval(_woOpen); try{ history.replaceState(null, '', location.pathname + location.hash); }catch(e){} show('wo-mine'); } }, 500); setTimeout(function(){ clearInterval(_woOpen); }, 60000); }
 }
 
