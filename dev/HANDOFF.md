@@ -135,18 +135,20 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 - Photo-readable revision of the farm's OWN Word forms (owner chose "Rev جديد"): `dev/forms/build_wq_form.py` adds corner
   marks, digit boxes, date boxes to the farm's original FH1 Daily Testing Log .docx (original not in the repo). Draft sent
   for review 2026-10-31; reader NOT yet bound to it (measure box positions from the rendered PDF when approved).
-- WORK ORDERS (owner 2026-11-11; module `work_orders.js`, test `e2e_workorders`): admin / manager / engineer
-  (daWoCanIssue) give dated orders per site on "📋 أوامر الشغل" (Home menu, view work-orders): 🚫 don't feed (a day),
-  🌾 change feed (kg/day from a day), 🔄 transfer (tank → tanks), 📝 text; tanks picked from daFsRows. Each order = one
-  transactions record {type:'work_order', unit:'' (no engine counts it), farm, kind, tanks, to, kg, text, status
-  open|done|notdone, reply, doneBy…} — its own status keeps it out of the review queue (addTX sets "pending" only when
-  status is empty); workers answer through updateTX (RLS tx_update allows them). Workers: 🔔 in #da-wbar (count of open
-  orders due ≤ today for daUserFarms; new ones → toast + vibrate + beep, seen ids in localStorage da_wo_seen), page
-  wo-mine with ✔ / ✖ + reason; texts in DA_WO_T ar/en/ur. Feed sheet: nofeed → m0 "X" + reason tag + banner; feed →
-  m0 = kg (total mode only) + tag. daWoSweep closes nofeed (all tanks saved fasted that day) and transfer
-  (transfer_out from the tank on/after the day) — after daFsSave, after daRealtimePull, every 10 s. Entry status board
-  card #es-wo lists open / not-done orders up to the day. Phase 2 (agreed): push notifications with the app closed
-  (needs the Cloudflare Worker + VAPID keys).
+- WORK ORDERS v2 + DAILY ROUTINE (owner 2026-11-12; module `work_orders.js` rewritten, test `e2e_workorders`).
+  v1 lost the ticks: the page is redrawn by the background sync (daBgRefresh) — so EVERY choice lives in window._wo
+  (daWoState) and is painted from it (daWoToggle / daWoPaint, chips not checkboxes). Page tabs: ➕ new · 📋 orders
+  (open / coming / today / all) · 📅 routine. Kinds: nofeed (tanks, a day) · feed = a NEW FEED SHEET (o.kgs {unit:kg},
+  table with the last amount + "same for all") · transfer MANY → ONE or ONE → MANY (o.tanks → o.to, empty tanks allowed
+  as destination) · grade · harvest · clean (o.what filters/tanks/both/place + o.secs from daWqSections) · visit (shown
+  to workers from issue until its day, "✔ OK" only) · text. Tank picker grouped by section with "سكشن N ☑" (toggle all).
+  Records: transactions {type:'work_order', unit:'', farm, kind, tanks, to, kgs, what, secs, text, status, issued…}.
+  daWoSweep closes: nofeed (all tanks saved fasted that day), transfer / grade (transfer_out from EVERY from-tank on/after
+  the day), harvest (harvesting|harvest from every tank) — after daFsSave, daRealtimePull, addTX of those types, every
+  10 s. ROUTINE: synced DA_ROUTINE_KEY 'daracqua_plan_v1_routine' {farm:[{id,time,text,days:[0..6]|null}]}; editor in
+  the routine tab; workers tick each item → transactions {type:'routine', id rt-<farm>-<task>-<date>}. Worker page
+  wo-mine: today (orders + routine per site), coming, done; bell = due orders + visits + routine items whose time came.
+  Entry status card #es-wo: routine k/n per site + open / not-done orders. Texts DA_WO_T ar/en/ur.
 - AQUAMANAGER OPENING DATE (owner 2026-11-11; module `aqm_opendate.js`, test `e2e_aqmopen`): today's Site Overview
   import made today the opening date, so yesterday's feed (not in AquaManager yet) was refused as "before the opening
   balance" (daSimulateUnit probs key "pre|"). The import preview now asks "الأرقام دي لحد أول يوم" (#imp-opendate, max
