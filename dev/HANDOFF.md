@@ -162,6 +162,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   Dashboard card #da-today: counts (feed sheets k/n, open faults + urgent, purchases waiting) + every event of the day
   grouped per type / site / person, newest first. Worker bar: 🔧 for all, 🛒 for fixers. Old tool: keep 2 weeks, then a
   "moved to Farm Manager" message and drop policy maint_legacy_anon. OWNER TO DO: run the SQL, redeploy farm-push.
+  2026-11-13 (owner): ADD-ONS — maintenance and purchases are OFF until the admin turns them on (Settings → card
+  #feat-card "🧩 الإضافات"; synced DA_FEATURES_KEY 'daracqua_settings_v2_features' {maint, purchases}); then only by
+  PERMISSION (admin always): report_fault · fix_maint · request_purchase · approve_purchase (daCanReport / daCanFix /
+  daCanRequestPR / daCanApprovePR via daHas) — no role gets them automatically, the admin ticks them per account.
+  Notifications: urgent fault → audience "perm" fix_maint; purchase → "perm" approve_purchase (the Worker reads
+  profiles.perms; admins always). The old tool was never used (empty table; SQL now creates table + bucket if missing).
 - DAILY RATION + "ALL THE FEED GIVEN?" (owner 2026-11-12; module `feed_daily.js`, test `e2e_feedday`): card #fd-card above
   the feed sheet: "✅ Full" → daFdFill writes each tank's daily ration (daFsRation: newest of the pinned DA_FRATION_KEY
   'daracqua_plan_v1_fration' {unit:{kg, from}} and a "feed" work order's kgs, by date) — kg, or grams ×1000 in a grams

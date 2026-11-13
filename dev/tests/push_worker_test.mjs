@@ -17,7 +17,8 @@ const now = new Date(Date.now() + 180 * 60000), hm = n => { const m = now.getUTC
 globalThis.fetch = async (url, o = {}) => {
   url = String(url);
   if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'e1' }));
-  if (url.includes('/rest/v1/profiles')) return new Response(JSON.stringify([{ farm_id: 'farm-1', role: 'engineer' }]));
+  if (url.includes('/rest/v1/profiles?id=eq.')) return new Response(JSON.stringify([{ farm_id: 'farm-1', role: 'engineer' }]));
+  if (url.includes('/rest/v1/profiles?farm_id=eq.')) return new Response(JSON.stringify([{ id: 'w2', role: 'worker', perms: ['fix_maint'] }, { id: 'w1', role: 'worker', perms: ['input_feeding'] }, { id: 'e1', role: 'engineer', perms: [] }]));
   if (url.includes('/rest/v1/push_subs') && o.method === 'DELETE') { log.deleted.push(url.split('id=eq.')[1]); return new Response(null, { status: 204 }); }
   if (url.includes('/rest/v1/push_subs')) return new Response(JSON.stringify(url.includes('user_id=eq.e1') ? SUBS.filter(s => s.user_id === 'e1') : SUBS));
   if (url.includes('/rest/v1/farm_settings')) return new Response(JSON.stringify([{ farm_id: 'farm-1', data: { daracqua_plan_v1_routine: JSON.stringify({ F3: [{ id: 'r1', time: hm(3), text: 'O2', days: null }], F1: [{ id: 'r2', time: hm(30), text: 'late', days: null }] }) } }]));
@@ -38,4 +39,6 @@ log.pushed = []; r = await (await W.fetch(req('/notify', { farm: 'F3', audience:
 console.log('audience supervisors → engineers / admins only (the sender e1 excluded):', log.pushed.join(',') === '', r);
 log.pushed = []; r = await (await W.fetch(req('/notify', { audience: 'user', uid: 'w2' }), env)).json();
 console.log('audience user → that person only:', log.pushed.join(',') === 'b', r);
+log.pushed = []; r = await (await W.fetch(req('/notify', { audience: 'perm', perm: 'fix_maint' }), env)).json();
+console.log('audience perm fix_maint → only the technician (w2):', log.pushed.join(',') === 'b', r);
 r = await W.fetch(new Request('https://x/notify', { method: 'POST', headers: { Origin: 'https://evil.example' } }), env); console.log('other sites refused:', r.status === 403);

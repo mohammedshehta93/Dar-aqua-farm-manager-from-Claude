@@ -16833,8 +16833,14 @@ var DA_PR_T = {
 function daMtL(){ return typeof daLangNow === 'function' ? daLangNow() : (isAr ? 'ar' : 'en'); }
 function daMtT(){ return DA_MT_T[daMtL()] || DA_MT_T.ar; }
 function daPrT(){ return DA_PR_T[daMtL()] || DA_PR_T.ar; }
-function daCanFix(){ return ['admin', 'manager', 'engineer'].indexOf(currentUserRole) >= 0 || (typeof hasPerm === 'function' && hasPerm('fix_maint')); }
-function daCanApprovePR(){ return ['admin', 'manager'].indexOf(currentUserRole) >= 0 || (typeof hasPerm === 'function' && hasPerm('approve_purchase')); }
+function daCanReport(){ return daHas('report_fault') || daHas('fix_maint'); }
+function daHas(p){ return currentUserRole === 'admin' || (typeof hasPerm === 'function' && hasPerm(p)); }
+function daFeatSet(k, on){ var f = {}; try{ f = JSON.parse(localStorage.getItem(DA_FEATURES_KEY) || '{}') || {}; }catch(e){} f[k] = !!on; localStorage.setItem(DA_FEATURES_KEY, JSON.stringify(f)); }
+var DA_FEATURES_KEY = 'daracqua_settings_v2_features';   // synced add-ons, OFF until the admin turns them on: {maint, purchases}
+function daFeat(k){ try{ return !!(JSON.parse(localStorage.getItem(DA_FEATURES_KEY) || '{}') || {})[k]; }catch(e){ return false; } }
+function daCanFix(){ return daHas('fix_maint'); }
+function daCanRequestPR(){ return daHas('request_purchase') || daHas('approve_purchase') || daHas('fix_maint'); }
+function daCanApprovePR(){ return daHas('approve_purchase'); }
 function daIsSupervisor(){ return ['admin', 'manager', 'engineer'].indexOf(currentUserRole) >= 0; }
 function daMeName(){ return (getSession() || {}).name || (currentUser && currentUser.email) || ''; }
 // ── maintenance data (online: the shared table) ──
@@ -16860,7 +16866,7 @@ function renderMaint(){
   if(s.open) return daMtDetail(s, T, inp);
   var L = s.list, cnt = function(f){ return L.filter(f).length; }, my = daMeName();
   var flt = {open:function(r){ return r.status !== 'closed'; }, high:function(r){ return r.priority === 'high' && r.status !== 'closed'; }, overdue:daMtOverdue, in_progress:function(r){ return r.status === 'in_progress'; }, closed:function(r){ return r.status === 'closed'; }, mine:function(r){ return r.requested_by === my; }, all:function(){ return true; }}[s.filter] || function(){ return true; };
-  var h = '<div class="ph"><div><h2>' + T.head + '</h2></div><button id="mt-new" class="savebtn" style="width:auto;padding:10px 18px" onclick="window._mt.formOpen=!window._mt.formOpen;show(&quot;maint&quot;,true)">' + T.report + '</button></div>';
+  var h = '<div class="ph"><div><h2>' + T.head + '</h2></div>' + (!daCanReport() ? '' : '<button id="mt-new" class="savebtn" style="width:auto;padding:10px 18px" onclick="window._mt.formOpen=!window._mt.formOpen;show(&quot;maint&quot;,true)">' + T.report + '</button>') + '</div>';
   if(s.err && !navigator.onLine) h += '<div class="card" style="background:#fef9c3">' + T.offline + '</div>';
   if(s.formOpen){ var f = s.form, faults = DA_MT_FAULTS[f.area] || [];
     h += '<div class="card" id="mt-form" style="margin-bottom:12px;border:2px solid var(--teal)"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">'
@@ -16900,7 +16906,7 @@ async function daMtSubmit(){
       root_cause:'', corrective_action:'', parts:'', technician:'', verified_by:'', photo_urls:[], farm_id:SB_FARM_ID, site:a[1] || '', reported_by_uid:(typeof daPushUid === 'function' ? daPushUid() : null)})});
     var row = ins && ins[0], fe = document.getElementById('mt-photos'), files = fe && fe.files ? Array.prototype.slice.call(fe.files) : [];
     if(row && files.length){ toast(T.uploading); var urls = await daMtUpload(row.id, files); if(urls.length) await sbFetch('maintenance_requests?id=eq.' + encodeURIComponent(row.id), {method:'PATCH', body:JSON.stringify({photo_urls:urls})}); }
-    if(f.prio === 'high' && typeof daPushCall === 'function') daPushCall('/notify', {farm:a[1] || '', audience:'supervisors'});
+    if(f.prio === 'high' && typeof daPushCall === 'function') daPushCall('/notify', {farm:a[1] || '', audience:'perm', perm:'fix_maint'});   // only those who fix
     s.form = null; s.formOpen = false; toast(T.sent); await daMtLoad(true); show('maint', true);
   }catch(e){ if(btn) btn.disabled = false; toast((navigator.onLine ? '⚠️ ' + String(e && e.message || e).slice(0, 80) : T.offline)); }
 }
@@ -16917,7 +16923,7 @@ function daMtDetail(s, T, inp){
     + (fix ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="mtd-save" onclick="daMtSave(null)" style="padding:10px 16px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font:inherit;font-weight:700;cursor:pointer">' + T.save + '</button>'
       + (r.status === 'open' ? '<button id="mtd-start" class="savebtn" style="width:auto;padding:10px 18px;background:#2563eb" onclick="daMtSave(&quot;in_progress&quot;)">' + T.start + '</button>' : '')
       + (r.status !== 'closed' ? '<button id="mtd-close" class="savebtn" style="width:auto;padding:10px 18px" onclick="daMtSave(&quot;closed&quot;)">' + T.close + '</button>' : '<button id="mtd-reopen" onclick="daMtSave(&quot;open&quot;)" style="padding:10px 16px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font:inherit;cursor:pointer">' + T.reopen + '</button>')
-      + '<button id="mtd-buy" onclick="daPrFromFault(&quot;' + daEsc(r.id) + '&quot;)" style="padding:10px 16px;border:2px solid #f59e0b;background:#fff;color:#b45309;border-radius:10px;font:inherit;font-weight:800;cursor:pointer">' + T.buy + '</button></div>' : '') + '</div>';
+      + (daFeat('purchases') && daCanRequestPR() ? '<button id="mtd-buy" onclick="daPrFromFault(&quot;' + daEsc(r.id) + '&quot;)" style="padding:10px 16px;border:2px solid #f59e0b;background:#fff;color:#b45309;border-radius:10px;font:inherit;font-weight:800;cursor:pointer">' + T.buy + '</button>' : '') + '</div>' : '') + '</div>';
 }
 async function daMtSave(status){
   var s = daMtState(), T = daMtT(), id = s.open, v = {}; ['root_cause', 'corrective_action', 'parts', 'technician', 'verified_by'].forEach(function(k){ var e = document.getElementById('mtd-' + k); if(e && !e.disabled) v[k] = String(e.value || '').trim(); });
@@ -16935,7 +16941,7 @@ function renderPurchases(){
   var s = daPrState(), P = daPrT(), T = daMtT(), inp = 'padding:9px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:14px;width:100%', reg = getFarmsRegistry(), mo = daToday().slice(0, 7);
   var L = daPrAll().sort(function(a, b){ return (b.ts || '').localeCompare(a.ts || '') || (b.date || '').localeCompare(a.date || ''); });
   var flt = {waiting:function(r){ return r.status === 'requested'; }, approved:function(r){ return r.status === 'approved'; }, ordered:function(r){ return r.status === 'ordered'; }, received:function(r){ return r.status === 'received'; }, rejected:function(r){ return r.status === 'rejected'; }, month:function(r){ return (r.date || '').slice(0, 7) === mo; }, all:function(){ return true; }}[s.filter] || function(){ return true; };
-  var h = '<div class="ph"><div><h2>' + P.head + '</h2></div><button id="pr-new" class="savebtn" style="width:auto;padding:10px 18px" onclick="window._pr.formOpen=!window._pr.formOpen;show(&quot;purchases&quot;,true)">' + P.add + '</button></div>';
+  var h = '<div class="ph"><div><h2>' + P.head + '</h2></div>' + (!daCanRequestPR() ? '' : '<button id="pr-new" class="savebtn" style="width:auto;padding:10px 18px" onclick="window._pr.formOpen=!window._pr.formOpen;show(&quot;purchases&quot;,true)">' + P.add + '</button>') + '</div>';
   if(s.formOpen){ var f = s.form;
     h += '<div class="card" id="pr-form" style="margin-bottom:12px;border:2px solid #f59e0b"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">'
       + '<div class="field" style="margin:0;grid-column:span 2"><label>' + P.item + '</label><input id="pr-item" value="' + daEsc(f.item) + '" style="' + inp + '" oninput="window._pr.form.item=this.value"/></div>'
@@ -16948,7 +16954,7 @@ function renderPurchases(){
       + '<button id="pr-send" class="savebtn" style="width:auto;padding:12px 24px;margin-top:12px;font-size:16px;background:#d97706" onclick="daPrSubmit()">' + P.send + '</button></div>'; }
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + [['waiting', P.waiting + ' (' + L.filter(function(r){ return r.status === 'requested'; }).length + ')'], ['approved', P.approved], ['ordered', P.ordered], ['received', P.received], ['rejected', P.rejected], ['month', P.month], ['all', P.all]].map(function(t){
     return '<button class="pr-flt" data-f="' + t[0] + '" onclick="window._pr.filter=&quot;' + t[0] + '&quot;;show(&quot;purchases&quot;,true)" style="padding:6px 13px;border-radius:99px;border:1.5px solid var(--line);font:inherit;cursor:pointer;background:' + (s.filter === t[0] ? '#d97706;color:#fff' : '#fff') + '">' + t[1] + '</button>'; }).join('') + '</div>';
-  var list = L.filter(flt), ap = daCanApprovePR(), sup = daIsSupervisor() || ap;
+  var list = L.filter(flt), ap = daCanApprovePR(), sup = ap;
   h += list.length ? list.map(function(r){ var act = '';
       if(r.status === 'requested' && ap) act = '<button class="pr-ok" onclick="daPrSet(&quot;' + r.id + '&quot;,&quot;approved&quot;)" style="padding:8px 14px;border:0;border-radius:8px;background:var(--teal);color:#fff;font:inherit;font-weight:800;cursor:pointer">' + P.approve + '</button><button class="pr-no" onclick="daPrSet(&quot;' + r.id + '&quot;,&quot;rejected&quot;)" style="padding:8px 14px;border:2px solid #ef4444;border-radius:8px;background:#fff;color:#b91c1c;font:inherit;font-weight:800;cursor:pointer">' + P.reject + '</button>';
       else if(r.status === 'approved' && sup) act = '<button class="pr-ord" onclick="daPrSet(&quot;' + r.id + '&quot;,&quot;ordered&quot;)" style="padding:8px 14px;border:0;border-radius:8px;background:#7c3aed;color:#fff;font:inherit;font-weight:800;cursor:pointer">' + P.order + '</button>';
@@ -16967,7 +16973,7 @@ function daPrSubmit(){
   addTX({id:'pr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5), type:'purchase', unit:'', date:daToday(), ref:ref, item:f.item, qty:+parseFloat(f.qty), unitName:f.unit || '', reason:String(f.reason || '').trim(), urg:f.urg, farm:f.site || '', maint:f.maint || '',
     status:'requested', requesterUid:(typeof daPushUid === 'function' ? daPushUid() : ''), _skipValidation:true});
   if(f.maint) daMtLink(f.maint, ref);
-  if(typeof daPushCall === 'function') daPushCall('/notify', {farm:f.site || '', audience:'supervisors'});
+  if(typeof daPushCall === 'function') daPushCall('/notify', {farm:f.site || '', audience:'perm', perm:'approve_purchase'});   // only those who approve
   s.form = null; s.formOpen = false; toast(P.sent); show('purchases', true);
 }
 function daMtLink(mref, pref){ var m = daMtState().list.filter(function(x){ return x.ref === mref; })[0]; if(!m) return; var a = (m.purchase_refs || []).concat([pref]);
@@ -16981,6 +16987,14 @@ function daPrSet(id, status){
   if(r.requesterUid && typeof daPushCall === 'function' && status !== 'ordered') daPushCall('/notify', {audience:'user', uid:r.requesterUid});
   toast('✅ ' + (P[status] || status)); show('purchases', true);
 }
+function daFeatCard(){
+  var row = function(k, icon, name, note){ var on = daFeat(k); return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9"><div><b style="font-size:15px">' + icon + ' ' + name + '</b><div style="font-size:12px;color:var(--muted)">' + note + '</div></div>'
+    + '<button id="feat-' + k + '" onclick="daFeatSet(&quot;' + k + '&quot;,' + (!on) + ');toast(&quot;' + (on ? '⏸ اتقفلت' : '✅ اتفعلت') + ' — ' + name + '&quot;);show(&quot;settings&quot;,true)" style="min-width:90px;padding:9px 16px;border-radius:99px;border:2px solid ' + (on ? 'var(--teal)' : 'var(--line)') + ';background:' + (on ? 'var(--teal);color:#fff' : '#fff;color:var(--muted)') + ';font:inherit;font-weight:800;cursor:pointer">' + (on ? '✅ شغّالة' : '⏸ مقفولة') + '</button></div>'; };
+  return '<div class="card" id="feat-card" style="margin-bottom:14px"><div class="card-title">🧩 الإضافات</div>'
+    + row('maint', '🔧', 'الصيانة', 'بلاغات الأعطال وإصلاحها — بتظهر بس للي معاهم صلاحية "يبلّغ عن أعطال" أو "يصلّح الأعطال"')
+    + row('purchases', '🛒', 'طلبات الشرا', 'طلب واعتماد واستلام — بتظهر بس للي معاهم صلاحية "يطلب شرا" أو "يعتمد طلبات الشرا"')
+    + '<div style="font-size:12px;color:var(--muted);margin-top:8px">الصلاحيات بتتحدد لكل حساب من إدارة المستخدمين.</div></div>';
+}
 // ── 📰 today on the dashboard ──
 function daTodayEvents(date){
   var ev = [], g = {}, reg = getFarmsRegistry(), farmOf = function(t){ var u = t.unit && daRawUnit(t.unit); return t.farm || (u && u.farm) || String(t.unit || '').split('.')[0]; };
@@ -16991,39 +17005,45 @@ function daTodayEvents(date){
     if(t.type === 'work_order') ev.push({time:hm(t), icon:'📋', text:(typeof daWoLabel === 'function' ? daWoLabel(t, DA_WO_T.ar) : 'أمر') + (t.text ? ' ' + t.text : ''), farm:t.farm, who:t.byName || '', st:t.status === 'done' ? '✅' : t.status === 'notdone' ? '✖' : ''});
     if(t.type === 'feed_day' && !t.full) ev.push({time:hm(t), icon:'⚠️', text:'العلف مكانش كامل — ' + (t.reason || ''), farm:t.farm, who:t.byName || ''}); });
   Object.keys(g).forEach(function(k){ var x = g[k]; ev.push({time:x.time, icon:x.icon, text:x.what + (x.what === 'علف' ? ' ' + x.n + ' تانك · ' + x.kg.toFixed(1) + ' كجم' : x.what === 'نفوق' ? ' ' + x.dead + ' سمكة' : x.what === 'روتين' ? ' ' + x.n + ' بند' : ' (' + x.n + ')'), farm:x.farm, who:x.who}); });
-  daPrAll().forEach(function(r){ if(r.date === date) ev.push({time:hm(r), icon:'🛒', text:'طلب شرا: ' + r.item + ' — ' + r.qty + ' ' + (r.unitName || ''), farm:r.farm, who:r.byName || '', st:r.status === 'approved' ? '✔' : r.status === 'rejected' ? '✖' : ''});
+  (daFeat('purchases') ? daPrAll() : []).forEach(function(r){ if(r.date === date) ev.push({time:hm(r), icon:'🛒', text:'طلب شرا: ' + r.item + ' — ' + r.qty + ' ' + (r.unitName || ''), farm:r.farm, who:r.byName || '', st:r.status === 'approved' ? '✔' : r.status === 'rejected' ? '✖' : ''});
     if(r.decidedAt && r.decidedAt.slice(0, 10) === date && r.date !== date) ev.push({time:hm({ts:r.decidedAt}), icon:'🛒', text:(r.status === 'rejected' ? 'اترفض: ' : 'اتعتمد: ') + r.item, farm:r.farm, who:r.decidedByName || ''});
     if(r.receivedAt && r.receivedAt.slice(0, 10) === date) ev.push({time:hm({ts:r.receivedAt}), icon:'📦', text:'اتستلم: ' + r.item, farm:r.farm, who:r.receivedByName || ''}); });
-  daMtState().list.forEach(function(m){ if((m.created_at || '').slice(0, 10) === date) ev.push({time:hm({ts:m.created_at}), icon:m.priority === 'high' ? '🚨' : '🔧', text:'عطل: ' + (m.summary || ''), farm:m.site || m.area, who:m.requested_by || ''});
+  (daFeat('maint') ? daMtState().list : []).forEach(function(m){ if((m.created_at || '').slice(0, 10) === date) ev.push({time:hm({ts:m.created_at}), icon:m.priority === 'high' ? '🚨' : '🔧', text:'عطل: ' + (m.summary || ''), farm:m.site || m.area, who:m.requested_by || ''});
     if((m.closed_at || '').slice(0, 10) === date) ev.push({time:hm({ts:m.closed_at}), icon:'✅', text:'اتصلح: ' + (m.summary || ''), farm:m.site || m.area, who:m.technician || ''}); });
   return ev.sort(function(a, b){ return (b.time || '').localeCompare(a.time || ''); });
 }
 function daTodayCard(){
   var d = daToday(), ev = daTodayEvents(d), M = daMtState().list, P = daPrAll();
+  if(!daFeat('maint')) M = []; if(!daFeat('purchases')) P = [];
   var openM = M.filter(function(r){ return r.status !== 'closed'; }), urg = openM.filter(function(r){ return r.priority === 'high'; }), od = M.filter(daMtOverdue), wait = P.filter(function(r){ return r.status === 'requested'; });
   var sheets = typeof daFarms === 'function' ? daFarms().map(function(f){ var n = getTX().some(function(t){ return t.type === 'feeding' && !t.deleted && t.date === d && (t.farm === f || String(t.unit || '').indexOf(f + '.') === 0); }); return n; }) : [];
   var box = function(icon, n, label, bad, go){ return '<div onclick="show(&quot;' + go + '&quot;)" style="cursor:pointer;flex:1;min-width:110px;padding:10px;border-radius:12px;background:' + (bad ? '#fee2e2' : '#f0fdfa') + ';text-align:center"><div style="font-size:22px;font-weight:900">' + icon + ' ' + n + '</div><div style="font-size:12px;color:var(--muted)">' + label + '</div></div>'; };
   return '<div class="card" id="da-today" style="margin-bottom:14px"><div class="card-title">📰 النهارده في المزرعة</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' + box('🌾', sheets.filter(Boolean).length + '/' + sheets.length, 'شيتات العلف', sheets.length && sheets.filter(Boolean).length < sheets.length, 'entry-status')
-    + box('🔧', openM.length, 'أعطال مفتوحة' + (urg.length ? ' · ' + urg.length + ' عاجل' : ''), urg.length || od.length, 'maint') + box('🛒', wait.length, 'طلبات شرا مستنية', wait.length, 'purchases') + '</div>'
+    + (daFeat('maint') ? box('🔧', openM.length, 'أعطال مفتوحة' + (urg.length ? ' · ' + urg.length + ' عاجل' : ''), urg.length || od.length, 'maint') : '') + (daFeat('purchases') ? box('🛒', wait.length, 'طلبات شرا مستنية', wait.length, 'purchases') : '') + '</div>'
     + (ev.length ? '<div style="max-height:340px;overflow:auto">' + ev.map(function(e){ return '<div style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px"><span style="min-width:42px;color:var(--muted)" dir="ltr">' + daEsc(e.time || '') + '</span><span>' + e.icon + '</span><span style="flex:1">' + (e.farm ? '<b>' + daEsc(e.farm) + '</b> · ' : '') + daEsc(e.text) + (e.st ? ' ' + e.st : '') + '</span><span style="color:var(--muted);font-size:12px">' + daEsc(e.who || '') + '</span></div>'; }).join('') + '</div>'
       : '<div style="text-align:center;color:var(--muted);padding:12px">لسه محدش سجّل حاجة النهارده</div>') + '</div>';
 }
 if(!window._daMtWrapped){
   window._daMtWrapped = true;
   var _permsPreMt = getPermsList;
-  getPermsList = function(){ var L = _permsPreMt.apply(this, arguments); if(!L.some(function(p){ return p.id === 'fix_maint'; })) L.push({id:'fix_maint', icon:'🔧', label:'إصلاح الأعطال (فني صيانة)'}, {id:'approve_purchase', icon:'🛒', label:'اعتماد طلبات الشرا'}); return L; };
+  getPermsList = function(){ var L = _permsPreMt.apply(this, arguments);
+    if(!L.some(function(p){ return p.id === 'fix_maint'; })) L.push({id:'report_fault', icon:'🔧', label:'يبلّغ عن أعطال'}, {id:'fix_maint', icon:'🛠️', label:'يصلّح الأعطال (فني صيانة)'}, {id:'request_purchase', icon:'🛒', label:'يطلب شرا'}, {id:'approve_purchase', icon:'✅', label:'يعتمد طلبات الشرا'});
+    return L; };
   VIEWS['maint'] = renderMaint; VIEWS['purchases'] = renderPurchases;
   var _cavPreMt = canAccessView;
-  canAccessView = function(v){ if(v === 'maint' || v === 'purchases') return !!currentUser; return _cavPreMt.apply(this, arguments); };
+  canAccessView = function(v){ if(v === 'maint') return !!currentUser && daFeat('maint') && (daCanReport() || daCanFix()); if(v === 'purchases') return !!currentUser && daFeat('purchases') && (daCanRequestPR() || daCanApprovePR()); return _cavPreMt.apply(this, arguments); };
   var g = DA_NAV.filter(function(x){ return x.id === 'home'; })[0];
   if(g){ if(!g.items.some(function(i){ return i[0] === 'maint'; })) g.items.push(['maint', '🔧', 'الصيانة', 'Maintenance']); if(!g.items.some(function(i){ return i[0] === 'purchases'; })) g.items.push(['purchases', '🛒', 'طلبات الشرا', 'Purchases']); }
   var _showPreMt = show;
   show = function(v){ var r = _showPreMt.apply(this, arguments);
     try{ if(currentView === 'dashboard' && !document.getElementById('da-today')){ var c = document.getElementById('content'), ph = c && c.querySelector('.ph'); if(ph){ var es = document.getElementById('es-strip'); (es || ph).insertAdjacentHTML('afterend', daTodayCard());
           if(!daMtState().at) daMtLoad().then(function(){ var o = document.getElementById('da-today'); if(o && currentView === 'dashboard'){ o.outerHTML = daTodayCard(); } }); } } }catch(e){}
-    try{ var bar = document.getElementById('da-wbar'); if(bar && currentUserRole === 'worker' && !document.getElementById('wb-maint')){ var rf = bar.querySelector('#wo-bell') || bar.querySelector('.rf');
-        if(rf) rf.insertAdjacentHTML('beforebegin', '<button id="wb-maint" data-v="maint" onclick="show(&quot;maint&quot;)" class="' + (currentView === 'maint' ? 'on' : '') + '">🔧</button>' + (daCanFix() ? '<button id="wb-pr" data-v="purchases" onclick="show(&quot;purchases&quot;)" class="' + (currentView === 'purchases' ? 'on' : '') + '">🛒</button>' : '')); } }catch(e){}
+    try{ var bar = document.getElementById('da-wbar'); if(bar && currentUserRole === 'worker'){ ['wb-maint', 'wb-pr'].forEach(function(id){ var o = document.getElementById(id); if(o) o.remove(); });
+        var rf = bar.querySelector('#wo-bell') || bar.querySelector('.rf');
+        if(rf) rf.insertAdjacentHTML('beforebegin', (canAccessView('maint') ? '<button id="wb-maint" data-v="maint" onclick="show(&quot;maint&quot;)" class="' + (currentView === 'maint' ? 'on' : '') + '">🔧</button>' : '') + (canAccessView('purchases') ? '<button id="wb-pr" data-v="purchases" onclick="show(&quot;purchases&quot;)" class="' + (currentView === 'purchases' ? 'on' : '') + '">🛒</button>' : '')); } }catch(e){}
+    try{ if(currentView === 'settings' && currentUserRole === 'admin' && !document.getElementById('feat-card')){ var c2 = document.getElementById('content'), ph2 = c2 && c2.querySelector('.ph');
+        if(ph2) ph2.insertAdjacentHTML('afterend', daFeatCard()); } }catch(e){}
     return r; };
 }
 

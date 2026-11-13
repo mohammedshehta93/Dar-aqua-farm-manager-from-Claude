@@ -38,12 +38,17 @@ export default {
     if (path.endsWith('/notify')) {
       // audience: "workers" (default — a work order, from supervisors only) · "supervisors" (a fault or a purchase request,
       // from anyone signed in) · "user" (a decision on someone's request, from supervisors only)
+      // "perm" {perm}: the admin + everyone whose account has that permission (a fault → "fix_maint", a purchase → "approve_purchase")
       const sup = ['admin', 'manager', 'engineer'].indexOf(prof.role) >= 0, aud = body.audience || 'workers', site = String(body.farm || '');
-      if (aud !== 'supervisors' && !sup) return reply({ error: 'supervisors only' }, 403, cors);
+      if (aud !== 'supervisors' && aud !== 'perm' && !sup) return reply({ error: 'supervisors only' }, 403, cors);
       const all = await db(env, 'push_subs?farm_id=eq.' + prof.farm_id + '&select=id,endpoint,role,sites,user_id');
       const siteOk = s => !site || !s.sites || !s.sites.length || s.sites.indexOf(site) >= 0;
+      let allowed = null;
+      if (aud === 'perm') { const perm = String(body.perm || ''); const ps = await db(env, 'profiles?farm_id=eq.' + prof.farm_id + '&select=id,role,perms');
+        allowed = ps.filter(p => p.role === 'admin' || (Array.isArray(p.perms) ? p.perms : String(p.perms || '').split(/[,{}" ]+/)).indexOf(perm) >= 0).map(p => p.id); }
       const subs = all.filter(s => s.user_id !== user.id && (
         aud === 'user' ? s.user_id === body.uid :
+        aud === 'perm' ? allowed.indexOf(s.user_id) >= 0 && siteOk(s) :
         aud === 'supervisors' ? ['admin', 'manager', 'engineer'].indexOf(s.role) >= 0 && siteOk(s) :
         s.role === 'worker' && siteOk(s)));
       return reply(await sendAll(env, subs), 200, cors);
