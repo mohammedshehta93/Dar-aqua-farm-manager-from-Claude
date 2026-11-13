@@ -147,6 +147,21 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- MAINTENANCE + PURCHASES + "TODAY" (owner 2026-11-13; module `maintenance.js`, SQL `dev/sql/maintenance_in_app.sql`, test
+  `e2e_maint`). The standalone tool (daraqua_standalone.html: same Supabase, table maintenance_requests, bucket
+  maintenance-images, hard-coded admin password) is merged: view 'maint' (anyone signed in reports: area FH1/FH2/NURSERY/
+  OUTSIDE ↔ site F1/F2/F3/'', common faults DA_MT_FAULTS, priority, type, target date, ≤4 photos uploaded to the
+  bucket with the user token) — online only (sbFetch), cache da_mt_cache. Rows of the old tool (farm_id null) are given
+  this farm by the first fixer who opens it (PATCH farm_id=is.null). Fix: daCanFix = admin/manager/engineer or perm
+  "fix_maint" (technician = worker account with only that perm); open → in_progress → closed (+ root cause, action,
+  parts, technician; verified_by supervisors only). Urgent → push audience "supervisors". "🛒 request parts" →
+  purchases. Purchases = transactions {type:'purchase', ref PR-YY-xxxxx, item, qty, unitName, reason, urg, farm, maint,
+  status requested→approved|rejected→ordered→received, decidedByName…, requesterUid}; approve = daCanApprovePR (admin,
+  manager or perm "approve_purchase") — NOTE an older daCanApprove exists (data review), do not reuse the name.
+  Worker push audiences: workers (default, supervisors only) · supervisors (anyone) · user {uid} (supervisors).
+  Dashboard card #da-today: counts (feed sheets k/n, open faults + urgent, purchases waiting) + every event of the day
+  grouped per type / site / person, newest first. Worker bar: 🔧 for all, 🛒 for fixers. Old tool: keep 2 weeks, then a
+  "moved to Farm Manager" message and drop policy maint_legacy_anon. OWNER TO DO: run the SQL, redeploy farm-push.
 - DAILY RATION + "ALL THE FEED GIVEN?" (owner 2026-11-12; module `feed_daily.js`, test `e2e_feedday`): card #fd-card above
   the feed sheet: "✅ Full" → daFdFill writes each tank's daily ration (daFsRation: newest of the pinned DA_FRATION_KEY
   'daracqua_plan_v1_fration' {unit:{kg, from}} and a "feed" work order's kgs, by date) — kg, or grams ×1000 in a grams
@@ -529,7 +544,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-63 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+64 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

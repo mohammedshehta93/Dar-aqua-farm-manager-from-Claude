@@ -34,4 +34,8 @@ log.pushed = [];
 let p = []; await W.scheduled({}, env, { waitUntil: x => p.push(x) }); await Promise.all(p);
 console.log('cron → routine due in the last 10 min only (F3 now-3 min, not F1 now-30):', log.pushed.join(',') === 'a,gone', log.pushed.join(','));
 console.log('VAPID header on every push:', log.vapidOk);
+log.pushed = []; r = await (await W.fetch(req('/notify', { farm: 'F3', audience: 'supervisors' }), env)).json();
+console.log('audience supervisors → engineers / admins only (the sender e1 excluded):', log.pushed.join(',') === '', r);
+log.pushed = []; r = await (await W.fetch(req('/notify', { audience: 'user', uid: 'w2' }), env)).json();
+console.log('audience user → that person only:', log.pushed.join(',') === 'b', r);
 r = await W.fetch(new Request('https://x/notify', { method: 'POST', headers: { Origin: 'https://evil.example' } }), env); console.log('other sites refused:', r.status === 403);

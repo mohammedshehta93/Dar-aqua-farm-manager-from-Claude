@@ -1,5 +1,5 @@
 // Farm Manager — phone notifications Worker (farm-push)
-// • POST /notify  {farm}        a supervisor gave a work order → the workers of that site get a notification
+// • POST /notify  {farm, audience}  work order → that site's workers; fault / purchase → supervisors; decision → the requester
 // • POST /test                  sends a test notification to the caller's own phone(s)
 // • every 10 minutes (Cron)     daily-routine items whose time came → the workers of that site get a reminder
 // No payload is sent (no encryption needed): the phone shows "new work order / open the app" in its own language.
@@ -36,10 +36,16 @@ export default {
       return reply(await sendAll(env, subs), 200, cors);
     }
     if (path.endsWith('/notify')) {
-      if (['admin', 'manager', 'engineer'].indexOf(prof.role) < 0) return reply({ error: 'supervisors only' }, 403, cors);
-      const site = String(body.farm || '');
-      const subs = (await db(env, 'push_subs?farm_id=eq.' + prof.farm_id + '&select=id,endpoint,role,sites,user_id'))
-        .filter(s => s.user_id !== user.id && s.role === 'worker' && (!s.sites || !s.sites.length || s.sites.indexOf(site) >= 0));
+      // audience: "workers" (default — a work order, from supervisors only) · "supervisors" (a fault or a purchase request,
+      // from anyone signed in) · "user" (a decision on someone's request, from supervisors only)
+      const sup = ['admin', 'manager', 'engineer'].indexOf(prof.role) >= 0, aud = body.audience || 'workers', site = String(body.farm || '');
+      if (aud !== 'supervisors' && !sup) return reply({ error: 'supervisors only' }, 403, cors);
+      const all = await db(env, 'push_subs?farm_id=eq.' + prof.farm_id + '&select=id,endpoint,role,sites,user_id');
+      const siteOk = s => !site || !s.sites || !s.sites.length || s.sites.indexOf(site) >= 0;
+      const subs = all.filter(s => s.user_id !== user.id && (
+        aud === 'user' ? s.user_id === body.uid :
+        aud === 'supervisors' ? ['admin', 'manager', 'engineer'].indexOf(s.role) >= 0 && siteOk(s) :
+        s.role === 'worker' && siteOk(s)));
       return reply(await sendAll(env, subs), 200, cors);
     }
     return reply({ error: 'unknown path' }, 404, cors);
