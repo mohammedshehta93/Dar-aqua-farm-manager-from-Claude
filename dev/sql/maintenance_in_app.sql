@@ -2,6 +2,29 @@
 -- Uses the SAME table and photo bucket as the old standalone maintenance tool, so every old request stays, and the old
 -- tool keeps working during the move (its "anon" access is kept until it is closed).
 
+-- Creates the table and the photo bucket if they are not there yet (an existing table and its requests are left as they are).
+create table if not exists public.maintenance_requests (
+  id                uuid primary key default gen_random_uuid(),
+  ref               text,
+  requested_by      text,
+  area              text,
+  summary           text,
+  details           text,
+  priority          text default 'medium',
+  type              text default 'corrective',
+  status            text default 'open',
+  target_date       date,
+  root_cause        text default '',
+  corrective_action text default '',
+  parts             text default '',
+  technician        text default '',
+  verified_by       text default '',
+  photo_urls        text[] default '{}',
+  created_at        timestamptz default now(),
+  closed_at         timestamptz
+);
+insert into storage.buckets (id, name, public) values ('maintenance-images', 'maintenance-images', true) on conflict (id) do nothing;
+
 alter table public.maintenance_requests add column if not exists farm_id uuid references public.farms(id) on delete cascade;
 alter table public.maintenance_requests add column if not exists site text;
 alter table public.maintenance_requests add column if not exists reported_by_uid uuid;
