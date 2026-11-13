@@ -18,10 +18,10 @@ globalThis.fetch = async (url, o = {}) => {
   url = String(url);
   if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'e1' }));
   if (url.includes('/rest/v1/profiles?id=eq.')) return new Response(JSON.stringify([{ farm_id: 'farm-1', role: 'engineer' }]));
-  if (url.includes('/rest/v1/profiles?farm_id=eq.')) return new Response(JSON.stringify([{ id: 'w2', role: 'worker', perms: ['fix_maint'] }, { id: 'w1', role: 'worker', perms: ['input_feeding'] }, { id: 'e1', role: 'engineer', perms: [] }]));
+  if (url.includes('/rest/v1/profiles?farm_id=eq.')) return new Response(JSON.stringify([{ id: 'w2', role: 'worker', perms: ['fix_maint', 'stock_count'] }, { id: 'w1', role: 'worker', perms: ['input_feeding'] }, { id: 'e1', role: 'engineer', perms: [] }]));
   if (url.includes('/rest/v1/push_subs') && o.method === 'DELETE') { log.deleted.push(url.split('id=eq.')[1]); return new Response(null, { status: 204 }); }
   if (url.includes('/rest/v1/push_subs')) return new Response(JSON.stringify(url.includes('user_id=eq.e1') ? SUBS.filter(s => s.user_id === 'e1') : SUBS));
-  if (url.includes('/rest/v1/farm_settings')) return new Response(JSON.stringify([{ farm_id: 'farm-1', data: { daracqua_plan_v1_routine: JSON.stringify({ F3: [{ id: 'r1', time: hm(3), text: 'O2', days: null }], F1: [{ id: 'r2', time: hm(30), text: 'late', days: null }] }) } }]));
+  if (url.includes('/rest/v1/farm_settings')) return new Response(JSON.stringify([{ farm_id: 'farm-1', data: { daracqua_plan_v1_routine: JSON.stringify({ F3: [{ id: 'r1', time: hm(3), text: 'O2', days: null }], F1: [{ id: 'r2', time: hm(30), text: 'late', days: null }] }), daracqua_settings_v2_features: JSON.stringify({ stock: true }), daracqua_settings_v2_stock: JSON.stringify({ day: now.getUTCDay(), time: hm(2), items: [] }) } }]));
   if (url.startsWith('https://push.example/')) { if (!/^vapid t=.+\..+\..+, k=/.test(o.headers.Authorization)) log.vapidOk = false; log.pushed.push(url.split('/').pop()); return new Response('', { status: url.endsWith('gone') ? 410 : 201 }); }
   return new Response('?', { status: 404 });
 };
@@ -33,7 +33,7 @@ log.pushed = []; log.deleted = [];
 r = await (await W.fetch(req('/test', {}), env)).json(); console.log('test → own phone only:', log.pushed.join(',') === 'd', r);
 log.pushed = [];
 let p = []; await W.scheduled({}, env, { waitUntil: x => p.push(x) }); await Promise.all(p);
-console.log('cron → routine due in the last 10 min only (F3 now-3 min, not F1 now-30):', log.pushed.join(',') === 'a,gone', log.pushed.join(','));
+console.log('cron → routine due (F3 workers) + the stock count reminder (only the counter w2):', log.pushed.join(',') === 'a,gone,b', log.pushed.join(','));
 console.log('VAPID header on every push:', log.vapidOk);
 log.pushed = []; r = await (await W.fetch(req('/notify', { farm: 'F3', audience: 'supervisors' }), env)).json();
 console.log('audience supervisors → engineers / admins only (the sender e1 excluded):', log.pushed.join(',') === '', r);

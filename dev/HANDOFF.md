@@ -147,6 +147,16 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- WEEKLY STOCK COUNT (owner 2026-11-13; module `stock_count.js`, test `e2e_stock`): add-on "stock" (🧩 row added to
+  daFeatCard). Synced DA_STOCK_KEY 'daracqua_settings_v2_stock' {day (default 4 = Thursday), time '14:00', items
+  [{id,name,unit,cat feed|chem|other,min}]} — defaults: the AquaManager feed names (or Maram 1/2/3 mm) + CaCO₃ +
+  NaHCO₃. View 'stock': tab count (perm "stock_count" or manage_inventory; per site and day → transactions
+  {type:'stock_count', id sc-<site>-<date>, items:{id:qty}}; save → push "perm" manage_inventory), tabs balance + items
+  (manage_inventory / admin). daScBalance: last count, weekly use = drop between the last two counts / days × 7, days
+  left, low if ≤ min or ≤ 7 days → "🛒 order" fills a purchase (qty ≈ max(2×min, 2 weeks of use) − stock; urgent if
+  ≤ 3 days). Due on count day until a count of the week exists (week ends on count day): bell (+1 via daWoPending),
+  card #sc-due on wo-mine, 📦 in the worker bar; farm-push cron reminds holders of "stock_count" at the time (reads
+  the stock + features keys from farm_settings). Dashboard "today" lists counts with items running low.
 - MAINTENANCE + PURCHASES + "TODAY" (owner 2026-11-13; module `maintenance.js`, SQL `dev/sql/maintenance_in_app.sql`, test
   `e2e_maint`). The standalone tool (daraqua_standalone.html: same Supabase, table maintenance_requests, bucket
   maintenance-images, hard-coded admin password) is merged: view 'maint' (anyone signed in reports: area FH1/FH2/NURSERY/
@@ -550,7 +560,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-64 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+65 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

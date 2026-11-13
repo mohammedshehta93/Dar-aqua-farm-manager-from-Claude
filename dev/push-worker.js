@@ -10,6 +10,7 @@ const ALLOWED_ORIGINS = ['https://mohammedshehta93.github.io'];
 const SUPABASE_URL = 'https://mjtxibdxqxrgykuyftsr.supabase.co';
 const SUPABASE_PUBLIC_KEY = 'sb_publishable_ewZ1G10CJIIUcZHYaEd22w_ud573IW3'; // public by design
 const ROUTINE_KEY = 'daracqua_plan_v1_routine';
+const STOCK_KEY = 'daracqua_settings_v2_stock', FEATURES_KEY = 'daracqua_settings_v2_features';
 const TZ_MINUTES = 180; // Bahrain = UTC+3
 
 export default {
@@ -66,10 +67,21 @@ async function routineReminders(env) {   // items whose time fell in the last 10
     const sites = Object.keys(R).filter(site => (R[site] || []).some(r => {
       if (!r.time || !r.text) return false; const p = r.time.split(':'), m = +p[0] * 60 + +p[1];
       return m <= mins && m > mins - 10 && (!r.days || !r.days.length || r.days.indexOf(wd) >= 0); }));
-    if (!sites.length) continue;
-    const subs = (await db(env, 'push_subs?farm_id=eq.' + f.farm_id + '&select=id,endpoint,role,sites'))
-      .filter(s => s.role === 'worker' && (!s.sites || !s.sites.length || s.sites.some(x => sites.indexOf(x) >= 0)));
-    await sendAll(env, subs);
+    if (sites.length) {
+      const subs = (await db(env, 'push_subs?farm_id=eq.' + f.farm_id + '&select=id,endpoint,role,sites'))
+        .filter(s => s.role === 'worker' && (!s.sites || !s.sites.length || s.sites.some(x => sites.indexOf(x) >= 0)));
+      await sendAll(env, subs);
+    }
+    // the weekly stock count: on its day and time → those who count ("stock_count")
+    let S = null; try { S = JSON.parse((f.data || {})[STOCK_KEY] || 'null'); } catch (e) {}
+    const feat = (() => { try { return JSON.parse((f.data || {})[FEATURES_KEY] || '{}') || {}; } catch (e) { return {}; } })();
+    if (S && feat.stock && +S.day === wd && S.time) { const p = S.time.split(':'), m = +p[0] * 60 + +p[1];
+      if (m <= mins && m > mins - 10) {
+        const ps = await db(env, 'profiles?farm_id=eq.' + f.farm_id + '&select=id,role,perms');
+        const ids = ps.filter(x => (Array.isArray(x.perms) ? x.perms : String(x.perms || '').split(/[,{}" ]+/)).indexOf('stock_count') >= 0).map(x => x.id);
+        const subs = (await db(env, 'push_subs?farm_id=eq.' + f.farm_id + '&select=id,endpoint,user_id')).filter(x => ids.indexOf(x.user_id) >= 0);
+        await sendAll(env, subs);
+      } }
   }
 }
 
