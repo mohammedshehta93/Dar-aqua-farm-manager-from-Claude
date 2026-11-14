@@ -17,7 +17,7 @@ function daUnitCycles(unit){
   var byDate = {}; ((daTxByUnit()[unit]) || []).forEach(function(t){ var d = String(t.date || '').slice(0, 10); if(d && !t.deleted && (!base || d >= base)) (byDate[d] = byDate[d] || []).push(t); });
   Object.keys(byDate).sort().forEach(function(d){
     var ev = byDate[d].slice().sort(daTxOrder), subs = 0, adds = 0;
-    ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(f) subs += parseInt(t[f]) || 0; if(t.type === 'stocking' || t.type === 'transfer_in') adds += parseInt(t.fishNo) || 0; });
+    ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(f) subs += parseInt(t[f]) || 0; if((t.type === 'stocking' || t.type === 'transfer_in') && !t.gain) adds += parseInt(t.fishNo) || 0;   /* a count surplus is not a restock */ });
     // emptied and restocked the same day (harvest / close, then new fish): the old cycle closes FIRST, then the new one opens
     if(cur && fish > 0 && adds > 0 && subs >= fish){
       var by0 = ''; ev.forEach(function(t){ var f = DA_SUB_FIELD[t.type]; if(!f) return; var n = parseInt(t[f]) || 0; if(n <= 0) return;

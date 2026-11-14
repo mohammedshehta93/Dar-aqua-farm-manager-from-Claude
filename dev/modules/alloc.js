@@ -25,7 +25,7 @@ function daAlloc(){
     var day = byDate[d], deferred = [];
     Object.keys(day).forEach(function(unit){
       var u = U[unit], ev = day[unit].slice().sort(daTxOrder), adds = 0, subs = 0;
-      ev.forEach(function(t){ if(t.type === 'stocking' || t.type === 'transfer_in') adds += parseInt(t.fishNo) || 0; var f = DA_SUB_FIELD[t.type]; if(f) subs += parseInt(t[f]) || 0; });
+      ev.forEach(function(t){ if((t.type === 'stocking' || t.type === 'transfer_in') && !t.gain) adds += parseInt(t.fishNo) || 0;   /* a count surplus is not a restock */ var f = DA_SUB_FIELD[t.type]; if(f) subs += parseInt(t[f]) || 0; });
       var addIn = function(){ ev.forEach(function(t){ if(t.type !== 'stocking' && t.type !== 'transfer_in') return; var n = parseInt(t.fishNo) || 0, w = parseFloat(t.avgWt) || u.wt; if(n <= 0) return;
         if(u.fish <= 0){ var keep = u.base; U[unit] = u = fresh(); u.base = keep; }
         u.wt = u.fish + n > 0 ? (u.fish * u.wt + n * w) / (u.fish + n) : w; if(parseFloat(t.newWt) > 0) u.wt = parseFloat(t.newWt); u.fish += n; u.S += n * w / 1000;

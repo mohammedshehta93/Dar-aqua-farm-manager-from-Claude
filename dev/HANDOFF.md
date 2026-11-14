@@ -147,6 +147,16 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- COUNT SURPLUS (owner 2026-11-14; module `count_gain.js`, test `e2e_gain`): a transfer / harvest of MORE fish than the
+  tool holds was refused in daRegSave ("had only 1,589 — cannot transfer 1,850"). A daRegSave wrapper catches that
+  alert (Arabic text, before the language layer), asks (3 languages), records the surplus as {type:'transfer_in',
+  gain:true, no txGroup, source 'count-gain', reason "زيادة في العد", avgWt = daRegWtAt} on the same day, re-runs the
+  save, then links it (link = the new record's txGroup or id) so deleting / editing takes it along (daLinked); no
+  record made → the surplus is deleted. Guard: an empty tank (needs stocking) or more than DOUBLE the recorded count
+  (a wrong number) is still refused. daRegFishAt ignores surpluses linked to the record being edited; daTransRows
+  hides gains. Engines: cycles.js and alloc.js count "adds" for the same-day "emptied then restocked" rule WITHOUT
+  gains (else a phantom new cycle of the surplus opened). The shortage side: "count difference" (adjustment) as before;
+  dead entered after a whole-tank move: absorb_dead.js.
 - GOING BACK IN TIME WITH MOVES (owner 2026-11-14; module `absorb_dead.js`, test `e2e_flex`). Checked: any past day shows
   the tanks that had fish THAT day; on a transfer / harvest day the source, the destination and the harvested tank are
   all open; the day after, emptied tanks are locked. FIXED 1: dead entered after a whole-tank transfer / harvest were
@@ -583,7 +593,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-66 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+67 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
