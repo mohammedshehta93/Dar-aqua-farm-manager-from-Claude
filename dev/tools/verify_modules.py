@@ -9,5 +9,9 @@ for f in sorted(glob.glob('dev/modules/*.js')):
     for v in re.findall(r'^var (\w+)', s, re.M):
         if not re.search(r'\bvar ' + v + r'\b', h): bad.append((n, 'var ' + v))
     for w in re.findall(r'^if\(!window\.(_da\w+)\)', s, re.M):
-        if w not in h: bad.append((n, 'block ' + w))
+        if w not in h: bad.append((n, 'block ' + w)); continue
+        # the block's CONTENT must match too (2026-11-14: a stale block passed the name check and hid a fix)
+        m0 = re.search(r'^if\(!window\.' + w + r'\)\s*\{', s, re.M); a = m0.start(); e = (s + '\n').find('\n}\n', a); body = s[a:e if e >= 0 else len(s)]
+        ia = h.find(body)
+        if ia < 0: bad.append((n, 'block ' + w + ' differs from the module'))
 print('modules complete in the app' if not bad else 'MISSING: ' + str(bad)); sys.exit(1 if bad else 0)

@@ -25,13 +25,6 @@ if(!window._daFeedSingleWrapped){
     var orig = VIEWS[v]; window._daFeedOrigViews[v] = orig;
     VIEWS[v] = function(){ return daSingleFeed() || !orig ? renderFeedRetired(v) : orig.apply(this, arguments); };
   });
-  var _dailyPreSingle = VIEWS.daily;
-  if(_dailyPreSingle) VIEWS.daily = renderDaily = function(){
-    if(!daSingleFeed()) return _dailyPreSingle.apply(this, arguments);
-    if(sheetTab === 'feed') sheetTab = 'mortality';
-    var h = _dailyPreSingle.apply(this, arguments);
-    return h.replace(/<button[^>]*sheetTab=\\?'feed\\?'[^>]*>[\s\S]*?<\/button>/, '');
-  };
   var _addTXPreSingle = addTX;
   addTX = function(obj){
     if(!daFeedEntryAllowed(obj)){ toast('📋 العلف بيتسجل من شيت العلف اليومي بس'); return null; }

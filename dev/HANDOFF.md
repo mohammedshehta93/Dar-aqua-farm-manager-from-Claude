@@ -147,6 +147,19 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- GOING BACK IN TIME WITH MOVES (owner 2026-11-14; module `absorb_dead.js`, test `e2e_flex`). Checked: any past day shows
+  the tanks that had fish THAT day; on a transfer / harvest day the source, the destination and the harvested tank are
+  all open; the day after, emptied tanks are locked. FIXED 1: dead entered after a whole-tank transfer / harvest were
+  refused ("dead + moves > fish") → validateTX wrapper: a mortality refused for stock is accepted when shrinking the
+  first emptying move on/after its day by k ≤ 20 % of that move makes the history right (daAbsorbPlan: binary search
+  with daTimelineCheck {add}; for edits daNegStock = daSimulateUnit probs "neg|"; _dataVer bumped around each try —
+  results are memoised); after daFsSave the move (and the biggest transfer_in of its txGroup) is reduced
+  (absorbedDead, absorbNote) and a toast says so. FIXED 2: AquaManager import "not in the file → empty" used to replace
+  the tank with an opening of 0, which wiped its earlier days → now an adjustment ('adj-aqm-<unit>-<day>', source
+  aqm-import) on the day BEFORE the file's date (the file is the start of its day), history kept. Tanks emptied the
+  old way before this lost their earlier days: re-import an older AquaManager file to restore them.
+  verify_modules.py now also compares each wrapper block's CONTENT (found a stale absorb block and a feed_single block
+  that kept a part of the removed daily sheet — the module was aligned to the app).
 - AUDIT 2026-11-14: all 65 suites pass. Static check (acorn over the whole script): no duplicate functions; two names
   called but never defined → `audit_fixes.js` adds getUnitLive (unit-tx page broke on open) and wqLabel (log book with a
   water entry); push used daReportError (does not exist) → daLogError. New `dev/tests/audit_crawl.py`: every view ×
@@ -570,7 +583,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-65 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+66 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

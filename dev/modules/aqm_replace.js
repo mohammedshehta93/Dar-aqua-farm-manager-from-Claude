@@ -3,17 +3,16 @@
 // ══════════════════════════════════════════════════════════
 // Importing a Site Overview updated the tanks that have fish in the file and left every other tank with its old numbers
 // (empty or harvested tanks kept fish). Now the file is the farm's picture on its date: a tank of the same farms that is
-// NOT in the file, or is in it with 0 fish, is recorded EMPTY from the file's date (an opening balance of 0, the same way
-// imported tanks get theirs — the stock engines then count 0 from that day). Shown in the preview with a tick box (on by
+// NOT in the file, or is in it with 0 fish, is recorded EMPTY from the file's date — an adjustment on that day, like
+// "close the cycle" (2026-11-14: was an opening of 0, which wiped the tank's earlier days). Shown in the preview with a tick box (on by
 // default). Farms not in the file are not touched; no tank is deleted.
-function daAqmEmptied(p){
+function daAqmEmptied(p){   // tanks of the file's farms with fish in the tool but none in the file → emptied ON the file's day (history kept)
   if(!p || !p.aqm || !p.units) return [];
   var date = (p.stats && p.stats.openDate) || daToday(), inFile = {}, farms = {};
   p.units.forEach(function(u){ inFile[u.unit] = 1; farms[u.farm] = 1; });
   (p.emptyNames || []).forEach(function(n){ farms[String(n).split('.')[0]] = 1; });
-  return RAW.filter(function(u){ return farms[u.farm] && !inFile[u.unit] && ((daStateAt(u.unit, date) || {}).fish || 0) > 0; }).map(function(u){
-    return Object.assign({}, u, {fishNo:0, avgWt:0, biomass:0, density:0, feedKg:0, mortality:0, survival:100,
-      open:{date:date, fish:0, wt:0, bio:0, feed:0, mort:0, fcr:0, gpd:0, days:0, stockBio:0, gain:null, source:'AquaManager (not in the file: empty)'}}); });
+  return RAW.filter(function(u){ return farms[u.farm] && !inFile[u.unit] && ((daStateAt(u.unit, date) || {}).fish || 0) > 0; })
+    .map(function(u){ return {unit:u.unit, fish:(daStateAt(u.unit, date) || {}).fish || 0, date:date}; });
 }
 if(!window._daAqmRepWrapped){
   window._daAqmRepWrapped = true;
@@ -35,7 +34,12 @@ if(!window._daAqmRepWrapped){
   var _runPreRep = daRunImport;
   daRunImport = async function(){
     var p = window._impParsed, on = document.getElementById('aqm-empty-on');
-    if(p && p.aqm && p.emptied && p.emptied.length && (!on || on.checked)){ var have = {}; p.units.forEach(function(u){ have[u.unit] = 1; }); p.emptied.forEach(function(u){ if(!have[u.unit]) p.units.push(u); }); }
-    return _runPreRep.apply(this, arguments);
+    var em = p && p.aqm && p.emptied && p.emptied.length && (!on || on.checked) ? p.emptied.slice() : [], od = document.getElementById('imp-opendate');
+    var r = await _runPreRep.apply(this, arguments);
+    // each such tank closes on the file's day like "close the cycle" does (an adjustment): its earlier days keep their fish
+    // the file is the farm at the START of its day, so the tank emptied during the day before (still open that day)
+    em.forEach(function(e){ var d = daAddDays(od && od.value ? od.value : e.date, -1), n = (daStateAt(e.unit, d) || {}).fish || e.fish; if(n > 0 && !getTX().some(function(t){ return t.id === 'adj-aqm-' + e.unit + '-' + d; }))
+      addTX({id:'adj-aqm-' + e.unit + '-' + d, type:'adjustment', unit:e.unit, date:d, count:n, reason:'مش في ملف الأكوامانجر — اتسجل فاضي', source:'aqm-import', _skipValidation:true}); });
+    return r;
   };
 }

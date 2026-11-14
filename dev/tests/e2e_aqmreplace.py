@@ -42,6 +42,7 @@ with sync_playwright() as p:
     check('R3 after importing today\'s file those 4 tanks are empty', after == [0, 0, 0, 0], after)
     check('R4 the other tanks still have their fish from the file', pg.evaluate(f"(daStateAt('{pg.evaluate(f'daNormUnit({chr(39)}{units[5]}{chr(39)})')}', daToday())||{{}}).fish||0") > 0)
     check('R5 the nursery (not in the file) keeps its fish', pg.evaluate("(daStateAt('F3.S01T01', daToday())||{}).fish") == 300)
+    check('R6b … and their days before the file keep their fish (history kept, closed by an adjustment)', all(v > 0 for v in pg.evaluate("(names) => names.map(n => (daStateAt(n, daAddDays(daToday(),-3))||{}).fish||0)", gone)))
     check('R6 no tank was deleted', pg.evaluate("(names) => names.every(n => RAW.some(u => u.unit === n))", gone + [zero]))
     pg.evaluate("show('site-overview')"); pg.wait_for_timeout(600)
     ov = pg.evaluate("daOverviewRows(daToday()).map(r=>r.unit)")
