@@ -18,7 +18,7 @@ def t(pg, js):
 with sync_playwright() as p:
     BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
     sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin')
-    ctx, pg = new_page(p, sb); login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=20000)
+    ctx, pg = new_page(p, sb); pg.route('**/rest/v1/maintenance_requests*', lambda r: r.fulfill(status=200, body='[]', headers={'Content-Type': 'application/json'})); login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=20000)
     n = pg.evaluate(GEN, [u[0] for u in U]); pg.evaluate("_dataVer++")
     print('records:', n)
     pg.wait_for_timeout(1500)
@@ -29,10 +29,13 @@ with sync_playwright() as p:
     if os.environ.get('PHONE'):
         cdp = ctx.new_cdp_session(pg); cdp.send('Emulation.setCPUThrottlingRate', {'rate': 4})
     res = {'open the app (reload → first page)': boot}
+    pg.evaluate("localStorage.setItem(DA_FEATURES_KEY, JSON.stringify({maint:true,purchases:true,stock:true}))")
+    res['work-order sweep + bell (every 10 s)'] = t(pg, "daWoSweep(); daWoBell()")
     res['_txLiveRows (cold)'] = t(pg, "_dataVer++; _txLiveRows()")
     res['_txLiveRows (again)'] = t(pg, "_txLiveRows()")
     for v, setup in [('dashboard', ''), ('feed-sheet', "window._fs={farm:'F2'}"), ('wq-sheet', "window._wqs={farm:'F2'}"), ('tx-sampling', "window._sp={farm:'F2'}"),
-                     ('site-overview', ''), ('daily-overview', ''), ('alarms', ''), ('fcr-stage', ''), ('twin', ''), ('farm-plan', ''), ('tx-harvesting', ''), ('unit-cycles', '')]:
+                     ('site-overview', ''), ('daily-overview', ''), ('alarms', ''), ('fcr-stage', ''), ('twin', ''), ('farm-plan', ''), ('tx-harvesting', ''), ('unit-cycles', ''),
+                     ('entry-status', ''), ('work-orders', ''), ('wo-mine', ''), ('maint', ''), ('purchases', ''), ('stock', "window._sc={tab:'bal'}")]:
         res[v] = t(pg, f"{setup}; show('{v}', true)")
     res['save feed sheet (F2, 108 tanks)'] = t(pg, "window._fs={farm:'F2'}; show('feed-sheet',true); window._fs.rows.forEach(r=>{ const e=document.getElementById('fs-'+r.i+'-m0'); if(e && !e.disabled) e.value='3'; }); daFsSave()")
     print(json.dumps(res, indent=1, ensure_ascii=False))

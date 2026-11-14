@@ -1,0 +1,18 @@
+import os, sys, time; os.environ['E2E_PORT'] = '8892'; sys.path.insert(0, 'dev/tests')
+src = open('dev/tests/perf_year.py').read(); exec(src.split("def t(pg, js):")[0].replace("os.environ['E2E_PORT'] = '8842'", ""))
+with sync_playwright() as p:
+    BROWSER = p.chromium.launch(); harness_browser[0] = BROWSER
+    sb = MockSB(); sb.add_user('admin@example.com', 'admin123', role='admin', uid='u-admin')
+    ctx, pg = new_page(p, sb); pg.route('**/rest/v1/maintenance_requests*', lambda r: r.fulfill(status=200, body='[]', headers={'Content-Type': 'application/json'}))
+    login(pg, 'admin@example.com', 'admin123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=20000)
+    n = pg.evaluate(GEN, [u[0] for u in U]); pg.wait_for_timeout(2000)
+    # make the cloud hold the same year (as on a real phone: the data is already in the cloud)
+    pg.evaluate("(async () => { if(typeof daTxFlushAll==='function') await daTxFlushAll(); })()"); pg.wait_for_timeout(500)
+    print('records', n, '| cloud tx rows in mock:', len(getattr(sb, 'tx', {}) or {}))
+    cdp = ctx.new_cdp_session(pg); cdp.send('Emulation.setCPUThrottlingRate', {'rate': 4})
+    t0 = time.time(); pg.reload()
+    pg.wait_for_function('() => document.querySelector("#content") && document.querySelector("#content").children.length > 0 && typeof currentView !== "undefined"', timeout=120000); t1 = time.time()
+    cdp = ctx.new_cdp_session(pg); cdp.send('Emulation.setCPUThrottlingRate', {'rate': 4})
+    pg.wait_for_function('() => !!window._cloudSyncDone', timeout=120000); t2 = time.time()
+    print('first page on screen:', int((t1 - t0) * 1000), 'ms | cloud sync done:', int((t2 - t0) * 1000), 'ms')
+    print('queue / pending uploads:', pg.evaluate("(typeof _txQueue!=='undefined' && _txQueue.length) || (typeof daTxQueueLen==='function' && daTxQueueLen()) || 'n/a'"))

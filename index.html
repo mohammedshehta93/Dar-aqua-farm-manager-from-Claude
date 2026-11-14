@@ -15164,6 +15164,8 @@ var DA_EN_RULES = [
   [/التانك يومها فيه ([\d,]+) سمكة بس — مينفعش تحصد ([\d,]+)/g, 'The tank had only $1 fish that day — cannot harvest $2'],
   [/فيه أرقام اتكتبت ومتحفظتش في الشيت ده\. تغيّر (.+?)؟/g, 'Numbers typed in this sheet are not saved. Change $1?'], [/فيه قرايات اتكتبت ومتحفظتش\. تغيّر (.+?)؟/g, 'Readings typed are not saved. Change $1?']];
 var DA_EN = [
+  ['يبلّغ عن أعطال','Report faults'], ['يصلّح الأعطال (فني صيانة)','Fix faults (technician)'], ['يطلب شرا','Request purchases'], ['يعتمد طلبات الشرا','Approve purchases'], ['يسجل جرد المخزن','Stock count'],
+  ['كربونات الكالسيوم CaCO₃','Calcium carbonate CaCO₃'], ['بيكربونات الصوديوم NaHCO₃','Sodium bicarbonate NaHCO₃'], ['كيس','bag'], ['جركن','jerrycan'], ['لتر','L'], ['علبة','box'],
   ['📌 ثبّت الأحجام دي','📌 Pin these sizes'], ['حجم السكشن:','Section size:'], ['📌 الحجم الثابت','📌 Pinned size'],
   ['نفس ترتيب الشيت الورق — الكميات بالكيلو لكل وجبة، والأداة بتجمعها', 'Same order as the paper sheet — amounts in kg per meal; the app adds them up'],
   ['الحجم بيتكتب في كل سطر (1 أو 2 أو 3)، والشركة بتتاخد من هنا. الأصناف من مخزون العلف.', 'Write the size on every line (1, 2 or 3).'],
@@ -16025,6 +16027,10 @@ var DA_UR_RULES = [
   [/Available that day: ([\d,]+) fish · (\d+) g/g, 'اس دن موجود: $1 مچھلی · $2 گرام'], [/^(\d+) records$/g, '$1 ریکارڈ'],
   [/Numbers typed in this sheet are not saved\. Change (.+?)\?/g, 'اس شیٹ میں لکھے نمبر محفوظ نہیں۔ $1 بدلیں؟'], [/Readings typed are not saved\. Change (.+?)\?/g, 'لکھی گئی ریڈنگ محفوظ نہیں۔ $1 بدلیں؟']];
 var DA_UR = {
+  'Report faults':'خرابی کی اطلاع', 'Fix faults (technician)':'خرابی ٹھیک کرنا (ٹیکنیشن)', 'Request purchases':'خریداری کی درخواست', 'Approve purchases':'خریداری کی منظوری', 'Stock count':'اسٹاک گنتی',
+  'Calcium carbonate CaCO₃':'کیلشیم کاربونیٹ CaCO₃', 'Sodium bicarbonate NaHCO₃':'سوڈیم بائی کاربونیٹ NaHCO₃', 'bag':'بوری', 'jerrycan':'کین', 'box':'ڈبہ',
+  '🔐 Change password':'🔐 پاس ورڈ بدلیں', 'Change password':'پاس ورڈ بدلیں', 'New password':'نیا پاس ورڈ', 'Confirm password':'پاس ورڈ کی تصدیق', '✅ Password changed':'✅ پاس ورڈ بدل گیا',
+  '⚠️ The passwords do not match':'⚠️ پاس ورڈ ایک جیسے نہیں', '⚠️ Password: at least 6 characters':'⚠️ پاس ورڈ: کم از کم 6 حروف', 'Site':'جگہ',
   'Same order as the paper sheet — amounts in kg per meal; the app adds them up':'کاغذ والی شیٹ کی ترتیب — ہر کھانے کی مقدار کلو میں؛ ایپ خود جمع کرتی ہے',
   'Write the size on every line (1, 2 or 3).':'ہر لائن پر سائز لکھیں (1، 2 یا 3)۔',
   '= not fed this meal (or ✕ at the end of the line for the whole day) · dead written like on paper':'= اس کھانے میں خوراک نہیں دی (پورے دن کے لیے لائن کے آخر میں ✕) · مردہ مچھلیاں کاغذ کی طرح لکھیں',
@@ -16666,7 +16672,7 @@ async function daPushEnable(){   // each step says what failed, so a setup probl
     await daPushSaveLang(); toast(T.ok); daPushCard(); return true;
   }catch(e){
     var m = String((e && e.message) || e), why = step === 'save' && /push_subs|relation|42P01|404|PGRST2/i.test(m) ? T.nosql : step === 'save' && /401|403|42501|row-level/i.test(m) ? T.rls : step === 'subscribe' ? T.nosub : '';
-    toast((why || T.fail) + ' [' + step + ']'); window._daPushErr = step + ': ' + m; try{ daReportError && daReportError('push-enable ' + step, e); }catch(x){} return false; }
+    toast((why || T.fail) + ' [' + step + ']'); window._daPushErr = step + ': ' + m; try{ if(typeof daLogError === 'function') daLogError(e, {where:'push-enable ' + step}); }catch(x){} return false; }
 }
 async function daPushResync(){   // a phone subscribed earlier (e.g. before the table existed) is saved again — quietly
   try{ if(!daPushSupported() || Notification.permission !== 'granted' || !currentUser || !SB_FARM_ID) return false;
@@ -17065,6 +17071,8 @@ var DA_SC_T = {
   ur:{head:'📦 اسٹاک گنتی', count:'📦 گنتی', bal:'📊 بیلنس', items:'⚙️ اشیاء', site:'جگہ', date:'دن', item:'چیز', last:'پچھلی گنتی', qty:'موجود', save:'💾 گنتی محفوظ کریں', saved:'✅ گنتی محفوظ ہو گئی',
     none:'ابھی کوئی چیز نہیں — مینیجر ⚙️ اشیاء میں ڈالے گا', due:'📦 آج گنتی کا دن ہے — اسٹور میں جو ہے لکھیں', done:'✅ اس ہفتے کی گنتی محفوظ ہے', need:'⚠️ کم از کم ایک چیز کی مقدار لکھیں', low:'ختم ہونے والا', ok:'ٹھیک', use:'خرچ/ہفتہ', left:'چلے گا', days:'دن', order:'🛒 منگوائیں', feed:'فیڈ', chem:'کیمیکل', other:'دیگر'}};
 function daScT(){ var l = typeof daLangNow === 'function' ? daLangNow() : (isAr ? 'ar' : 'en'); return DA_SC_T[l] || DA_SC_T.ar; }
+var DA_SC_UNITS = {'كيس':['bag', 'بوری'], 'كجم':['kg', 'کلو'], 'جركن':['jerrycan', 'کین'], 'لتر':['L', 'لیٹر'], 'علبة':['box', 'ڈبہ']};
+function daScUnit(u){ var l = typeof daLangNow === 'function' ? daLangNow() : (isAr ? 'ar' : 'en'), m = DA_SC_UNITS[u]; return m && l !== 'ar' ? m[l === 'ur' ? 1 : 0] : u; }
 function daScCfg(){ var c = {}; try{ c = JSON.parse(localStorage.getItem(DA_STOCK_KEY) || '{}') || {}; }catch(e){}
   if(c.day === undefined) c.day = 4; if(!c.time) c.time = '14:00';
   if(!Array.isArray(c.items)){ var feeds = (typeof daAqxCfg === 'function' && (daAqxCfg().feeds || []).length) ? daAqxCfg().feeds : ['Maram 40% cp 1mm', 'Maram 36% cp 2mm', 'Maram 36% cp 3mm'];
@@ -17098,11 +17106,11 @@ function renderStock(){
   if(daScDue()) h += '<div class="card" style="margin-bottom:12px;background:#fef9c3;border:2px solid #eab308;font-weight:800">' + T.due + '</div>';
   h += '<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"><div class="field" style="margin:0"><label>' + T.site + '</label><select id="sc-site" style="' + inp + '" onchange="window._sc.site=this.value;window._sc.q={};window._sc.loaded=null;show(&quot;stock&quot;,true)">' + sites.map(function(x){ return '<option value="' + daEsc(x) + '"' + (st.site === x ? ' selected' : '') + '>' + daEsc(x) + '</option>'; }).join('') + '</select></div>'
     + '<div class="field" style="margin:0"><label>' + T.date + '</label><input type="date" id="sc-date" data-nodirty="1" value="' + st.date + '" max="' + daToday() + '" style="' + inp + '" onchange="window._sc.date=this.value;window._sc.q={};window._sc.loaded=null;show(&quot;stock&quot;,true)"/></div></div>'
-    + '<table style="border-collapse:collapse;width:100%;font-size:15px"><tr style="background:#f1f5f9"><th style="padding:8px;text-align:start">' + T.item + '</th><th style="padding:8px">' + T.last + '</th><th style="padding:8px">' + T.qty + '</th></tr>'
-    + c.items.map(function(it){ var b = B[it.id] || {}; return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px"><b>' + daEsc(it.name) + '</b><div style="font-size:11px;color:var(--muted)">' + (T[it.cat] || '') + (b.low ? ' · <span style="color:#b91c1c;font-weight:800">⚠️ ' + T.low + '</span>' : '') + '</div></td>'
-      + '<td style="padding:8px;text-align:center;color:var(--muted);font-size:13px">' + (b.last ? b.last.q + ' ' + daEsc(it.unit) + '<div style="font-size:11px">' + daEsc(b.last.date) + '</div>' : '—') + '</td>'
-      + '<td style="padding:8px;text-align:center;white-space:nowrap"><input class="sc-q" data-id="' + daEsc(it.id) + '" type="number" inputmode="decimal" step="any" min="0" value="' + daEsc(st.q[it.id] !== undefined ? String(st.q[it.id]) : '') + '" style="' + inp + ';width:90px;text-align:center" oninput="window._sc.q[this.dataset.id]=this.value"/> <span style="font-size:13px;color:var(--muted)">' + daEsc(it.unit) + '</span></td></tr>'; }).join('')
-    + '</table><button id="sc-save" class="savebtn" style="width:auto;padding:12px 26px;margin-top:12px;font-size:16px" onclick="daScSave()">' + T.save + '</button></div>';
+    + '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:15px"><tr style="background:#f1f5f9"><th style="padding:6px;text-align:start">' + T.item + '</th><th style="padding:6px">' + T.last + '</th><th style="padding:6px">' + T.qty + '</th></tr>'
+    + c.items.map(function(it){ var b = B[it.id] || {}; return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px;word-break:break-word"><b>' + daEsc(it.name) + '</b><div style="font-size:11px;color:var(--muted)">' + (T[it.cat] || '') + (b.low ? ' · <span style="color:#b91c1c;font-weight:800">⚠️ ' + T.low + '</span>' : '') + '</div></td>'
+      + '<td style="padding:6px;text-align:center;color:var(--muted);font-size:13px">' + (b.last ? b.last.q + ' ' + daEsc(daScUnit(it.unit)) + '<div style="font-size:11px">' + daEsc(b.last.date) + '</div>' : '—') + '</td>'
+      + '<td style="padding:6px;text-align:center"><input class="sc-q" data-id="' + daEsc(it.id) + '" type="number" inputmode="decimal" step="any" min="0" value="' + daEsc(st.q[it.id] !== undefined ? String(st.q[it.id]) : '') + '" style="' + inp + ';width:72px;text-align:center;padding:9px 4px" oninput="window._sc.q[this.dataset.id]=this.value"/><div style="font-size:12px;color:var(--muted)">' + daEsc(daScUnit(it.unit)) + '</div></td></tr>'; }).join('')
+    + '</table></div><button id="sc-save" class="savebtn" style="width:auto;padding:12px 26px;margin-top:12px;font-size:16px" onclick="daScSave()">' + T.save + '</button></div>';
   return h;
 }
 function daScSave(){
@@ -17119,8 +17127,8 @@ function daScBalHtml(T, sites){
   return sites.map(function(site){ var B = daScBalance(site), ks = Object.keys(B); if(!ks.some(function(k){ return B[k].last; })) return '';
     return '<div class="card sc-bal" data-site="' + daEsc(site) + '" style="margin-bottom:12px"><div class="card-title">' + daEsc(site) + '</div><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="background:#f1f5f9"><th style="padding:6px;text-align:start">' + T.item + '</th><th>' + T.qty + '</th><th>' + T.use + '</th><th>' + T.left + '</th><th></th></tr>'
       + ks.map(function(k){ var b = B[k], it = b.item; if(!b.last) return '';
-        return '<tr style="background:' + (b.low ? '#fee2e2' : '') + '"><td style="padding:6px"><b>' + daEsc(it.name) + '</b>' + (it.min ? '<div style="font-size:11px;color:var(--muted)">min ' + it.min + '</div>' : '') + '</td><td style="text-align:center">' + b.last.q + ' ' + daEsc(it.unit) + '<div style="font-size:11px;color:var(--muted)">' + daEsc(b.last.date) + '</div></td>'
-          + '<td style="text-align:center">' + (b.use !== null ? b.use.toFixed(1) + ' ' + daEsc(it.unit) : '—') + '</td><td style="text-align:center;font-weight:800;color:' + (b.low ? '#b91c1c' : 'var(--green)') + '">' + (b.left !== null ? Math.floor(b.left) + ' ' + T.days : (b.low ? '⚠️' : '—')) + '</td>'
+        return '<tr style="background:' + (b.low ? '#fee2e2' : '') + '"><td style="padding:6px"><b>' + daEsc(it.name) + '</b>' + (it.min ? '<div style="font-size:11px;color:var(--muted)">min ' + it.min + '</div>' : '') + '</td><td style="text-align:center">' + b.last.q + ' ' + daEsc(daScUnit(it.unit)) + '<div style="font-size:11px;color:var(--muted)">' + daEsc(b.last.date) + '</div></td>'
+          + '<td style="text-align:center">' + (b.use !== null ? b.use.toFixed(1) + ' ' + daEsc(daScUnit(it.unit)) : '—') + '</td><td style="text-align:center;font-weight:800;color:' + (b.low ? '#b91c1c' : 'var(--green)') + '">' + (b.left !== null ? Math.floor(b.left) + ' ' + T.days : (b.low ? '⚠️' : '—')) + '</td>'
           + '<td>' + (b.low && canBuy ? '<button class="sc-order" onclick="daScOrder(&quot;' + daEsc(site) + '&quot;,&quot;' + daEsc(k) + '&quot;)" style="padding:6px 12px;border:2px solid #f59e0b;background:#fff;color:#b45309;border-radius:8px;font:inherit;font-weight:800;cursor:pointer">' + T.order + '</button>' : '') + '</td></tr>'; }).join('') + '</table></div>'; }).join('') || '<div class="card" style="text-align:center;padding:24px;color:var(--muted)">—</div>';
 }
 function daScOrder(site, id){   // a purchase request for an item running low: enough for about two weeks (or twice the minimum)
@@ -17163,6 +17171,21 @@ if(!window._daScWrapped){
   show = function(v){ var r = _showPreSc.apply(this, arguments);
     try{ var bar = document.getElementById('da-wbar'); if(bar && currentUserRole === 'worker'){ var o = document.getElementById('wb-stock'); if(o) o.remove(); if(canAccessView('stock')){ var rf = bar.querySelector('#wo-bell') || bar.querySelector('.rf'); if(rf) rf.insertAdjacentHTML('beforebegin', '<button id="wb-stock" data-v="stock" onclick="show(&quot;stock&quot;)" class="' + (currentView === 'stock' ? 'on' : '') + '">📦</button>'); } } }catch(e){}
     return r; };
+}
+
+// ══════════════════════════════════════════════════════════
+//  AUDIT FIXES (2026-11-14) — names called but never defined
+// ══════════════════════════════════════════════════════════
+// Found by a static check of the whole script: "unit transactions" (unit-tx, in the menu) called getUnitLive and broke
+// on open; the log book called wqLabel for water entries (would break as soon as one exists).
+function getUnitLive(uid){   // the tank today, in the shape the old pages expect
+  var s = (typeof daStateAt === 'function' ? daStateAt(uid, daToday()) : null) || {}, fish = s.fish || 0, wt = s.wt || 0;
+  return {unit:uid, fishNo:fish, avgWt:wt, biomass:fish * wt / 1000};
+}
+function wqLabel(kind, v){ var x = parseFloat(v); if(isNaN(x)) return '—'; return String(+x.toFixed(kind === 'ph' || kind === 'amm' ? 2 : 1)); }
+if(!window._daAuditFixWrapped){   // the audit log names the newer record kinds instead of showing their code names
+  window._daAuditFixWrapped = true;
+  if(typeof DA_TYPE !== 'undefined') Object.assign(DA_TYPE, {work_order:'📋 أمر شغل', routine:'📅 روتين', feed_day:'🌾 العلف اليومي', purchase:'🛒 طلب شرا', stock_count:'📦 جرد المخزن', adjustment:'⚖️ تسوية'});
 }
 
 // ── Init ──────────────────────────────────────

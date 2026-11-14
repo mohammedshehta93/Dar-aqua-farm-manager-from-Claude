@@ -147,6 +147,16 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- AUDIT 2026-11-14: all 65 suites pass. Static check (acorn over the whole script): no duplicate functions; two names
+  called but never defined → `audit_fixes.js` adds getUnitLive (unit-tx page broke on open) and wqLabel (log book with a
+  water entry); push used daReportError (does not exist) → daLogError. New `dev/tests/audit_crawl.py`: every view ×
+  admin(ar,en) / engineer / worker(ar,en,ur) / technician(ur) with all add-ons on — 266 openings, 0 errors, 0 broken,
+  0 sideways overflow (fixed: stock count table on phones). Worker pages in en/ur: no leftovers (added DA_EN/DA_UR for
+  the new permission names, CaCO₃ / NaHCO₃, password change, "Site"; units on the count page via daScUnit). Audit log
+  names the new record kinds (DA_TYPE). Phone speed, a year of data (70 776 records, 4× CPU): first page 2.1 s; new
+  pages 50–410 ms; twin 2.2 s, site overview 1.1 s, save feed sheet (108 tanks) 1.3 s; "cloud sync done" 25 s in the
+  benchmark is only the test uploading its locally generated year (same on a 2-week-old version). No secrets in the
+  repo or its history; the app holds only the publishable Supabase key.
 - WEEKLY STOCK COUNT (owner 2026-11-13; module `stock_count.js`, test `e2e_stock`): add-on "stock" (🧩 row added to
   daFeatCard). Synced DA_STOCK_KEY 'daracqua_settings_v2_stock' {day (default 4 = Thursday), time '14:00', items
   [{id,name,unit,cat feed|chem|other,min}]} — defaults: the AquaManager feed names (or Maram 1/2/3 mm) + CaCO₃ +

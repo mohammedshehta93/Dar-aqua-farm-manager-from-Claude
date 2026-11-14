@@ -21,6 +21,10 @@ var DA_UR_RULES = [
   [/Available that day: ([\d,]+) fish · (\d+) g/g, 'اس دن موجود: $1 مچھلی · $2 گرام'], [/^(\d+) records$/g, '$1 ریکارڈ'],
   [/Numbers typed in this sheet are not saved\. Change (.+?)\?/g, 'اس شیٹ میں لکھے نمبر محفوظ نہیں۔ $1 بدلیں؟'], [/Readings typed are not saved\. Change (.+?)\?/g, 'لکھی گئی ریڈنگ محفوظ نہیں۔ $1 بدلیں؟']];
 var DA_UR = {
+  'Report faults':'خرابی کی اطلاع', 'Fix faults (technician)':'خرابی ٹھیک کرنا (ٹیکنیشن)', 'Request purchases':'خریداری کی درخواست', 'Approve purchases':'خریداری کی منظوری', 'Stock count':'اسٹاک گنتی',
+  'Calcium carbonate CaCO₃':'کیلشیم کاربونیٹ CaCO₃', 'Sodium bicarbonate NaHCO₃':'سوڈیم بائی کاربونیٹ NaHCO₃', 'bag':'بوری', 'jerrycan':'کین', 'box':'ڈبہ',
+  '🔐 Change password':'🔐 پاس ورڈ بدلیں', 'Change password':'پاس ورڈ بدلیں', 'New password':'نیا پاس ورڈ', 'Confirm password':'پاس ورڈ کی تصدیق', '✅ Password changed':'✅ پاس ورڈ بدل گیا',
+  '⚠️ The passwords do not match':'⚠️ پاس ورڈ ایک جیسے نہیں', '⚠️ Password: at least 6 characters':'⚠️ پاس ورڈ: کم از کم 6 حروف', 'Site':'جگہ',
   'Same order as the paper sheet — amounts in kg per meal; the app adds them up':'کاغذ والی شیٹ کی ترتیب — ہر کھانے کی مقدار کلو میں؛ ایپ خود جمع کرتی ہے',
   'Write the size on every line (1, 2 or 3).':'ہر لائن پر سائز لکھیں (1، 2 یا 3)۔',
   '= not fed this meal (or ✕ at the end of the line for the whole day) · dead written like on paper':'= اس کھانے میں خوراک نہیں دی (پورے دن کے لیے لائن کے آخر میں ✕) · مردہ مچھلیاں کاغذ کی طرح لکھیں',

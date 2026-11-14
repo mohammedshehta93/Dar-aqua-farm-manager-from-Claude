@@ -32,7 +32,7 @@ async function daPushEnable(){   // each step says what failed, so a setup probl
     await daPushSaveLang(); toast(T.ok); daPushCard(); return true;
   }catch(e){
     var m = String((e && e.message) || e), why = step === 'save' && /push_subs|relation|42P01|404|PGRST2/i.test(m) ? T.nosql : step === 'save' && /401|403|42501|row-level/i.test(m) ? T.rls : step === 'subscribe' ? T.nosub : '';
-    toast((why || T.fail) + ' [' + step + ']'); window._daPushErr = step + ': ' + m; try{ daReportError && daReportError('push-enable ' + step, e); }catch(x){} return false; }
+    toast((why || T.fail) + ' [' + step + ']'); window._daPushErr = step + ': ' + m; try{ if(typeof daLogError === 'function') daLogError(e, {where:'push-enable ' + step}); }catch(x){} return false; }
 }
 async function daPushSaveSub(sub){   // keep this phone's subscription in Supabase (upsert: sites and language stay current)
   var h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))).map(function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
