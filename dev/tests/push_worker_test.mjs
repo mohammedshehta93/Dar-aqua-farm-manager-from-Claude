@@ -42,3 +42,25 @@ console.log('audience user → that person only:', log.pushed.join(',') === 'b',
 log.pushed = []; r = await (await W.fetch(req('/notify', { audience: 'perm', perm: 'fix_maint' }), env)).json();
 console.log('audience perm fix_maint → only the technician (w2):', log.pushed.join(',') === 'b', r);
 r = await W.fetch(new Request('https://x/notify', { method: 'POST', headers: { Origin: 'https://evil.example' } }), env); console.log('other sites refused:', r.status === 403);
+
+// ── automatic "please record" reminders at the set time ──
+{ const now2 = new Date(Date.now() + 180 * 60000), today = now2.toISOString().slice(0,10), yest = new Date(now2.getTime() - 864e5).toISOString().slice(0,10);
+  const hm2 = n => { const m = now2.getUTCHours() * 60 + now2.getUTCMinutes() - n; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+  const inserted = [], pushed = [];
+  const rows = []; for (let i = 1; i <= 14; i++) rows.push({ unit: 'F2.S01T' + String(i).padStart(2, '0'), type: 'feeding', date: yest, data: {} });
+  for (let i = 1; i <= 9; i++) rows.push({ unit: 'F2.S01T' + String(i).padStart(2, '0'), type: 'feeding', date: today, data: {} });
+  for (let i = 1; i <= 3; i++) rows.push({ unit: 'F1.S01T0' + i, type: 'feeding', date: yest, data: {} }, { unit: 'F1.S01T0' + i, type: 'feeding', date: today, data: {} });
+  rows.push({ unit: 'F2.S01', type: 'water_quality', date: yest, data: { scope: 'section' } }, { unit: 'F2.S01', type: 'water_quality', date: today, data: { scope: 'section' } });
+  globalThis.fetch = async (url, o = {}) => { url = String(url);
+    if (url.includes('/rest/v1/farm_settings')) return new Response(JSON.stringify([{ farm_id: 'farm-1', data: { daracqua_settings_v2_remind: JSON.stringify({ on: true, time: hm2(3) }) } }]));
+    if (url.includes('/rest/v1/farm_units')) return new Response('[]');
+    if (url.includes('/rest/v1/transactions') && o.method === 'POST') { inserted.push(JSON.parse(o.body)[0]); return new Response(null, { status: 201 }); }
+    if (url.includes('/rest/v1/transactions')) return new Response(JSON.stringify(rows));
+    if (url.includes('/rest/v1/profiles')) return new Response(JSON.stringify([{ id: 'w1', role: 'worker', perms: ['input_feeding', 'farm:F2'] }, { id: 'w2', role: 'worker', perms: ['input_wq'] }]));
+    if (url.includes('/rest/v1/push_subs')) return new Response(JSON.stringify([{ id: 'a', endpoint: 'https://push.example/a', user_id: 'w1', sites: ['F2'] }, { id: 'b', endpoint: 'https://push.example/b', user_id: 'w2', sites: ['F2'] }]));
+    if (url.startsWith('https://push.example/')) { pushed.push(url.split('/').pop()); return new Response('', { status: 201 }); }
+    return new Response('[]'); };
+  const p2 = []; await W.scheduled({}, env, { waitUntil: x => p2.push(x) }); await Promise.all(p2);
+  console.log('16:30 reminder → only F2 feed (9 of 14) is missing; F1 complete, readings complete:', inserted.length === 1 && inserted[0].id === 'rm-auto-F2-' + today + '-feed' && inserted[0].data.text.startsWith('5'), inserted.map(x => x.id));
+  console.log('  … notified only the F2 feed worker (w1):', pushed.join(',') === 'a', pushed);
+}

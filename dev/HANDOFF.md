@@ -147,6 +147,17 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- "PLEASE RECORD THIS DAY" REMINDERS (owner 2026-11-18; module `reminders.js`, test `e2e_remind`, Worker test in
+  push_worker_test.mjs). A reminder = work_order kind "remind" {what feed|wq, farm, date = the day to record, targets
+  uids|null, targetNames, auto?}. Manual (supervisors, daWoCanIssue): "📨 ذكّره" next to missing feed / readings on the
+  entry status board → panel of the site's active workers with that permission (profiles, farm:<site> or none) to
+  untick + a note → push audience "users" {uids}. Workers: daWoMine hides targeted reminders from others; wo-mine card
+  gets "📋 افتح الشيت" (feed-sheet / wq-sheet on that farm and date); daWoSweep closes it when daEsFarm says the day is
+  complete. Board shows "📨 اتبعت لـ … HH:MM" / "⏰ تلقائي" and "✅ اتسجل HH:MM". AUTOMATIC: synced DA_REMIND_KEY
+  'daracqua_settings_v2_remind' {on (default true), time (default 16:30), feed, wq} (admin card #rm-cfg on the board);
+  farm-push cron entryReminders(): at the time, per site, distinct tanks fed (feed) / sections read (wq) TODAY fewer
+  than YESTERDAY (farm_units give a unit's site, else its prefix) → inserts transactions row id rm-auto-<site>-<day>-
+  <what> (ignore-duplicates; clients pull it) and notifies the site's workers holding input_feeding / input_wq.
 - COUNT SURPLUS (owner 2026-11-14; module `count_gain.js`, test `e2e_gain`): a transfer / harvest of MORE fish than the
   tool holds was refused in daRegSave ("had only 1,589 — cannot transfer 1,850"). A daRegSave wrapper catches that
   alert (Arabic text, before the language layer), asks (3 languages), records the surplus as {type:'transfer_in',
@@ -593,7 +604,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-67 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+68 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

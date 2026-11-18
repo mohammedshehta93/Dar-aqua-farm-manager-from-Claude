@@ -10,7 +10,7 @@ const ALLOWED_ORIGINS = ['https://mohammedshehta93.github.io'];
 const SUPABASE_URL = 'https://mjtxibdxqxrgykuyftsr.supabase.co';
 const SUPABASE_PUBLIC_KEY = 'sb_publishable_ewZ1G10CJIIUcZHYaEd22w_ud573IW3'; // public by design
 const ROUTINE_KEY = 'daracqua_plan_v1_routine';
-const STOCK_KEY = 'daracqua_settings_v2_stock', FEATURES_KEY = 'daracqua_settings_v2_features';
+const STOCK_KEY = 'daracqua_settings_v2_stock', FEATURES_KEY = 'daracqua_settings_v2_features', REMIND_KEY = 'daracqua_settings_v2_remind';
 const TZ_MINUTES = 180; // Bahrain = UTC+3
 
 export default {
@@ -49,6 +49,7 @@ export default {
         allowed = ps.filter(p => p.role === 'admin' || (Array.isArray(p.perms) ? p.perms : String(p.perms || '').split(/[,{}" ]+/)).indexOf(perm) >= 0).map(p => p.id); }
       const subs = all.filter(s => s.user_id !== user.id && (
         aud === 'user' ? s.user_id === body.uid :
+        aud === 'users' ? (body.uids || []).indexOf(s.user_id) >= 0 :
         aud === 'perm' ? allowed.indexOf(s.user_id) >= 0 && siteOk(s) :
         aud === 'supervisors' ? ['admin', 'manager', 'engineer'].indexOf(s.role) >= 0 && siteOk(s) :
         s.role === 'worker' && siteOk(s)));
@@ -56,7 +57,7 @@ export default {
     }
     return reply({ error: 'unknown path' }, 404, cors);
   },
-  async scheduled(event, env, ctx) { ctx.waitUntil(routineReminders(env)); }
+  async scheduled(event, env, ctx) { ctx.waitUntil(Promise.all([routineReminders(env), entryReminders(env)])); }
 };
 
 async function routineReminders(env) {   // items whose time fell in the last 10 minutes, today's weekday, per site
@@ -82,6 +83,42 @@ async function routineReminders(env) {   // items whose time fell in the last 10
         const subs = (await db(env, 'push_subs?farm_id=eq.' + f.farm_id + '&select=id,endpoint,user_id')).filter(x => ids.indexOf(x.user_id) >= 0);
         await sendAll(env, subs);
       } }
+  }
+}
+
+// "please record this day": at the set time (default 16:30), a site whose feed (tanks) or readings (sections) today are
+// fewer than yesterday gets a reminder order (seen in the app's 🔔, closes itself when complete) + a notification to
+// that site's workers allowed to record it.
+async function entryReminders(env) {
+  const now = new Date(Date.now() + TZ_MINUTES * 60000), mins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const day = d => new Date(d.getTime()).toISOString().slice(0, 10), today = day(now), yest = day(new Date(now.getTime() - 864e5));
+  const farms = await db(env, 'farm_settings?select=farm_id,data');
+  for (const f of farms) {
+    let c = {}; try { c = JSON.parse((f.data || {})[REMIND_KEY] || '{}') || {}; } catch (e) {}
+    if (c.on === false) continue; const t = (c.time || '16:30').split(':'), m = +t[0] * 60 + +t[1];
+    if (!(m <= mins && m > mins - 10)) continue;
+    const units = {}; (await db(env, 'farm_units?farm_id=eq.' + f.farm_id + '&select=unit,data')).forEach(u => { units[u.unit] = (u.data || {}).farm; });
+    const site = u => units[u] || String(u || '').split('.')[0];
+    const rows = await db(env, 'transactions?farm_id=eq.' + f.farm_id + '&date=in.(' + yest + ',' + today + ')&type=in.(feeding,water_quality)&select=unit,type,date,data');
+    const cnt = {}; rows.forEach(r => { if ((r.data || {}).deleted) return; const what = r.type === 'feeding' ? 'feed' : 'wq';
+      if (what === 'wq' && (r.data || {}).scope !== 'section') return;
+      const k = site(r.unit) + '|' + what + '|' + r.date; (cnt[k] = cnt[k] || {})[r.unit] = 1; });
+    const sites = {}; Object.keys(cnt).forEach(k => { sites[k.split('|')[0]] = 1; });
+    let ps = null;
+    for (const st of Object.keys(sites)) for (const what of ['feed', 'wq']) {
+      if (c[what] === false) continue;
+      const y = Object.keys(cnt[st + '|' + what + '|' + yest] || {}).length, n = Object.keys(cnt[st + '|' + what + '|' + today] || {}).length;
+      if (!(y > 0 && n < y)) continue;
+      const id = 'rm-auto-' + st + '-' + today + '-' + what, ts = new Date().toISOString();
+      const data = { id: id, type: 'work_order', date: today, unit: '', farm: st, kind: 'remind', what: what, tanks: [], text: (y - n) + (what === 'feed' ? ' تانك' : ' سكشن') + ' ناقصين', status: 'open', auto: true, byName: '⏰', issued: today, ts: ts };
+      await fetch(SUPABASE_URL + '/rest/v1/transactions', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates' }, svc(env)),
+        body: JSON.stringify([{ id: id, farm_id: f.farm_id, type: 'work_order', date: today, unit: '', data: data, ts: ts }]) });
+      ps = ps || await db(env, 'profiles?farm_id=eq.' + f.farm_id + '&select=id,role,perms');
+      const perm = what === 'wq' ? 'input_wq' : 'input_feeding';
+      const ids = ps.filter(p => p.role === 'worker' && (Array.isArray(p.perms) ? p.perms : String(p.perms || '').split(/[,{}" ]+/)).indexOf(perm) >= 0).map(p => p.id);
+      const subs = (await db(env, 'push_subs?farm_id=eq.' + f.farm_id + '&select=id,endpoint,user_id,sites')).filter(x => ids.indexOf(x.user_id) >= 0 && (!x.sites || !x.sites.length || x.sites.indexOf(st) >= 0));
+      await sendAll(env, subs);
+    }
   }
 }
 
