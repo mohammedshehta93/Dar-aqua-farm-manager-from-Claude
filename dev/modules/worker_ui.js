@@ -21,7 +21,7 @@ function daWorkerBar(){
   var b = document.getElementById('da-wbar'); if(!b){ b = document.createElement('div'); b.id = 'da-wbar'; b.className = 'no-print'; var hd = document.querySelector('header.top'); if(!hd) return; hd.parentNode.insertBefore(b, hd.nextSibling); }
   if(!(currentUser && currentUserRole === 'worker')){ b.innerHTML = ''; return; }
   b.innerHTML = DA_WBAR.filter(function(x){ return canAccessView(x[0]); }).map(function(x){ return '<button data-v="' + x[0] + '" class="' + (x[0] === currentView ? 'on' : '') + '">' + x[1] + ' ' + (isAr ? x[2] : x[3]) + '</button>'; }).join('')
-    + '<button class="rf" data-v="__refresh" title="' + (isAr ? 'تحديث' : 'Refresh') + '">🔄</button>';
+    + '<button class="rf" data-v="__refresh" title="' + (isAr ? 'تحديث' : 'Refresh') + '" style="font-size:20px;font-weight:900">⟳</button>';
   b.querySelectorAll('button').forEach(function(x){ x.onclick = function(){ if(x.dataset.v === '__refresh'){ if(typeof daTabRefresh === 'function') daTabRefresh(); else show(currentView, true); } else show(x.dataset.v); }; });
 }
 function daCompactStatus(){

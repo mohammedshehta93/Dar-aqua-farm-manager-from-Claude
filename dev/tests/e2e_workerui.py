@@ -10,7 +10,7 @@ with sync_playwright() as p:
     pg.evaluate("localStorage.setItem('da_lang','en')"); pg.reload(); pg.wait_for_timeout(500)
     login(pg, 'shamim@workers.dar-aqua.app', 'work123'); pg.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pg.wait_for_timeout(400)
     bar = pg.evaluate("[...document.querySelectorAll('#da-wbar button')].map(b=>b.textContent.trim())")
-    check('W1 big buttons for the worker\'s own pages (+ 🔄), in English', bar[:2] == ['📋 Feed', '🧪 Water'] and '❓ Guide' in bar and bar[-1] == '🔄' and '🎣 Harvest' in bar, bar)
+    check('W1 big buttons for the worker\'s own pages (+ ⟳ refresh), in English', bar[:2] == ['📋 Feed', '🧪 Water'] and '❓ Guide' in bar and bar[-1] == '⟳' and '🎣 Harvest' in bar, bar)
     check('W1b the first page opened at login fills in by itself once the tanks arrive (farm chosen, tanks listed)', pg.evaluate("window._fs && window._fs.farm") in ('F1', 'F2') and pg.evaluate("(window._fs.rows||[]).length") > 0, pg.evaluate("[(window._fs||{}).farm, ((window._fs||{}).rows||[]).length]"))
     hid = pg.evaluate("['topnav','da-tabbar','farm-dd-wrap','back-btn'].map(id=>{const e=document.getElementById(id); return !e || e.offsetParent===null;})")
     check('W2 no menu / tab strip / farm picker / back button for the worker', all(hid), hid)

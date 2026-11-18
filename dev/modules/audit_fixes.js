@@ -12,3 +12,10 @@ if(!window._daAuditFixWrapped){   // the audit log names the newer record kinds 
   window._daAuditFixWrapped = true;
   if(typeof DA_TYPE !== 'undefined') Object.assign(DA_TYPE, {work_order:'📋 أمر شغل', routine:'📅 روتين', feed_day:'🌾 العلف اليومي', purchase:'🛒 طلب شرا', stock_count:'📦 جرد المخزن', adjustment:'⚖️ تسوية'});
 }
+function daDashWtTrend(){   // the dashboard's weight trend from the samples: per week, the latest sample of each tank, averaged
+  var S = getTX().filter(function(t){ return t.type === 'sampling' && !t.deleted && !t.link && parseFloat(t.avgWt) > 0 && (!farmFilter || farmFilter === 'all' || String(t.unit).indexOf(farmFilter + '.') === 0); }), out = [];
+  for(var k = 7; k >= 0; k--){ var to = daAddDays(daToday(), -7 * k), from = daAddDays(to, -6), last = {};
+    S.forEach(function(t){ if(t.date >= from && t.date <= to && (!last[t.unit] || t.date >= last[t.unit].date)) last[t.unit] = t; });
+    var v = Object.keys(last).map(function(u){ return parseFloat(last[u].avgWt); }); if(v.length) out.push({date:to, val:Math.round(v.reduce(function(a, b){ return a + b; }, 0) / v.length)}); }
+  return out;
+}

@@ -54,8 +54,10 @@ function daDashLogs(){
     if(t.deleted || (farmFilter && farmFilter !== 'all' && String(t.unit).indexOf(farmFilter + '.') !== 0)) return;
     if(t.type === 'feeding') out.push({type:'feed', date:t.date, unit:t.unit, kg:parseFloat(t.kg) || 0});
     else if(t.type === 'mortality') out.push({type:'mortality', date:t.date, unit:t.unit, count:parseInt(t.count) || 0});
+    else if(t.type === 'water_quality'){ var num = function(v){ var x = parseFloat(v); return isNaN(x) ? null : x; };   // the testing sheet's readings (the card read the old log only)
+      out.push({type:'water', date:t.date, unit:t.unit, temp:num(t.temp), doVal:num(t.do), ph:num(t.ph), ammonia:num(t.ammonia)}); }
   });
-  return out;
+  return out.sort(function(a, b){ return (b.date || '').localeCompare(a.date || ''); });
 }
 function daMortEntryAllowed(t){ return !daSingleFeed() || !t || t.type !== 'mortality' || t.source === 'sheet' || t.source === 'import' || t._skipValidation; }
 function daSampBar(){

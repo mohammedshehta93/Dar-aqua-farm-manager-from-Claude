@@ -75,7 +75,7 @@ if(!window._daEsWrapped){
   if(typeof DA_DCTL_IDS !== 'undefined' && DA_DCTL_IDS.indexOf('es-date') < 0) DA_DCTL_IDS.push('es-date');
   var _showPreEs = show;
   show = function(v){ var r = _showPreEs.apply(this, arguments);
-    if(currentView === 'dashboard' && canAccessView('entry-status') && !document.getElementById('es-strip')){ var c = document.getElementById('content'), ph = c && c.querySelector('.ph');
+    if(currentView === 'dashboard' && canAccessView('entry-status') && !document.getElementById('es-strip') && typeof daTodayCard !== 'function'){   // folded into the today card var c = document.getElementById('content'), ph = c && c.querySelector('.ph');
       if(ph) ph.insertAdjacentHTML('afterend', daEsDashStrip()); }
     return r; };
 }

@@ -147,6 +147,15 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- REVIEW 2026-11-18 (errors + repetition): menu (53 items) no view twice / no dead target; permissions unique; static
+  check clean. Dashboard: (1) the green "today" strip (#es-strip) said "all recorded" before the cut-off while the
+  "today" card showed feed 0/2 in red → ONE card: #da-today now has feed / readings per site via daEsFarm (green done,
+  amber before the cut-off, red after) + the missing line #da-today-miss; entry_status no longer draws the strip when
+  daTodayCard exists (e2e_entrystatus E9 reads #da-today-miss). (2) weight trend came from the old XLS snapshots →
+  daDashWtTrend (audit_fixes.js): per week the latest sample of each tank, averaged (last 8 weeks). (3) water card read
+  the old log only → daDashLogs (entry_single.js) also maps water_quality records (temp, do, ph, ammonia), newest
+  first. (4) "Farm 1 vs Farm 2" (hard-coded) → #da-farms-cmp, every farm with its name (core renderDashboard edit).
+  Worker bar: refresh button ⟳ (🔄 is the transfer icon; e2e_workerui expects ⟳).
 - "PLEASE RECORD THIS DAY" REMINDERS (owner 2026-11-18; module `reminders.js`, test `e2e_remind`, Worker test in
   push_worker_test.mjs). A reminder = work_order kind "remind" {what feed|wq, farm, date = the day to record, targets
   uids|null, targetNames, auto?}. Manual (supervisors, daWoCanIssue): "📨 ذكّره" next to missing feed / readings on the

@@ -721,6 +721,7 @@ function renderDashboard(){
     wtTrend.push({date:'الآن',val:Math.round(curAvg)});
   }
 
+  if(wtTrend.length < 2 && typeof daDashWtTrend === 'function') wtTrend = daDashWtTrend();   // the samples (snapshots were the old XLS uploads)
   // Mortality last 7 days
   var mortDays=[];
   for(var j=6;j>=0;j--){
@@ -790,9 +791,9 @@ function renderDashboard(){
     h+='<span>'+wtTrend[0].val+'g</span><span style="color:var(--teal);font-weight:700">'+wtTrend[wtTrend.length-1].val+'g</span>';
     h+='</div>';
     var gain=wtTrend[wtTrend.length-1].val-wtTrend[0].val;
-    h+='<div style="margin-top:8px;font-size:12px;color:'+(gain>=0?'var(--green)':'var(--red)')+';font-weight:600">'+(gain>=0?'▲':'▼')+' '+Math.abs(gain)+'g '+(isAr?'منذ آخر تحديث':'since last update')+'</div>';
+    h+='<div style="margin-top:8px;font-size:12px;color:'+(gain>=0?'var(--green)':'var(--red)')+';font-weight:600">'+(gain>=0?'▲':'▼')+' '+Math.abs(gain)+'g '+(isAr?'من أول نقطة':'since the first point')+'</div>';
   } else {
-    h+='<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">'+(isAr?'ارفع تقريرين XLS لرؤية التطور':'Upload 2 XLS reports to see trend')+'</div>';
+    h+='<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">'+(isAr?'سجّل عينات في أسبوعين على الأقل علشان يبان التطور':'Record samples in at least two weeks to see the trend')+'</div>';
   }
   h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">';
   h+='<div style="flex:1;background:var(--paper);border-radius:8px;padding:8px;text-align:center">';
@@ -845,19 +846,16 @@ function renderDashboard(){
   // ── Row 4: Farm comparison (all farms) ──
   if(farmFilter==='all'){
     h+='<div class="grid2">';
-    // Farm 1 vs 2 visual
-    h+='<div class="card">';
-    h+='<div class="card-title">🏗️ Farm 1 vs Farm 2</div>';
-    var fItems=[
-      {lbl:'Farm 1',val:Math.round(f1.bio),col:'#067b72'},
-      {lbl:'Farm 2',val:Math.round(f2.bio),col:'#b8e178'}
-    ];
-    var fBars=barChartSVG(fItems,Math.max(f1.bio,f2.bio),300,100);
-    h+=fBars;
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px">';
-    [{lbl:'Farm 1',s:f1},{lbl:'Farm 2',s:f2}].forEach(function(x){
+    // every farm compared (was Farm 1 vs Farm 2 only: the nursery and any new site were missing)
+    var fregC = getFarmsRegistry(), fcol = ['#067b72', '#b8e178', '#0ea5e9', '#f59e0b', '#a855f7', '#ef4444'];
+    var fAll = daFarms().map(function(f, k){ return {f:f, lbl:fregC[f] && fregC[f] !== f ? f + ' ' + fregC[f] : f, s:st(RAW.filter(function(r){ return r.farm === f; })), col:fcol[k % fcol.length]}; }).filter(function(x){ return x.s.total; });
+    h+='<div class="card" id="da-farms-cmp">';
+    h+='<div class="card-title">🏗️ '+(isAr?'مقارنة المزارع':'Farms compared')+'</div>';
+    h+=barChartSVG(fAll.map(function(x){ return {lbl:x.f, val:Math.round(x.s.bio), col:x.col}; }), Math.max.apply(null, fAll.map(function(x){ return x.s.bio; }).concat([1])), 300, 100);
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px;font-size:12px">';
+    fAll.forEach(function(x){
       h+='<div style="background:var(--paper);border-radius:8px;padding:10px">';
-      h+='<div style="font-weight:700;color:var(--deep);margin-bottom:6px">'+x.lbl+'</div>';
+      h+='<div style="font-weight:700;color:var(--deep);margin-bottom:6px">'+daEsc(x.lbl)+'</div>';
       h+='<div style="color:var(--muted)">وحدات <b style="color:var(--ink)">'+x.s.total+'</b></div>';
       h+='<div style="color:var(--muted)">أسماك <b style="color:var(--ink)">'+fmtK(x.s.fish)+'</b></div>';
       h+='<div style="color:var(--muted)">كتلة <b style="color:var(--ink)">'+n(x.s.bio/1000,2)+'t</b></div>';
@@ -13233,8 +13231,10 @@ function daDashLogs(){
     if(t.deleted || (farmFilter && farmFilter !== 'all' && String(t.unit).indexOf(farmFilter + '.') !== 0)) return;
     if(t.type === 'feeding') out.push({type:'feed', date:t.date, unit:t.unit, kg:parseFloat(t.kg) || 0});
     else if(t.type === 'mortality') out.push({type:'mortality', date:t.date, unit:t.unit, count:parseInt(t.count) || 0});
+    else if(t.type === 'water_quality'){ var num = function(v){ var x = parseFloat(v); return isNaN(x) ? null : x; };   // the testing sheet's readings (the card read the old log only)
+      out.push({type:'water', date:t.date, unit:t.unit, temp:num(t.temp), doVal:num(t.do), ph:num(t.ph), ammonia:num(t.ammonia)}); }
   });
-  return out;
+  return out.sort(function(a, b){ return (b.date || '').localeCompare(a.date || ''); });
 }
 function daMortEntryAllowed(t){ return !daSingleFeed() || !t || t.type !== 'mortality' || t.source === 'sheet' || t.source === 'import' || t._skipValidation; }
 function daSampBar(){
@@ -15311,7 +15311,7 @@ function daWorkerBar(){
   var b = document.getElementById('da-wbar'); if(!b){ b = document.createElement('div'); b.id = 'da-wbar'; b.className = 'no-print'; var hd = document.querySelector('header.top'); if(!hd) return; hd.parentNode.insertBefore(b, hd.nextSibling); }
   if(!(currentUser && currentUserRole === 'worker')){ b.innerHTML = ''; return; }
   b.innerHTML = DA_WBAR.filter(function(x){ return canAccessView(x[0]); }).map(function(x){ return '<button data-v="' + x[0] + '" class="' + (x[0] === currentView ? 'on' : '') + '">' + x[1] + ' ' + (isAr ? x[2] : x[3]) + '</button>'; }).join('')
-    + '<button class="rf" data-v="__refresh" title="' + (isAr ? 'تحديث' : 'Refresh') + '">🔄</button>';
+    + '<button class="rf" data-v="__refresh" title="' + (isAr ? 'تحديث' : 'Refresh') + '" style="font-size:20px;font-weight:900">⟳</button>';
   b.querySelectorAll('button').forEach(function(x){ x.onclick = function(){ if(x.dataset.v === '__refresh'){ if(typeof daTabRefresh === 'function') daTabRefresh(); else show(currentView, true); } else show(x.dataset.v); }; });
 }
 function daCompactStatus(){
@@ -15916,7 +15916,7 @@ if(!window._daEsWrapped){
   if(typeof DA_DCTL_IDS !== 'undefined' && DA_DCTL_IDS.indexOf('es-date') < 0) DA_DCTL_IDS.push('es-date');
   var _showPreEs = show;
   show = function(v){ var r = _showPreEs.apply(this, arguments);
-    if(currentView === 'dashboard' && canAccessView('entry-status') && !document.getElementById('es-strip')){ var c = document.getElementById('content'), ph = c && c.querySelector('.ph');
+    if(currentView === 'dashboard' && canAccessView('entry-status') && !document.getElementById('es-strip') && typeof daTodayCard !== 'function'){   // folded into the today card var c = document.getElementById('content'), ph = c && c.querySelector('.ph');
       if(ph) ph.insertAdjacentHTML('afterend', daEsDashStrip()); }
     return r; };
 }
@@ -17026,11 +17026,16 @@ function daTodayCard(){
   var d = daToday(), ev = daTodayEvents(d), M = daMtState().list, P = daPrAll();
   if(!daFeat('maint')) M = []; if(!daFeat('purchases')) P = [];
   var openM = M.filter(function(r){ return r.status !== 'closed'; }), urg = openM.filter(function(r){ return r.priority === 'high'; }), od = M.filter(daMtOverdue), wait = P.filter(function(r){ return r.status === 'requested'; });
-  var sheets = typeof daFarms === 'function' ? daFarms().map(function(f){ var n = getTX().some(function(t){ return t.type === 'feeding' && !t.deleted && t.date === d && (t.farm === f || String(t.unit || '').indexOf(f + '.') === 0); }); return n; }) : [];
-  var box = function(icon, n, label, bad, go){ return '<div onclick="show(&quot;' + go + '&quot;)" style="cursor:pointer;flex:1;min-width:110px;padding:10px;border-radius:12px;background:' + (bad ? '#fee2e2' : '#f0fdfa') + ';text-align:center"><div style="font-size:22px;font-weight:900">' + icon + ' ' + n + '</div><div style="font-size:12px;color:var(--muted)">' + label + '</div></div>'; };
+  // the day's entries per site (this card replaced the separate entry strip, which said the opposite before the cut-off hour)
+  var es = typeof daEsFarm === 'function' ? daFarms().map(function(f){ return {f:f, s:daEsFarm(f, d)}; }) : [], late = typeof daEsLate === 'function' && daEsLate(d), bits = [];
+  var fT = es.filter(function(x){ return x.s.tanks; }), fD = fT.filter(function(x){ return x.s.fed >= x.s.tanks; }), wT = es.filter(function(x){ return x.s.secs; }), wD = wT.filter(function(x){ return x.s.wq >= x.s.secs; });
+  es.forEach(function(x){ if(x.s.tanks && x.s.fed < x.s.tanks) bits.push(x.f + ' ناقص ' + (x.s.tanks - x.s.fed) + ' تانك علف'); if(x.s.secs && x.s.wq < x.s.secs) bits.push(x.f + ' ناقص ' + (x.s.secs - x.s.wq) + ' سكشن قياسات'); });
+  var tone = function(done, tot){ return done >= tot ? '#dcfce7' : late ? '#fee2e2' : '#fef9c3'; };
+  var box = function(icon, n, label, bad, go, bg){ return '<div onclick="show(&quot;' + go + '&quot;)" style="cursor:pointer;flex:1;min-width:110px;padding:10px;border-radius:12px;background:' + (bg || (bad ? '#fee2e2' : '#f0fdfa')) + ';text-align:center"><div style="font-size:22px;font-weight:900">' + icon + ' ' + n + '</div><div style="font-size:12px;color:var(--muted)">' + label + '</div></div>'; };
   return '<div class="card" id="da-today" style="margin-bottom:14px"><div class="card-title">📰 النهارده في المزرعة</div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' + box('🌾', sheets.filter(Boolean).length + '/' + sheets.length, 'شيتات العلف', sheets.length && sheets.filter(Boolean).length < sheets.length, 'entry-status')
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' + box('🌾', fD.length + '/' + fT.length, 'العلف (مواقع)', false, 'entry-status', tone(fD.length, fT.length)) + (wT.length ? box('🧪', wD.length + '/' + wT.length, 'القياسات (مواقع)', false, 'entry-status', tone(wD.length, wT.length)) : '')
     + (daFeat('maint') ? box('🔧', openM.length, 'أعطال مفتوحة' + (urg.length ? ' · ' + urg.length + ' عاجل' : ''), urg.length || od.length, 'maint') : '') + (daFeat('purchases') ? box('🛒', wait.length, 'طلبات شرا مستنية', wait.length, 'purchases') : '') + '</div>'
+    + (bits.length ? '<div id="da-today-miss" onclick="show(&quot;entry-status&quot;)" style="cursor:pointer;font-size:13px;font-weight:700;margin-bottom:8px;color:' + (late ? '#b91c1c' : '#a16207') + '">' + (late ? '🔴 ' : '⏳ ') + bits.join(' · ') + ' ←</div>' : (fT.length ? '<div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px">✅ كل الإدخالات المطلوبة النهارده اتسجلت</div>' : ''))
     + (ev.length ? '<div style="max-height:340px;overflow:auto">' + ev.map(function(e){ return '<div style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px"><span style="min-width:42px;color:var(--muted)" dir="ltr">' + daEsc(e.time || '') + '</span><span>' + e.icon + '</span><span style="flex:1">' + (e.farm ? '<b>' + daEsc(e.farm) + '</b> · ' : '') + daEsc(e.text) + (e.st ? ' ' + e.st : '') + '</span><span style="color:var(--muted);font-size:12px">' + daEsc(e.who || '') + '</span></div>'; }).join('') + '</div>'
       : '<div style="text-align:center;color:var(--muted);padding:12px">لسه محدش سجّل حاجة النهارده</div>') + '</div>';
 }
@@ -17187,6 +17192,13 @@ function getUnitLive(uid){   // the tank today, in the shape the old pages expec
   return {unit:uid, fishNo:fish, avgWt:wt, biomass:fish * wt / 1000};
 }
 function wqLabel(kind, v){ var x = parseFloat(v); if(isNaN(x)) return '—'; return String(+x.toFixed(kind === 'ph' || kind === 'amm' ? 2 : 1)); }
+function daDashWtTrend(){   // the dashboard's weight trend from the samples: per week, the latest sample of each tank, averaged
+  var S = getTX().filter(function(t){ return t.type === 'sampling' && !t.deleted && !t.link && parseFloat(t.avgWt) > 0 && (!farmFilter || farmFilter === 'all' || String(t.unit).indexOf(farmFilter + '.') === 0); }), out = [];
+  for(var k = 7; k >= 0; k--){ var to = daAddDays(daToday(), -7 * k), from = daAddDays(to, -6), last = {};
+    S.forEach(function(t){ if(t.date >= from && t.date <= to && (!last[t.unit] || t.date >= last[t.unit].date)) last[t.unit] = t; });
+    var v = Object.keys(last).map(function(u){ return parseFloat(last[u].avgWt); }); if(v.length) out.push({date:to, val:Math.round(v.reduce(function(a, b){ return a + b; }, 0) / v.length)}); }
+  return out;
+}
 if(!window._daAuditFixWrapped){   // the audit log names the newer record kinds instead of showing their code names
   window._daAuditFixWrapped = true;
   if(typeof DA_TYPE !== 'undefined') Object.assign(DA_TYPE, {work_order:'📋 أمر شغل', routine:'📅 روتين', feed_day:'🌾 العلف اليومي', purchase:'🛒 طلب شرا', stock_count:'📦 جرد المخزن', adjustment:'⚖️ تسوية'});

@@ -33,8 +33,8 @@ with sync_playwright() as p:
     pg.click('.es-farm[data-farm="F1"] .es-open-feed'); pg.wait_for_timeout(400)
     check('E8 "open the feed sheet" opens it on that farm and day', pg.evaluate("currentView") == 'feed-sheet' and pg.evaluate("window._fs.farm") == 'F1')
     pg.evaluate("show('dashboard')"); pg.wait_for_timeout(400)
-    strip = pg.inner_text('#es-strip') if pg.query_selector('#es-strip') else ''
-    check('E9 the dashboard says what is missing today', 'F1 ناقص 2 تانك علف' in strip and 'F1 ناقص 1 سكشن قياسات' in strip, strip)
+    strip = pg.inner_text('#da-today-miss') if pg.query_selector('#da-today-miss') else ''
+    check('E9 the dashboard (one today card) says what is missing today', 'F1 ناقص 2 تانك علف' in strip and 'F1 ناقص 1 سكشن قياسات' in strip, strip)
     pg.evaluate("window._es={date:daAddDays(daToday(),-1)}; show('entry-status',true)"); pg.wait_for_timeout(300)
     check('E10 another day can be checked', pg.evaluate("daEsFarm('F1', window._es.date).fed") == 0 and '0 من 8 تانك' in pg.inner_text('#content'))
     check('E11 workers do not see it', not pw.evaluate("canAccessView('entry-status')"))
