@@ -37,7 +37,8 @@ async function daPushEnable(){   // each step says what failed, so a setup probl
 async function daPushSaveSub(sub){   // keep this phone's subscription in Supabase (upsert: sites and language stay current)
   var h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))).map(function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
   var r = await sbFetch('push_subs?on_conflict=id', {method:'POST', headers:{Prefer:'resolution=merge-duplicates'}, body:JSON.stringify({id:h, farm_id:SB_FARM_ID, user_id:daPushUid(), role:currentUserRole,
-    sites:(typeof daUserFarms === 'function' ? daUserFarms() : null), lang:(typeof daLangNow === 'function' ? daLangNow() : 'ar'), endpoint:sub.endpoint, updated_at:new Date().toISOString()})});
+    sites:(typeof daUserFarms === 'function' ? daUserFarms() : null), lang:(typeof daLangNow === 'function' ? daLangNow() : 'ar'), endpoint:sub.endpoint, updated_at:new Date().toISOString(),
+    p256dh:((sub.toJSON && sub.toJSON().keys) || {}).p256dh || null, auth:((sub.toJSON && sub.toJSON().keys) || {}).auth || null})});   // keys: the message itself can be sent
   if(r && r.ok === false){ var tx = ''; try{ tx = await r.text(); }catch(x){} throw new Error('HTTP ' + r.status + ' ' + tx.slice(0, 160)); }
   return h;
 }
@@ -52,7 +53,9 @@ async function daPushCall(path, body){   // {ok, status, data, err} — so a tes
     var d = null; try{ d = await r.json(); }catch(x){} return {ok:r.ok, status:r.status, data:d}; }
   catch(e){ return {ok:false, status:0, err:String((e && e.message) || e)}; }
 }
-function daPushNotify(farm){ daPushCall('/notify', {farm:farm}); }
+function daPushMsg(fn, url){ var o = {url:url || '?wo=1'}; ['ar', 'en', 'ur'].forEach(function(l){ try{ o[l] = fn(l); }catch(e){} }); return o; }   // the text in each language: the phone shows its own
+function daPushNotify(farm, o){ var T = {ar:'📋 أمر شغل جديد', en:'📋 New work order', ur:'📋 نیا کام'};
+  daPushCall('/notify', {farm:farm, msg:o && typeof daWoLabel === 'function' ? daPushMsg(function(l){ return {t:T[l], b:daWoLabel(o, DA_WO_T[l] || DA_WO_T.ar) + (o.text ? (o.kind === 'text' ? '' : ' — ') + o.text : '')}; }) : null}); }
 async function daPushTest(){
   await daPushResync(); var T = daPushT(), r = await daPushCall('/test', {}), d = r.data || {}, msg;
   if(r.ok && d.sent) msg = T.sent;
@@ -77,7 +80,8 @@ if(!window._daPushWrapped){
   window._daPushWrapped = true;
   var _showPrePush = show;
   show = function(v){ var r = _showPrePush.apply(this, arguments); if(currentView === 'wo-mine' || currentView === 'account') setTimeout(daPushCard, 0); return r; };
-  if(typeof daWoSave === 'function'){ var _woSavePrePush = daWoSave; daWoSave = function(){ var f = (window._wo || {}).farm, n0 = daWoAll().length; var r = _woSavePrePush.apply(this, arguments); if(daWoAll().length > n0 && f) daPushNotify(f); return r; }; }
+  if(typeof daWoSave === 'function'){ var _woSavePrePush = daWoSave; daWoSave = function(){ var f = (window._wo || {}).farm, ids = {}; daWoAll().forEach(function(o){ ids[o.id] = 1; }); var r = _woSavePrePush.apply(this, arguments);
+    var nw = daWoAll().filter(function(o){ return !ids[o.id]; })[0]; if(nw && f) daPushNotify(f, nw); return r; }; }
   if(typeof daLangPick === 'function'){ var _lpPrePush = daLangPick; daLangPick = function(){ var r = _lpPrePush.apply(this, arguments); daPushSaveLang(); return r; }; }
   try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', function(e){ if(e.data && e.data.da === 'open-orders' && currentUser) show('wo-mine'); }); }catch(e){}
   var _psync = setInterval(function(){ if(currentUser && window._cloudSyncDone){ clearInterval(_psync); daPushResync(); } }, 2000); setTimeout(function(){ clearInterval(_psync); }, 120000);

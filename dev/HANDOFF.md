@@ -147,6 +147,17 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- NOTIFICATIONS THAT SAY WHAT IS NEEDED (owner 2026-11-22): Web Push payload now ENCRYPTED in farm-push (RFC 8291
+  aes128gcm with WebCrypto: encryptPayload; verified against the http_ece library in push_worker_test.mjs, incl. a
+  decrypt on a fake phone). push_subs gets p256dh + auth (SQL dev/sql/push_message_keys.sql); daPushSaveSub stores
+  sub.toJSON().keys — existing phones fill them at their next open (daPushResync). Every send carries msg
+  {ar:{t,b}, en:{t,b}, ur:{t,b}, url, tag} (client helper daPushMsg); the Worker picks the subscriber's lang; a phone
+  without keys still gets the old no-payload ping (sw.js falls back to the cached-language generic text). Texts: work
+  order (daWoLabel + text), manual reminder, urgent fault, purchase request / decision, stock count saved; cron:
+  routine items' own text, stock count day, and entryReminders now scan TODAY + the 7 days before (a day with fewer
+  tanks / sections than the day before, incl. a day nobody recorded) → one reminder order per site/day/kind (ignore-
+  duplicates) and ONE notification per worker listing up to 4 of them ("فاضلك تسجيل: علف F2 النهارده (5 تانك) · …"),
+  re-sent every day at the time until done; the app closes each reminder when that day is complete.
 - REVIEW 2026-11-18 (errors + repetition): menu (53 items) no view twice / no dead target; permissions unique; static
   check clean. Dashboard: (1) the green "today" strip (#es-strip) said "all recorded" before the cut-off while the
   "today" card showed feed 0/2 in red → ONE card: #da-today now has feed / readings per site via daEsFarm (green done,

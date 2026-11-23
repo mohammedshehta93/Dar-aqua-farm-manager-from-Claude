@@ -64,7 +64,8 @@ function daScSave(){
   var id = 'sc-' + st.site + '-' + st.date, rec = daScAll().filter(function(t){ return t.id === id; })[0];
   if(rec) updateTX(id, {items:items}); else addTX({id:id, type:'stock_count', unit:'', farm:st.site, date:st.date, items:items, status:'ok', _skipValidation:true});
   _dataVer++; var low = Object.keys(daScBalance(st.site)).filter(function(k){ return daScBalance(st.site)[k].low; }).length;
-  if(typeof daPushCall === 'function') daPushCall('/notify', {farm:st.site, audience:'perm', perm:'manage_inventory'});
+  var lowN = Object.keys(daScBalance(st.site)).filter(function(k){ return daScBalance(st.site)[k].low; }).map(function(k){ return daScBalance(st.site)[k].item.name; });
+  if(typeof daPushCall === 'function') daPushCall('/notify', {farm:st.site, audience:'perm', perm:'manage_inventory', msg:daPushMsg(function(l){ return {t:{ar:'📦 جرد ', en:'📦 Stock count ', ur:'📦 گنتی '}[l] + st.site, b:lowN.length ? {ar:'⚠️ قرب يخلص: ', en:'⚠️ Running low: ', ur:'⚠️ ختم ہونے والا: '}[l] + lowN.join('، ') : {ar:'✅ اتسجل', en:'✅ Saved', ur:'✅ درج ہو گیا'}[l]}; }, '?')});
   toast(T.saved + (low ? ' · ⚠️ ' + low + ' ' + T.low : '')); st.loaded = null; show('stock', true);
 }
 function daScBalHtml(T, sites){

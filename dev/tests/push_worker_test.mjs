@@ -43,24 +43,32 @@ log.pushed = []; r = await (await W.fetch(req('/notify', { audience: 'perm', per
 console.log('audience perm fix_maint → only the technician (w2):', log.pushed.join(',') === 'b', r);
 r = await W.fetch(new Request('https://x/notify', { method: 'POST', headers: { Origin: 'https://evil.example' } }), env); console.log('other sites refused:', r.status === 403);
 
-// ── automatic "please record" reminders at the set time ──
-{ const now2 = new Date(Date.now() + 180 * 60000), today = now2.toISOString().slice(0,10), yest = new Date(now2.getTime() - 864e5).toISOString().slice(0,10);
+// ── automatic "please record" reminders: today and missed days, one encrypted message per person, in their language ──
+{ const { createRequire } = await import('module'); const require = createRequire('/tmp/jstools/'); let ece = null; try { ece = require('http_ece'); } catch (e) {}
+  const nodeCrypto = await import('crypto');
+  const now2 = new Date(Date.now() + 180 * 60000), D = n => new Date(now2.getTime() - n * 864e5).toISOString().slice(0, 10), today = D(0);
   const hm2 = n => { const m = now2.getUTCHours() * 60 + now2.getUTCMinutes() - n; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
-  const inserted = [], pushed = [];
-  const rows = []; for (let i = 1; i <= 14; i++) rows.push({ unit: 'F2.S01T' + String(i).padStart(2, '0'), type: 'feeding', date: yest, data: {} });
-  for (let i = 1; i <= 9; i++) rows.push({ unit: 'F2.S01T' + String(i).padStart(2, '0'), type: 'feeding', date: today, data: {} });
-  for (let i = 1; i <= 3; i++) rows.push({ unit: 'F1.S01T0' + i, type: 'feeding', date: yest, data: {} }, { unit: 'F1.S01T0' + i, type: 'feeding', date: today, data: {} });
-  rows.push({ unit: 'F2.S01', type: 'water_quality', date: yest, data: { scope: 'section' } }, { unit: 'F2.S01', type: 'water_quality', date: today, data: { scope: 'section' } });
+  const phone = nodeCrypto.createECDH('prime256v1'); phone.generateKeys(); const authS = nodeCrypto.randomBytes(16), b64u = x => Buffer.from(x).toString('base64url');
+  const inserted = [], bodies = [];
+  const rows = [], feed = (u, d) => rows.push({ unit: u, type: 'feeding', date: d, data: {} });
+  for (let i = 1; i <= 14; i++) feed('F2.S01T' + String(i).padStart(2, '0'), D(1));      // yesterday 14
+  for (let i = 1; i <= 9; i++) feed('F2.S01T' + String(i).padStart(2, '0'), D(0));       // today 9 → 5 missing
+  for (let i = 1; i <= 10; i++) feed('F2.S01T' + String(i).padStart(2, '0'), D(4));      // 4 days ago 10
+  for (let i = 1; i <= 6; i++) feed('F2.S01T' + String(i).padStart(2, '0'), D(3));       // 3 days ago 6 → 4 missing (a missed day)
+  for (let i = 1; i <= 3; i++) { feed('F1.S01T0' + i, D(1)); feed('F1.S01T0' + i, D(0)); }
   globalThis.fetch = async (url, o = {}) => { url = String(url);
     if (url.includes('/rest/v1/farm_settings')) return new Response(JSON.stringify([{ farm_id: 'farm-1', data: { daracqua_settings_v2_remind: JSON.stringify({ on: true, time: hm2(3) }) } }]));
     if (url.includes('/rest/v1/farm_units')) return new Response('[]');
     if (url.includes('/rest/v1/transactions') && o.method === 'POST') { inserted.push(JSON.parse(o.body)[0]); return new Response(null, { status: 201 }); }
     if (url.includes('/rest/v1/transactions')) return new Response(JSON.stringify(rows));
     if (url.includes('/rest/v1/profiles')) return new Response(JSON.stringify([{ id: 'w1', role: 'worker', perms: ['input_feeding', 'farm:F2'] }, { id: 'w2', role: 'worker', perms: ['input_wq'] }]));
-    if (url.includes('/rest/v1/push_subs')) return new Response(JSON.stringify([{ id: 'a', endpoint: 'https://push.example/a', user_id: 'w1', sites: ['F2'] }, { id: 'b', endpoint: 'https://push.example/b', user_id: 'w2', sites: ['F2'] }]));
-    if (url.startsWith('https://push.example/')) { pushed.push(url.split('/').pop()); return new Response('', { status: 201 }); }
+    if (url.includes('/rest/v1/push_subs')) return new Response(JSON.stringify([{ id: 'a', endpoint: 'https://push.example/a', user_id: 'w1', sites: ['F2'], lang: 'ur', p256dh: b64u(phone.getPublicKey()), auth: b64u(authS) }, { id: 'b', endpoint: 'https://push.example/b', user_id: 'w2', sites: ['F2'] }]));
+    if (url.startsWith('https://push.example/')) { bodies.push({ to: url.split('/').pop(), enc: o.headers['Content-Encoding'], body: o.body }); return new Response('', { status: 201 }); }
     return new Response('[]'); };
   const p2 = []; await W.scheduled({}, env, { waitUntil: x => p2.push(x) }); await Promise.all(p2);
-  console.log('16:30 reminder → only F2 feed (9 of 14) is missing; F1 complete, readings complete:', inserted.length === 1 && inserted[0].id === 'rm-auto-F2-' + today + '-feed' && inserted[0].data.text.startsWith('5'), inserted.map(x => x.id));
-  console.log('  … notified only the F2 feed worker (w1):', pushed.join(',') === 'a', pushed);
+  const ids = inserted.map(x => x.id).sort();
+  console.log('16:30 → today (5), a day nobody recorded (2 days ago, 6) and a half-done day (3 days ago, 4); F1 complete:', JSON.stringify(ids) === JSON.stringify(['rm-auto-F2-' + D(2) + '-feed', 'rm-auto-F2-' + D(3) + '-feed', 'rm-auto-F2-' + today + '-feed'].sort()), ids);
+  console.log('  … one notification, only to the F2 feed worker, encrypted:', bodies.length === 1 && bodies[0].to === 'a' && bodies[0].enc === 'aes128gcm');
+  if (ece && bodies[0]) { const msg = JSON.parse(ece.decrypt(Buffer.from(bodies[0].body), { version: 'aes128gcm', privateKey: phone, authSecret: authS }).toString('utf8'));
+    console.log('  … decrypted on the "phone", in his language (Urdu), listing both days:', msg.t.includes('درج') && msg.b.includes('آج') && msg.b.includes('(5 ٹینک)') && msg.b.includes('(6 ٹینک)') && msg.b.includes('(4 ٹینک)'), msg); }
 }

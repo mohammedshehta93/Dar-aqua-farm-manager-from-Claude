@@ -45,6 +45,16 @@ with sync_playwright() as p:
     ps.wait_for_timeout(1500)
     c4, pi = new_page(p, sb); login(pi, 'irfan@workers.dar-aqua.app', 'work123'); pi.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); pi.wait_for_timeout(500); pi.evaluate('daTabRefresh()'); pi.wait_for_timeout(1500)
     check('R11 the automatic reminder reaches F2\'s workers (both), not F1\'s', ps.evaluate("daWoDue().some(o=>o.auto)") and pj.evaluate("daWoDue().some(o=>o.auto)") and not pi.evaluate("daWoDue().some(o=>o.auto)"))
+    # a missed day (3 days ago), as the server writes it: on the bell and in 🔔, closes once that day is complete
+    D3 = pa.evaluate("daAddDays(daToday(),-3)")
+    pa.evaluate(f"addTX({{id:'rm-auto-F2-{D3}-feed',type:'work_order',date:'{D3}',unit:'',farm:'F2',kind:'remind',what:'feed',tanks:[],text:'3 تانك ناقصين',status:'open',auto:true,byName:'⏰',_skipValidation:true}})"); pa.wait_for_timeout(800)
+    ps.evaluate('daTabRefresh()'); ps.wait_for_timeout(1500)
+    check('R11b a missed day (3 days back) is on Shamim\'s bell and in his orders', ps.evaluate(f"daWoDue().some(o=>o.id==='rm-auto-F2-{D3}-feed')") and ps.evaluate("daWoPending()") >= 1)
+    ps.evaluate(f"window._fs={{farm:'F2',date:'{D3}'}}; show('feed-sheet',true)"); ps.wait_for_timeout(400)
+    for u in ['F2.S01T01', 'F2.S01T02', 'F2.S01T03']:
+        i = ps.evaluate(f"window._fs.rows.find(r=>r.unit==='{u}').i"); ps.fill(f'#fs-{i}-m0', '2'); ps.fill(f'#fs-{i}-sz', '2')
+    ps.click('#fs-save'); ps.wait_for_timeout(1000)
+    check('R11c … recorded → it closes by itself', ps.evaluate(f"daWoAll().find(o=>o.id==='rm-auto-F2-{D3}-feed').status") == 'done')
     pa.click('#rm-auto'); pa.wait_for_timeout(300)
     check('R12 the admin can turn the automatic reminder off (synced setting)', not pa.evaluate("daRmCfg().on") and pa.evaluate("daIsSyncedKey(DA_REMIND_KEY)"))
     ps.click('#lang-btn'); ps.wait_for_timeout(150); ps.click('#da-langmenu button[data-l="ur"]'); ps.wait_for_timeout(300); ps.evaluate("show('wo-mine',true)"); ps.wait_for_timeout(300)

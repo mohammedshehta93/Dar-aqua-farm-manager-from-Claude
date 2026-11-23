@@ -44,7 +44,9 @@ function daRmSend(){
   var names = (r.ppl || []).filter(function(p){ return uids.indexOf(p.uid) >= 0; }).map(function(p){ return p.name; });
   addTX({id:'rm-' + r.farm + '-' + r.date + '-' + r.what + '-' + Date.now().toString(36), type:'work_order', date:r.date, unit:'', farm:r.farm, kind:'remind', what:r.what, tanks:[], text:String(daVal('rm-note') || '').trim(),
     targets:uids.length ? uids : null, targetNames:names, status:'open', issued:daToday(), _skipValidation:true});
-  if(typeof daPushCall === 'function') daPushCall('/notify', uids.length ? {audience:'users', uids:uids} : {farm:r.farm, audience:'perm', perm:daRmPerm(r.what)});
+  var note = String(daVal('rm-note') || '').trim(), rec = {farm:r.farm, date:r.date, what:r.what};
+  var msg = typeof daPushMsg === 'function' ? daPushMsg(function(l){ return {t:{ar:'📝 تذكير بالتسجيل', en:'📝 Please record', ur:'📝 درج کرنے کی یاد دہانی'}[l], b:daRmLabel(rec, DA_RM_T[l]) + (note ? ' — ' + note : '')}; }) : null;
+  if(typeof daPushCall === 'function') daPushCall('/notify', uids.length ? {audience:'users', uids:uids, msg:msg} : {farm:r.farm, audience:'perm', perm:daRmPerm(r.what), msg:msg});
   toast('📨 اتبعت التذكير' + (names.length ? ' لـ ' + names.join('، ') : '')); window._rm = null; show('entry-status', true);
 }
 function daRmStatusHtml(farm, date, what){

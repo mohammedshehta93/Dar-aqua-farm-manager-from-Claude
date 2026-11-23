@@ -16686,7 +16686,8 @@ async function daPushResync(){   // a phone subscribed earlier (e.g. before the 
 async function daPushSaveSub(sub){   // keep this phone's subscription in Supabase (upsert: sites and language stay current)
   var h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))).map(function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
   var r = await sbFetch('push_subs?on_conflict=id', {method:'POST', headers:{Prefer:'resolution=merge-duplicates'}, body:JSON.stringify({id:h, farm_id:SB_FARM_ID, user_id:daPushUid(), role:currentUserRole,
-    sites:(typeof daUserFarms === 'function' ? daUserFarms() : null), lang:(typeof daLangNow === 'function' ? daLangNow() : 'ar'), endpoint:sub.endpoint, updated_at:new Date().toISOString()})});
+    sites:(typeof daUserFarms === 'function' ? daUserFarms() : null), lang:(typeof daLangNow === 'function' ? daLangNow() : 'ar'), endpoint:sub.endpoint, updated_at:new Date().toISOString(),
+    p256dh:((sub.toJSON && sub.toJSON().keys) || {}).p256dh || null, auth:((sub.toJSON && sub.toJSON().keys) || {}).auth || null})});   // keys: the message itself can be sent
   if(r && r.ok === false){ var tx = ''; try{ tx = await r.text(); }catch(x){} throw new Error('HTTP ' + r.status + ' ' + tx.slice(0, 160)); }
   return h;
 }
@@ -16696,7 +16697,9 @@ async function daPushCall(path, body){   // {ok, status, data, err} — so a tes
     var d = null; try{ d = await r.json(); }catch(x){} return {ok:r.ok, status:r.status, data:d}; }
   catch(e){ return {ok:false, status:0, err:String((e && e.message) || e)}; }
 }
-function daPushNotify(farm){ daPushCall('/notify', {farm:farm}); }
+function daPushMsg(fn, url){ var o = {url:url || '?wo=1'}; ['ar', 'en', 'ur'].forEach(function(l){ try{ o[l] = fn(l); }catch(e){} }); return o; }
+function daPushNotify(farm, o){ var T = {ar:'📋 أمر شغل جديد', en:'📋 New work order', ur:'📋 نیا کام'};
+  daPushCall('/notify', {farm:farm, msg:o && typeof daWoLabel === 'function' ? daPushMsg(function(l){ return {t:T[l], b:daWoLabel(o, DA_WO_T[l] || DA_WO_T.ar) + (o.text ? (o.kind === 'text' ? '' : ' — ') + o.text : '')}; }) : null}); }
 async function daPushTest(){
   await daPushResync(); var T = daPushT(), r = await daPushCall('/test', {}), d = r.data || {}, msg;
   if(r.ok && d.sent) msg = T.sent;
@@ -16721,7 +16724,8 @@ if(!window._daPushWrapped){
   window._daPushWrapped = true;
   var _showPrePush = show;
   show = function(v){ var r = _showPrePush.apply(this, arguments); if(currentView === 'wo-mine' || currentView === 'account') setTimeout(daPushCard, 0); return r; };
-  if(typeof daWoSave === 'function'){ var _woSavePrePush = daWoSave; daWoSave = function(){ var f = (window._wo || {}).farm, n0 = daWoAll().length; var r = _woSavePrePush.apply(this, arguments); if(daWoAll().length > n0 && f) daPushNotify(f); return r; }; }
+  if(typeof daWoSave === 'function'){ var _woSavePrePush = daWoSave; daWoSave = function(){ var f = (window._wo || {}).farm, ids = {}; daWoAll().forEach(function(o){ ids[o.id] = 1; }); var r = _woSavePrePush.apply(this, arguments);
+    var nw = daWoAll().filter(function(o){ return !ids[o.id]; })[0]; if(nw && f) daPushNotify(f, nw); return r; }; }
   if(typeof daLangPick === 'function'){ var _lpPrePush = daLangPick; daLangPick = function(){ var r = _lpPrePush.apply(this, arguments); daPushSaveLang(); return r; }; }
   try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', function(e){ if(e.data && e.data.da === 'open-orders' && currentUser) show('wo-mine'); }); }catch(e){}
   var _psync = setInterval(function(){ if(currentUser && window._cloudSyncDone){ clearInterval(_psync); daPushResync(); } }, 2000); setTimeout(function(){ clearInterval(_psync); }, 120000);
@@ -16916,7 +16920,7 @@ async function daMtSubmit(){
       root_cause:'', corrective_action:'', parts:'', technician:'', verified_by:'', photo_urls:[], farm_id:SB_FARM_ID, site:a[1] || '', reported_by_uid:(typeof daPushUid === 'function' ? daPushUid() : null)})});
     var row = ins && ins[0], fe = document.getElementById('mt-photos'), files = fe && fe.files ? Array.prototype.slice.call(fe.files) : [];
     if(row && files.length){ toast(T.uploading); var urls = await daMtUpload(row.id, files); if(urls.length) await sbFetch('maintenance_requests?id=eq.' + encodeURIComponent(row.id), {method:'PATCH', body:JSON.stringify({photo_urls:urls})}); }
-    if(f.prio === 'high' && typeof daPushCall === 'function') daPushCall('/notify', {farm:a[1] || '', audience:'perm', perm:'fix_maint'});   // only those who fix
+    if(f.prio === 'high' && typeof daPushCall === 'function') daPushCall('/notify', {farm:a[1] || '', audience:'perm', perm:'fix_maint', msg:daPushMsg(function(l){ return {t:{ar:'🚨 عطل عاجل', en:'🚨 Urgent fault', ur:'🚨 فوری خرابی'}[l], b:f.summary + ' — ' + (a[2] || f.area)}; }, '?')});   // only those who fix
     s.form = null; s.formOpen = false; toast(T.sent); await daMtLoad(true); show('maint', true);
   }catch(e){ if(btn) btn.disabled = false; toast((navigator.onLine ? '⚠️ ' + String(e && e.message || e).slice(0, 80) : T.offline)); }
 }
@@ -16983,7 +16987,7 @@ function daPrSubmit(){
   addTX({id:'pr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5), type:'purchase', unit:'', date:daToday(), ref:ref, item:f.item, qty:+parseFloat(f.qty), unitName:f.unit || '', reason:String(f.reason || '').trim(), urg:f.urg, farm:f.site || '', maint:f.maint || '',
     status:'requested', requesterUid:(typeof daPushUid === 'function' ? daPushUid() : ''), _skipValidation:true});
   if(f.maint) daMtLink(f.maint, ref);
-  if(typeof daPushCall === 'function') daPushCall('/notify', {farm:f.site || '', audience:'perm', perm:'approve_purchase'});   // only those who approve
+  if(typeof daPushCall === 'function') daPushCall('/notify', {farm:f.site || '', audience:'perm', perm:'approve_purchase', msg:daPushMsg(function(l){ return {t:{ar:'🛒 طلب شرا', en:'🛒 Purchase request', ur:'🛒 خریداری کی درخواست'}[l], b:f.item + ' — ' + f.qty + ' ' + (f.unit || '') + (f.site ? ' · ' + f.site : '')}; }, '?')});   // only those who approve
   s.form = null; s.formOpen = false; toast(P.sent); show('purchases', true);
 }
 function daMtLink(mref, pref){ var m = daMtState().list.filter(function(x){ return x.ref === mref; })[0]; if(!m) return; var a = (m.purchase_refs || []).concat([pref]);
@@ -16994,7 +16998,7 @@ function daPrSet(id, status){
   if(status === 'approved' || status === 'rejected'){ v.decidedByName = me; v.decidedAt = now; }
   if(status === 'ordered') v.orderedAt = now; if(status === 'received'){ v.receivedAt = now; v.receivedByName = me; }
   updateTX(id, v); _dataVer++;
-  if(r.requesterUid && typeof daPushCall === 'function' && status !== 'ordered') daPushCall('/notify', {audience:'user', uid:r.requesterUid});
+  if(r.requesterUid && typeof daPushCall === 'function' && status !== 'ordered') daPushCall('/notify', {audience:'user', uid:r.requesterUid, msg:daPushMsg(function(l){ return {t:{approved:{ar:'✔ اتعتمد طلبك', en:'✔ Request approved', ur:'✔ درخواست منظور'}, rejected:{ar:'✖ اترفض طلبك', en:'✖ Request rejected', ur:'✖ درخواست نامنظور'}, received:{ar:'📦 وصل', en:'📦 Received', ur:'📦 وصول'}}[status][l], b:r.item + (status === 'rejected' && v.rejectReason ? ' — ' + v.rejectReason : '')}; }, '?')});
   toast('✅ ' + (P[status] || status)); show('purchases', true);
 }
 function daFeatCard(){
@@ -17128,7 +17132,8 @@ function daScSave(){
   var id = 'sc-' + st.site + '-' + st.date, rec = daScAll().filter(function(t){ return t.id === id; })[0];
   if(rec) updateTX(id, {items:items}); else addTX({id:id, type:'stock_count', unit:'', farm:st.site, date:st.date, items:items, status:'ok', _skipValidation:true});
   _dataVer++; var low = Object.keys(daScBalance(st.site)).filter(function(k){ return daScBalance(st.site)[k].low; }).length;
-  if(typeof daPushCall === 'function') daPushCall('/notify', {farm:st.site, audience:'perm', perm:'manage_inventory'});
+  var lowN = Object.keys(daScBalance(st.site)).filter(function(k){ return daScBalance(st.site)[k].low; }).map(function(k){ return daScBalance(st.site)[k].item.name; });
+  if(typeof daPushCall === 'function') daPushCall('/notify', {farm:st.site, audience:'perm', perm:'manage_inventory', msg:daPushMsg(function(l){ return {t:{ar:'📦 جرد ', en:'📦 Stock count ', ur:'📦 گنتی '}[l] + st.site, b:lowN.length ? {ar:'⚠️ قرب يخلص: ', en:'⚠️ Running low: ', ur:'⚠️ ختم ہونے والا: '}[l] + lowN.join('، ') : {ar:'✅ اتسجل', en:'✅ Saved', ur:'✅ درج ہو گیا'}[l]}; }, '?')});
   toast(T.saved + (low ? ' · ⚠️ ' + low + ' ' + T.low : '')); st.loaded = null; show('stock', true);
 }
 function daScBalHtml(T, sites){
@@ -17359,7 +17364,9 @@ function daRmSend(){
   var names = (r.ppl || []).filter(function(p){ return uids.indexOf(p.uid) >= 0; }).map(function(p){ return p.name; });
   addTX({id:'rm-' + r.farm + '-' + r.date + '-' + r.what + '-' + Date.now().toString(36), type:'work_order', date:r.date, unit:'', farm:r.farm, kind:'remind', what:r.what, tanks:[], text:String(daVal('rm-note') || '').trim(),
     targets:uids.length ? uids : null, targetNames:names, status:'open', issued:daToday(), _skipValidation:true});
-  if(typeof daPushCall === 'function') daPushCall('/notify', uids.length ? {audience:'users', uids:uids} : {farm:r.farm, audience:'perm', perm:daRmPerm(r.what)});
+  var note = String(daVal('rm-note') || '').trim(), rec = {farm:r.farm, date:r.date, what:r.what};
+  var msg = typeof daPushMsg === 'function' ? daPushMsg(function(l){ return {t:{ar:'📝 تذكير بالتسجيل', en:'📝 Please record', ur:'📝 درج کرنے کی یاد دہانی'}[l], b:daRmLabel(rec, DA_RM_T[l]) + (note ? ' — ' + note : '')}; }) : null;
+  if(typeof daPushCall === 'function') daPushCall('/notify', uids.length ? {audience:'users', uids:uids, msg:msg} : {farm:r.farm, audience:'perm', perm:daRmPerm(r.what), msg:msg});
   toast('📨 اتبعت التذكير' + (names.length ? ' لـ ' + names.join('، ') : '')); window._rm = null; show('entry-status', true);
 }
 function daRmStatusHtml(farm, date, what){

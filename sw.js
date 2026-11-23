@@ -14,6 +14,11 @@ var DA_PUSH_TEXT = {
   en:{t:'🔔 Dar Aqua', b:'A work order or routine task — open the app'},
   ur:{t:'🔔 Dar Aqua', b:'نئی کام کی ہدایت یا روزانہ کام — ایپ کھولیں'}};
 self.addEventListener('push', function(e){
+  var d = null; try{ d = e.data ? e.data.json() : null; }catch(x){}
+  if(d && d.b){   // the message itself (in the person's language, chosen by the server)
+    e.waitUntil(self.registration.showNotification(d.t || '🔔 Dar Aqua', {body:d.b, icon:'icon-192.png', badge:'icon-192.png', tag:d.tag || ('da-' + Date.now()), renotify:true, vibrate:[200, 100, 200], data:{url:self.registration.scope + (d.url || '?wo=1')}}));
+    return;
+  }
   e.waitUntil(caches.open('da-meta').then(function(c){ return c.match('/lang'); }).then(function(r){ return r ? r.text() : 'ar'; }).catch(function(){ return 'ar'; })
     .then(function(l){ var T = DA_PUSH_TEXT[l] || DA_PUSH_TEXT.ar;
       return self.registration.showNotification(T.t, {body:T.b, icon:'icon-192.png', badge:'icon-192.png', tag:'da-orders', renotify:true, vibrate:[200, 100, 200], data:{url:self.registration.scope + '?wo=1'}}); }));
