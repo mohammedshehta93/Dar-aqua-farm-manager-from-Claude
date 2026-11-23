@@ -147,6 +147,12 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- WORKER WITH TWO SITES (owner 2026-11-22; module `site_switch.js`, test `e2e_twosites`): daEnforceSite puts a worker
+  on his first site and the top farm menu is hidden for workers; the sheets offer a farm choice only when no farm is
+  set → a worker with farm:F1 + farm:F2 was stuck on F1 everywhere. Now on his entry pages (feed / readings /
+  sampling / harvest / transfer) a worker with >1 site gets "📍 F1 | F2" (#da-site-sw, .da-site) → setFarm(f) and
+  redraw. Checked the rest: his work orders come from both sites, push_subs keeps both, an office account with two
+  sites switches through the farm menu and a site not given is refused.
 - NOTIFICATIONS THAT SAY WHAT IS NEEDED (owner 2026-11-22): Web Push payload now ENCRYPTED in farm-push (RFC 8291
   aes128gcm with WebCrypto: encryptPayload; verified against the http_ece library in push_worker_test.mjs, incl. a
   decrypt on a fake phone). push_subs gets p256dh + auth (SQL dev/sql/push_message_keys.sql); daPushSaveSub stores
@@ -624,7 +630,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-68 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+70 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy
