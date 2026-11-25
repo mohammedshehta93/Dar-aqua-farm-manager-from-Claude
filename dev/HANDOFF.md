@@ -147,6 +147,21 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- DATA MANAGEMENT (owner 2026-11-25; module `data_admin.js`, SQL `dev/sql/farm_archives.sql`, test `e2e_dataadmin`;
+  harness MockSB now deletes transactions / farm_units by farm and patches profiles by farm + id=neq). Admin-only view
+  'data-admin' (setup group): 📦 full JSON backup (units, every tx, synced settings, feed stock, maintenance, users) +
+  the old Excel; ♻️ restore (saveUnitsToCloud, daUploadTxBatch, settings → daPushSettings, inv, maintenance; then
+  local wipe + reload). 🗂️ archive = gzip backup to PRIVATE bucket farm-archives/<farm_id>/<at>__<label>.json.gz
+  (policy: own farm folder, admin) + reset level 1; list / download / restore. ⚠️ reset 1 records · 2 + tanks · 3
+  everything (rpc wipe_my_farm_data) + other profiles active:false. Safeguards: backup downloaded first, farm name
+  typed, password checked against /auth/v1/token. Records / tanks must delete (else stop before touching the device);
+  side tables (inventory, snapshots, maintenance) never stop it. Levels 1-2 put the synced settings back after the
+  local wipe BEFORE pushing the reset mark (the push replaces the cloud settings with every local synced key — the
+  test caught it emptying them). Mark: synced 'daracqua_settings_v2_reset' {at, level}; every device (daDaCheckReset
+  at start + every 20 s) wipes its local copy once if it holds records older than the mark ('da_reset_seen' is not
+  synced and survives the wipe). Known gap: an offline phone's queued old records could upload before it sees the
+  mark. Handover / new-farm steps are on the page (Supabase project transfer, GitHub, Cloudflare, accounts).
+  Owner's purpose: be able to leave a farm with its data and start elsewhere taking nothing — nothing was removed.
 - OPEN IN CHROME (owner 2026-11-23; module `chrome_hint.js`, test `e2e_chrome`): a worker used another Android browser
   (PHX-like; its "home screen" item is a bookmark): no push, no install menu, and our install steps sent him in
   circles. daWeakBrowser() = Android and no serviceWorker / PushManager / Notification, or an in-app web view / known
@@ -636,7 +651,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-71 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+72 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
 
 ## Deploy

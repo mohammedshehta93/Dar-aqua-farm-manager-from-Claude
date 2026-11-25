@@ -186,6 +186,12 @@ def make_handler(sb):
                 if sum(1 for p in sb.profiles.values() if p['farm_id'] == mf) >= f['max_users']: return deny()
                 sb.profiles[body['id']] = dict(body, created_at='2026-10-25T00:00:00', last_login=None); return j(route, 201, [sb.profiles[body['id']]])
             if m == 'PATCH':
+                if not eq('id') and eq('farm_id') == mf:   # everyone of the farm but one (id=neq.X)
+                    import urllib.parse as _up
+                    keep = (_up.parse_qs(_up.urlparse(request.url).query).get('id', [''])[0] or '').replace('neq.', '')
+                    L = [t for t in sb.profiles.values() if t['farm_id'] == mf and t['id'] != keep]
+                    for t in L: t.update(body)
+                    return j(route, 200, L)
                 t = sb.profiles.get(eq('id'))
                 if not t or t['farm_id'] != mf: return deny()
                 t.update(body); return j(route, 200, [t])
@@ -203,6 +209,9 @@ def make_handler(sb):
                 for r in rows: sb.units[r['id']] = r
                 return j(route, 201, rows)
             if m == 'DELETE':
+                if not eq('id') and eq('farm_id') == mf:   # a whole farm's tanks (reset)
+                    for k in [k for k, r in sb.units.items() if r['farm_id'] == mf]: del sb.units[k]
+                    return j(route, 200, [])
                 r = sb.units.get(eq('id'))
                 if r and r['farm_id'] == mf: del sb.units[eq('id')]
                 return j(route, 200, [])
@@ -246,6 +255,9 @@ def make_handler(sb):
                 return j(route, 201, rows)
             if m == 'DELETE':
                 did = eq('id')
+                if not did and eq('farm_id') == mf and role == 'admin':   # a whole farm's records (reset)
+                    for k in [k for k, r in sb.tx.items() if r['farm_id'] == mf]: del sb.tx[k]
+                    return j(route, 200, [])
                 if did and did in sb.tx and sb.tx[did]['farm_id'] == mf: del sb.tx[did]
                 return j(route, 200, [])
         if table in ('feed_inventory', 'snapshots'):
