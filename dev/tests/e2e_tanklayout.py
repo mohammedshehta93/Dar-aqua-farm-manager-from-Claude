@@ -20,6 +20,8 @@ with sync_playwright() as p:
     pg.select_option('#ta-farm', '__new'); pg.fill('#ta-newcode', 'F4'); pg.fill('#ta-n', '7'); pg.dispatch_event('#ta-n', 'input'); pg.click('#ta-save'); pg.wait_for_timeout(700)
     pg.evaluate("addTX({id:'fd-x',type:'feeding',unit:'F4.S01T05',date:daToday(),kg:0.7,source:'sheet',_skipValidation:true})")
     pg.evaluate("show('farm-setup',true)"); pg.wait_for_timeout(1300)
+    try: pg.wait_for_selector('.lay-btn[data-farm="F4"]', timeout=8000)   # slow under load (seen once in a full run)
+    except Exception: pass
     check('L5 the status card has "🔀 arrange" per farm', pg.evaluate("!!document.querySelector('.lay-btn[data-farm=\"F4\"]')"))
     pg.click('.lay-btn[data-farm="F4"]'); pg.wait_for_timeout(200)
     prev = pg.inner_text('#lay-prev')

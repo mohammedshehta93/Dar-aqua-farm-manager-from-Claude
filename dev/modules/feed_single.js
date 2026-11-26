@@ -7,7 +7,7 @@
 // stay valid; the sheet can take them over ("انقلها للشيت"). window.DA_SINGLE_FEED = false re-enables the old screens
 // (tests of their legacy code only).
 var DA_FEED_RETIRED = {'quick-feed':'التغذية السريعة', 'tx-feeding':'شاشة التغذية', 'feed-week':'تغذية الأسبوع', 'photo-entry':'الإدخال بالصورة'};
-function daSingleFeed(){ return window.DA_SINGLE_FEED !== false; }
+function daSingleFeed(){ return true; }   // the old entry screens were removed (2026-11-08)
 function renderFeedRetired(v){
   return '<div class="ph"><div><h2>📋 تسجيل العلف بقى من مكان واحد</h2></div></div>'
     + '<div class="card" style="max-width:640px;line-height:1.9;font-size:14px"><p><b>' + daEsc(DA_FEED_RETIRED[v] || v) + '</b> اتقفلت عشان العلف ميتسجلش مرتين من شاشتين مختلفتين.</p>'

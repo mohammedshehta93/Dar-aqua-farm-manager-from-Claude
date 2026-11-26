@@ -7,7 +7,7 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 
 ## Latest first (index — the detailed entries below are NOT in strict date order)
 Search the capitalised name in "Key concepts". Newest at the top:
-2026-11-26 reset gap closed (DATA MANAGEMENT) · 2026-11-25 DATA MANAGEMENT · 2026-11-23 OPEN IN CHROME · 2026-11-22 WORKER WITH TWO SITES,
+2026-11-26 SHARED SETTINGS MERGE, reset gap closed (DATA MANAGEMENT) · 2026-11-25 DATA MANAGEMENT · 2026-11-23 OPEN IN CHROME · 2026-11-22 WORKER WITH TWO SITES,
 NOTIFICATIONS THAT SAY WHAT IS NEEDED · 2026-11-18 REVIEW, "PLEASE RECORD THIS DAY" REMINDERS · 2026-11-14 COUNT SURPLUS, GOING BACK IN TIME,
 AUDIT · 2026-11-13 WEEKLY STOCK COUNT, MAINTENANCE + PURCHASES + "TODAY" · 2026-11-12 PHONE NOTIFICATIONS, DAILY RATION, WORK ORDERS v2.
 Everything older is in the long list below (the first ~110 lines of it are the foundations: tenancy, units, sync, feeding, RAS, alerts, tabs).
@@ -154,6 +154,20 @@ Everything older is in the long list below (the first ~110 lines of it are the f
   DONE (owner, 2026-11-26): SQL run, Worker + 3 secrets + cron set, notifications arrive with their text. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
+- SHARED SETTINGS MERGE, NOT REPLACE (2026-11-26; module `settings_merge.js`, test `e2e_setrace`, fails 6/11 on the old
+  code). farm_settings.data is ONE blob of every synced key and each push sent the device's WHOLE local copy → a device
+  that had not pulled (pulls: start, 🔄, every ~2 min) put back OLD values of settings other devices had just changed, and
+  the next pull spread the old value to them too (S9: a new routine came back as the old one everywhere). Now
+  daScheduleSettingsPush(k, op) (setItem/removeItem pass the key) marks the key in DA_SET_DIRTY 'daracqua_set_dirty_v1'
+  (per device, not synced, wiped with the tenant); daPushSettings GETs the cloud blob and writes only the marked keys onto
+  it (no cloud row yet → seeds everything), clears the marks it sent (a key changed again mid-upload stays), retries in 30 s
+  on failure; daPullSettings never overwrites a marked key and re-schedules a push for marks from an earlier session.
+  GUARD: writes before this session's first pull (window._daSetReady, reset by forceLogout) are NOT marked — start-up
+  defaults on a device must not overwrite the farm's real values (S13 fails without it). Same key on two devices: the
+  later upload wins. Remaining window: the milliseconds between the GET and the POST of two devices. Deleted keys are
+  removed from the cloud, but other devices keep their local copy (pull never deletes) — as before.
+  Also found: `feed_single.js` still had the pre-2026-11-08 daSingleFeed (legacy switch); update_functions would have put it
+  back into the app → module aligned to the app (returns true). All 56 modules print "updated: none".
 - DATA MANAGEMENT (owner 2026-11-25; module `data_admin.js`, SQL `dev/sql/farm_archives.sql`, test `e2e_dataadmin`;
   harness MockSB now deletes transactions / farm_units by farm and patches profiles by farm + id=neq). Admin-only view
   'data-admin' (setup group): 📦 full JSON backup (units, every tx, synced settings, feed stock, maintenance, users) +
@@ -661,7 +675,7 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-71 e2e suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+72 e2e suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
 export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0; `e2e_push` shows exactly 1 on purpose: the mocked missing table push_subs).
 Container setup that worked (2026-11-26): Chromium is already in /opt/pw-browsers → `export PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`; `pip install playwright xlrd --break-system-packages`; acorn/xlsx in /tmp/jstools and `NODE_PATH=/tmp/jstools/node_modules` for `update_functions.js`; `curl -L -o /tmp/mnist.pkl.gz` the mnist URL above for the OCR suites. Do NOT run 6+ suites in parallel (e2e_sync Y11 'Failed to fetch' under load; 13/13 alone).
 
@@ -679,4 +693,4 @@ Priorities come from the owner — ask before starting; the 2026-10-28 list (cau
 
 ## Known open points
 Supabase plan (free tier pauses, no daily backups) · iOS Safari may evict local storage (install to home screen) ·
-last-write-wins on simultaneous edits and on the shared settings blob · photo AI entry disabled · SFR/growth tables are tilapia defaults.
+last-write-wins on simultaneous edits of the SAME record / the same setting key (settings are merged per key since 2026-11-26) · photo AI entry disabled · SFR/growth tables are tilapia defaults.
