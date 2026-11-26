@@ -17636,6 +17636,19 @@ if(!window._daDataAdminWrapped){
   var _cavPreDa = canAccessView; canAccessView = function(v){ if(v === 'data-admin') return !!currentUser && currentUserRole === 'admin'; return _cavPreDa.apply(this, arguments); };
   var _rcDa = setInterval(function(){ if(currentUser && window._cloudSyncDone){ daDaCheckReset(); } }, 20000);
   var _rc0 = setInterval(function(){ if(currentUser && window._cloudSyncDone){ clearInterval(_rc0); daDaCheckReset(); } }, 1500);
+  // An offline phone's queued records must not go up before the phone has looked for a reset mark: the start-up sync
+  // pulled the settings and then uploaded the queue BEFORE daDaCheckReset ran (it waits for _cloudSyncDone). Look first
+  // (fresh settings pull, then the check): a reset since those records were made wipes the phone, queue included.
+  var _sqDa = syncOfflineQueue;
+  syncOfflineQueue = async function(){
+    try{
+      if(!_offSyncing && sbReady && SB_FARM_ID && navigator.onLine && Date.now() - _offLast >= 15000 && getOfflineQueue().length){
+        try{ await daPullSettings(); }catch(e){}
+        if(await daDaCheckReset()) return;
+      }
+    }catch(e){}
+    return _sqDa.apply(this, arguments);
+  };
 }
 
 // ── Init ──────────────────────────────────────

@@ -67,6 +67,17 @@ with sync_playwright() as p:
     answers[:] = [None]
     pa.click('#da-arch-list button:has-text("رجّعه")'); pa.wait_for_timeout(3500); pa.wait_for_function('() => !!window._cloudSyncDone', timeout=15000)
     check('D12 the archive can be brought back', n_cloud() >= 6)
+    # a phone that was offline holds a record made BEFORE a reset: when it comes back it must see the mark first and never upload it
+    c4, po = new_page(p, sb); login(po, 'w@workers.dar-aqua.app', 'work123'); po.wait_for_function('() => !!window._cloudSyncDone', timeout=10000); po.wait_for_timeout(2500)
+    po.wait_for_function('() => !!window._cloudSyncDone', timeout=15000)
+    po.evaluate("Object.defineProperty(navigator,'onLine',{get:()=>false,configurable:true}); addTX({id:'off-1',type:'feeding',unit:'F1.S01T01',date:daToday(),kg:3,size:'2',source:'sheet',_skipValidation:true})")
+    q_before = po.evaluate("getOfflineQueue().length")
+    pa.evaluate("show('data-admin')"); pa.wait_for_timeout(300); answers[:] = [None, NAME, 'admin123']
+    with pa.expect_download(): pa.click('#da-reset-1')
+    pa.wait_for_timeout(2500); pa.wait_for_function('() => !!window._cloudSyncDone', timeout=15000)
+    po.evaluate("Object.defineProperty(navigator,'onLine',{get:()=>true,configurable:true}); _offLast = 0; window.dispatchEvent(new Event('online'))")
+    po.wait_for_timeout(4500)
+    check('D17 an offline phone with a pre-reset record: back online it sees the reset first — nothing uploaded, its old copy and queue wiped', q_before >= 1 and n_cloud() == 0 and po.evaluate("getTX().filter(t=>t.id==='off-1').length") == 0 and po.evaluate("getOfflineQueue().length") == 0, (q_before, n_cloud()))
     # level 2 and 3
     pa.evaluate("show('data-admin')"); pa.wait_for_timeout(300); answers[:] = [None, NAME, 'admin123']
     with pa.expect_download(): pa.click('#da-reset-2')
@@ -79,8 +90,8 @@ with sync_playwright() as p:
     check('D14 level 3: everything gone, every other account switched off, the admin\'s stays', prof.get('u-admin') is not False and prof.get('u-eng') is False and prof.get('u-w') is False, prof)
     c3, pe = new_page(p, sb); login(pe, 'eng@example.com', 'eng123'); pe.wait_for_timeout(1500)
     check('D15 data management is for the admin only', not pe.evaluate("typeof canAccessView==='function' && currentUser ? canAccessView('data-admin') : false"))
-    check('D16 no page errors', not pa._errs and not pw._errs, (pa._errs + pw._errs)[:3])
-    for c in (c1, c2, c3): c.close()
+    check('D16 no page errors', not pa._errs and not pw._errs and not po._errs, (pa._errs + pw._errs + po._errs)[:3])
+    for c in (c1, c2, c3, c4): c.close()
     fails = [r for r in RESULTS if not r[1]]
     for nm, ok, dt in RESULTS: print(('✅ ' if ok else '❌ ') + nm + ('' if ok else f'  → {str(dt)[:300]}'))
     print(f'\n{len(RESULTS)-len(fails)}/{len(RESULTS)} passed')

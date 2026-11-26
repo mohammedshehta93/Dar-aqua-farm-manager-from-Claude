@@ -5,8 +5,15 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
 **Live:** https://mohammedshehta93.github.io/Dar-aqua-farm-manager-from-Claude/
 **Language with the owner:** Egyptian Arabic, short and direct; explain trade-offs honestly; test before claiming.
 
+## Latest first (index — the detailed entries below are NOT in strict date order)
+Search the capitalised name in "Key concepts". Newest at the top:
+2026-11-26 reset gap closed (DATA MANAGEMENT) · 2026-11-25 DATA MANAGEMENT · 2026-11-23 OPEN IN CHROME · 2026-11-22 WORKER WITH TWO SITES,
+NOTIFICATIONS THAT SAY WHAT IS NEEDED · 2026-11-18 REVIEW, "PLEASE RECORD THIS DAY" REMINDERS · 2026-11-14 COUNT SURPLUS, GOING BACK IN TIME,
+AUDIT · 2026-11-13 WEEKLY STOCK COUNT, MAINTENANCE + PURCHASES + "TODAY" · 2026-11-12 PHONE NOTIFICATIONS, DAILY RATION, WORK ORDERS v2.
+Everything older is in the long list below (the first ~110 lines of it are the foundations: tenancy, units, sync, feeding, RAS, alerts, tabs).
+
 ## Stack
-- `index.html` (~760 KB): all HTML/CSS/JS inline. GitHub Pages hosting. IndexedDB (local) + Supabase (auth, data, RLS).
+- `index.html` (~1.6 MB): all HTML/CSS/JS inline. GitHub Pages hosting. IndexedDB (local) + Supabase (auth, data, RLS).
 - Supabase project `mjtxibdxqxrgykuyftsr` — only the **publishable** key is in the app (public by design).
 - AI: Cloudflare Worker `farm-ai-2.mohammedshehta86.workers.dev` (`dev/ai-worker.js`): Workers AI **binding** (no API token),
   accepts only the app origin + a valid Supabase session; tries a list of models, `MODEL` env var overrides.
@@ -159,8 +166,10 @@ a platform owner creates farms + licences; each farm's data is isolated by Supab
   local wipe BEFORE pushing the reset mark (the push replaces the cloud settings with every local synced key — the
   test caught it emptying them). Mark: synced 'daracqua_settings_v2_reset' {at, level}; every device (daDaCheckReset
   at start + every 20 s) wipes its local copy once if it holds records older than the mark ('da_reset_seen' is not
-  synced and survives the wipe). Known gap: an offline phone's queued old records could upload before it sees the
-  mark. Handover / new-farm steps are on the page (Supabase project transfer, GitHub, Cloudflare, accounts).
+  synced and survives the wipe). Offline phone gap CLOSED 2026-11-26: the start-up sync pulled the settings and uploaded the offline
+  queue BEFORE daDaCheckReset ran (it waits for _cloudSyncDone) → a pre-reset record came back to life. Now a wrapper of
+  syncOfflineQueue (in data_admin.js) pulls the settings and runs daDaCheckReset first when the queue is not empty; a wipe
+  drops the queue with it (test D17, fails on the old code). Handover / new-farm steps are on the page (Supabase project transfer, GitHub, Cloudflare, accounts).
   Owner's purpose: be able to leave a farm with its data and start elsewhere taking nothing — nothing was removed.
 - OPEN IN CHROME (owner 2026-11-23; module `chrome_hint.js`, test `e2e_chrome`): a worker used another Android browser
   (PHX-like; its "home screen" item is a bookmark): no push, no install menu, and our install steps sent him in
@@ -651,17 +660,21 @@ pip install playwright --break-system-packages && python -m playwright install c
 mkdir -p /tmp/jstools && cd /tmp/jstools && npm install acorn xlsx@0.18.5
 APP_ROOT=<folder containing index.html> python3 dev/tests/e2e_auth.py      # each suite prints "N/N passed"
 ```
-72 suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
-export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0).
+71 e2e suites (+10 needing files in uploads: 2510.xls ×6, the FH1 photo for e2e_paper, 2.xls for e2e_aqx, 588.xls for e2e_aqw and `pip install xlrd`), ~545 checks. Run in batches (<300 s per command). `e2e_aqm, e2e_edit, e2e_loops, e2e_ras3, e2e_week, e2e_backdate` need the owner's AquaManager
+export at `/mnt/user-data/uploads/2510.xls` (not in the repo — farm data). Every suite also reports app-side errors (must be 0; `e2e_push` shows exactly 1 on purpose: the mocked missing table push_subs).
+Container setup that worked (2026-11-26): Chromium is already in /opt/pw-browsers → `export PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`; `pip install playwright xlrd --break-system-packages`; acorn/xlsx in /tmp/jstools and `NODE_PATH=/tmp/jstools/node_modules` for `update_functions.js`; `curl -L -o /tmp/mnist.pkl.gz` the mnist URL above for the OCR suites. Do NOT run 6+ suites in parallel (e2e_sync Y11 'Failed to fetch' under load; 13/13 alone).
 
 ## Deploy
 Edit `index.html` → run tests → commit → push to `main` with the owner's token (never store it in the repo/app) →
 GitHub Pages updates in ~1–2 min; open apps show a "new version" banner.
 
-## Next (owner's priority order)
-1. ✅ Done (2026-10-28): optional mortality causes + harvest-soon alert (`e2e_mortharv`).
-2. ✅ Done (2026-10-28): FCR per stage + weekly report (`e2e_fcr`).
-3. ✅ Done (2026-10-28): user guide + terms & privacy (`e2e_pilot`). Needs `DA_LEGAL` values + legal review.
+## Next
+Priorities come from the owner — ask before starting; the 2026-10-28 list (causes + harvest-soon, FCR per stage, guide + terms) is DONE.
+**Owner's side (not code; we cannot do or check it from here) — NOT confirmed in this file, ask before assuming:**
+- Supabase SQL run? `push_notifications.sql` (the push Worker + 3 secrets were confirmed live 2026-11-12, so likely yes), `push_message_keys.sql`, `maintenance_in_app.sql`, `farm_archives.sql` (bucket + policy: data management archives fail without it). Redeploy of `farm-push` after the latest `dev/push-worker.js`.
+- Fill `DA_LEGAL` (operator, contact, data region) + lawyer review before the first external pilot farm.
+- Real paper for the photo reader: the CURRENT printed FH2 form and photos of filled FH1 / FH2 / testing logs (nothing more can be tuned without them).
+- Revoke / rotate the GitHub token pasted in a chat when the session is over.
 
 ## Known open points
 Supabase plan (free tier pauses, no daily backups) · iOS Safari may evict local storage (install to home screen) ·
