@@ -151,7 +151,7 @@ Everything older is in the long list below (the first ~110 lines of it are the f
   Worker: /notify (supervisors; workers of that site, not the sender; 404/410 subs deleted), /test (own phones), cron
   */10 → routine items due in the last 10 min (Bahrain UTC+3) per site. VAPID public key in DA_VAPID_PUBLIC; the private
   JWK was given to the owner ONLY (outputs/farm-push-SECRETS.txt), never in the repo. iPhone: needs the home-screen app.
-  OWNER STILL TO DO: run the SQL, create the Worker + 3 secrets + cron. daPushEnable names the failing step in the
+  DONE (owner, 2026-11-26): SQL run, Worker + 3 secrets + cron set, notifications arrive with their text. daPushEnable names the failing step in the
   toast ([permission|service|subscribe|save]; "table not set up" for 42P01 / 404) and keeps window._daPushErr. Worker URL assumed
   farm-push.mohammedshehta86.workers.dev (change DA_PUSH_URL if different).
 - DATA MANAGEMENT (owner 2026-11-25; module `data_admin.js`, SQL `dev/sql/farm_archives.sql`, test `e2e_dataadmin`;
@@ -271,7 +271,7 @@ Everything older is in the long list below (the first ~110 lines of it are the f
   Worker push audiences: workers (default, supervisors only) · supervisors (anyone) · user {uid} (supervisors).
   Dashboard card #da-today: counts (feed sheets k/n, open faults + urgent, purchases waiting) + every event of the day
   grouped per type / site / person, newest first. Worker bar: 🔧 for all, 🛒 for fixers. Old tool: keep 2 weeks, then a
-  "moved to Farm Manager" message and drop policy maint_legacy_anon. OWNER TO DO: run the SQL, redeploy farm-push.
+  "moved to Farm Manager" message and drop policy maint_legacy_anon. DONE (owner, 2026-11-26): SQL run, policy maint_legacy_anon dropped.
   2026-11-13 (owner): ADD-ONS — maintenance and purchases are OFF until the admin turns them on (Settings → card
   #feat-card "🧩 الإضافات"; synced DA_FEATURES_KEY 'daracqua_settings_v2_features' {maint, purchases}); then only by
   PERMISSION (admin always): report_fault · fix_maint · request_purchase · approve_purchase (daCanReport / daCanFix /
@@ -650,6 +650,7 @@ Everything older is in the long list below (the first ~110 lines of it are the f
 
 ## SQL (in `dev/sql`, all idempotent) — ✅ all four have been run on the live database (confirmed by the owner)
 `multi_farm_setup.sql` (tenancy + RLS + platform RPCs) · `delete_user.sql` · `error_logging.sql` · `sync_timestamps.sql` (synced_at + trigger).
+Later ones (owner, 2026-11-26): ✅ run — `push_notifications.sql`, `push_message_keys.sql`, `maintenance_in_app.sql` (+ policy `maint_legacy_anon` dropped). ⏳ `farm_archives.sql` — the owner was about to run it (not confirmed yet; data-management archives need its bucket + policy).
 The app degrades gracefully if a later one is missing (e.g. full download without `synced_at`).
 ✅ `error_retention.sql` (2026-10-28, trigger deleting error reports >90 days — the privacy page promises this) — run 2026-10-28.
 The platform page also prunes once a day when opened (harmless fallback).
@@ -670,11 +671,11 @@ GitHub Pages updates in ~1–2 min; open apps show a "new version" banner.
 
 ## Next
 Priorities come from the owner — ask before starting; the 2026-10-28 list (causes + harvest-soon, FCR per stage, guide + terms) is DONE.
-**Owner's side (not code; we cannot do or check it from here) — NOT confirmed in this file, ask before assuming:**
-- Supabase SQL run? `push_notifications.sql` (the push Worker + 3 secrets were confirmed live 2026-11-12, so likely yes), `push_message_keys.sql`, `maintenance_in_app.sql`, `farm_archives.sql` (bucket + policy: data management archives fail without it). Redeploy of `farm-push` after the latest `dev/push-worker.js`.
+**Owner's side (not code; confirmed by the owner 2026-11-26):**
+- Done: push / maintenance SQL, Worker `farm-push` with its 3 secrets + cron, notifications with text arrive, `maint_legacy_anon` dropped, old GitHub token deleted (a new one is given in chat).
+- Pending: `farm_archives.sql` (about to be run) — ask before relying on archives in the live app.
 - Fill `DA_LEGAL` (operator, contact, data region) + lawyer review before the first external pilot farm.
 - Real paper for the photo reader: the CURRENT printed FH2 form and photos of filled FH1 / FH2 / testing logs (nothing more can be tuned without them).
-- Revoke / rotate the GitHub token pasted in a chat when the session is over.
 
 ## Known open points
 Supabase plan (free tier pauses, no daily backups) · iOS Safari may evict local storage (install to home screen) ·
